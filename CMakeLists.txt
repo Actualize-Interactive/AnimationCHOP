@@ -10,6 +10,10 @@ set(SOURCES
     src/animation_chop.cpp
 )
 
+# Explicitly disable anim tests and examples when building as submodule
+set(ANIM_BUILD_TESTS OFF CACHE BOOL "Build anim tests" FORCE)
+set(ANIM_BUILD_EXAMPLES OFF CACHE BOOL "Build anim examples" FORCE)
+
 # Add subdirectory for anim library to build it
 add_subdirectory(ext/anim)
 

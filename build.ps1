@@ -12,11 +12,14 @@ Set-Location -Path "build"
 
 # Configure CMake
 Write-Host "Configuring CMake..." -ForegroundColor Cyan
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 # Build the project
 Write-Host "Building project..." -ForegroundColor Cyan
-cmake --build . --config Release
+# Use parameter to allow different build configs
+$buildConfig = if ($args[0]) { $args[0] } else { "RelWithDebInfo" }
+Write-Host "Building with configuration: $buildConfig" -ForegroundColor Cyan
+cmake --build . --config $buildConfig
 
 # Go back to the project root
 Set-Location -Path ".."
