@@ -45,6 +45,15 @@ set_target_properties(animation_chop PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Add a post-build command to copy the DLL to the Plugins folder
+add_custom_command(TARGET animation_chop POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/Plugins"
+    COMMAND ${CMAKE_COMMAND} -E copy 
+            "$<TARGET_FILE:animation_chop>" 
+            "${CMAKE_SOURCE_DIR}/Plugins/"
+    COMMENT "Copying animation_chop.dll to Plugins directory"
+)
+
 # Add platform-specific settings
 if(WIN32)
     target_compile_definitions(animation_chop PRIVATE WIN32 _WINDOWS _USRDLL)

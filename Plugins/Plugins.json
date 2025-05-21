@@ -1,0 +1,20 @@
+{
+    "Version": 1,
+    "AllowedPlugins": {
+        "e20bedff": {
+            "ComputerName": "AEON",
+            "Plugins": {
+                "D:/AnimationCHOP/Plugins/animation_chop.dll": {
+                    "Hashes": [
+                        "06YgFiPsXYhDDkP4mhsKvnyqtQRaLOZqpjBUIod3oPHAXrLSKlInkzBExIbWcWZGAQdqAWuK33WEgCTk5jOnKgpvD6itNVyaBfu16exddOmAum1Y0dcOgu5ZKMeXpU7T",
+                        "pNqGeLoNQstSOGQ31flp43C8eq3+mmxK/FifZLrznWiXzQlWE05Jkr92oH2fkUScQFaFPc94i3FLCqeEITEjD4WJ6TJHqFhoOit19qu7tPENdX6EreQt7TBn/uOUOUfS",
+                        "K4e4/F2zWv/afQaci1DiDQiBuHQbaVVgx/kBdkjqC0VWupqImvoDrEOnApaR2pYPVqjDyDi3z9F6BMAnAmBVT2hKYlLbU3Kw16APXTA0wkZl0bjXa+MDojCTbfBOPYtl",
+                        "6zfanRKa2NJLFg2IAr8QJZ2C4kDX0p1UMKNdwo4Jh1u0pnnT8+42s4ecWoztETKUbow2jL4iGr3maIyn12bPlOXCfmTIPreZSrj3VCd/bczJebhW7X2iEQlkZYtj9nhb"
+                    ],
+                    "AuthorName": "Keith Lostracco",
+                    "AuthorEmail": "keith@actualize.vision"
+                }
+            }
+        }
+    }
+}
