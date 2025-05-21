@@ -13,6 +13,8 @@
 */
 
 #include "animation_chop.h"
+#include "py_point.h"
+#include "py_tangent_mode.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -21,10 +23,74 @@
 #ifdef _WIN32
 	#include <Python.h>
 	#include <structmember.h>
+	#include <modsupport.h>
+
 #else
 	#include <Python/Python.h>
 	#include <Python/structmember.h>
 #endif
+
+
+static struct PyModuleDef module_def = {
+    PyModuleDef_HEAD_INIT,
+    "anim_types",                     // Module name
+    "Types for animation channels and keyframes used with the AnimationCHOP.", // Module documentation
+    -1,                         // Module keeps state in global variables
+    NULL
+};
+
+// Module will be created once and stored here
+static PyObject* cached_anim_types_module = NULL;
+
+static PyObject* 
+anim_types_module_getter(PyObject* self, void*) {
+    // Return cached module if we already created it
+    if (cached_anim_types_module) {
+        Py_INCREF(cached_anim_types_module);
+        return cached_anim_types_module;
+    }
+    
+    // Otherwise create the module
+    PyObject* module = PyModule_Create(&module_def);
+    if (!module) {
+        return NULL;
+    }
+    
+    // Initialize the Point2D type
+    if (PyType_Ready(&PyPoint2DType) < 0) {
+        return NULL;
+    }
+    
+    // Add the Point2D type to the module
+    Py_INCREF(&PyPoint2DType);
+    if (PyModule_AddObject(module, "Point2D", (PyObject*)&PyPoint2DType) < 0) {
+        Py_DECREF(&PyPoint2DType);
+        Py_DECREF(module);
+        return NULL;
+    }
+    
+    // Create and add the TangentMode enum
+    PyObject* tangent_mode_enum = create_tangent_mode_enum();
+    if (!tangent_mode_enum) { 
+        // create_tangent_mode_enum failed and has set an error.
+        Py_DECREF(module); // Clean up the module we created.
+        return NULL;       // Propagate the error.
+    }
+    
+    // PyModule_AddObject will steal this reference on success.
+    if (PyModule_AddObject(module, "TangentMode", tangent_mode_enum) < 0) {
+        Py_DECREF(tangent_mode_enum); // So, we must DECREF it.
+        Py_DECREF(module);
+        return NULL;
+    }
+    
+    // Store in our cached module
+    cached_anim_types_module = module;
+    Py_INCREF(cached_anim_types_module);
+    
+    return module;
+}
+
 
 static PyObject*
 pyReset(PyObject* self)
@@ -171,6 +237,7 @@ pyGetExecuteCount(PyObject* self, void*)
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
 {
+	{"anim_types", anim_types_module_getter, nullptr, "Module containing animation types.", nullptr},
 	{"speedMod", pyGetSpeedMod, pySetSpeedMod, "Get or Set the speed modulation.", nullptr},
 	// This one doesn't define a 'setter', so it's a read-only value.
 	{"executeCount", pyGetExecuteCount, nullptr, "Get execute count.", nullptr},
@@ -186,103 +253,7 @@ const char* PythonCallbacksDATStubs =
 "# Change the 0.0 to make the speed get adjusted by this callback.\n"
 "def getSpeedAdjust(op, curSpeed):\n"
 "	return curSpeed + 0.0\n"
-"\n"
-"# Animation example functions\n"
-"\n"
-"# Create a simple animation with one channel and keyframes\n"
-"def createSimpleAnimation(op):\n"
-"	# Create a channel\n"
-"	op.createChannel('position')\n"
-"	\n"
-"	# Set keyframes in the channel\n"
-"	op.setKeyframe('position', 0.0, 0.0)  # At time 0, value 0\n"
-"	op.setKeyframe('position', 1.0, 1.0)  # At time 1, value 1\n"
-"	op.setKeyframe('position', 2.0, 0.0)  # At time 2, value 0\n"
-"\n"
-"# Create a multi-channel animation\n"
-"def createMultiChannelAnimation(op):\n"
-"	# Create multiple channels\n"
-"	op.createChannel('tx')\n"
-"	op.createChannel('ty')\n"
-"	op.createChannel('tz')\n"
-"	\n"
-"	# Set keyframes in each channel\n"
-"	# X position - move left to right\n"
-"	op.setKeyframe('tx', 0.0, -1.0)\n"
-"	op.setKeyframe('tx', 2.0, 1.0)\n"
-"	\n"
-"	# Y position - move up and down\n"
-"	op.setKeyframe('ty', 0.0, 0.0)\n"
-"	op.setKeyframe('ty', 1.0, 1.0)\n"
-"	op.setKeyframe('ty', 2.0, 0.0)\n"
-"	\n"
-"	# Z position - move forward and back\n"
-"	op.setKeyframe('tz', 0.0, 0.0)\n"
-"	op.setKeyframe('tz', 1.0, -0.5)\n"
-"	op.setKeyframe('tz', 2.0, 0.0)\n"
-"\n"
-"# Add multiple keyframes at once\n"
-"def addMultipleKeyframes(op):\n"
-"	# Create a channel\n"
-"	op.createChannel('wave')\n"
-"	\n"
-"	# Create time-value pairs for a wave pattern\n"
-"	keyframes = []\n"
-"	for i in range(21):\n"
-"		t = i * 0.1  # Time from 0 to 2.0\n"
-"		v = math.sin(t * math.pi)  # Value between -1 and 1\n"
-"		keyframes.append((t, v))\n"
-"	\n"
-"	# Set all keyframes at once\n"
-"	op.setKeyframes('wave', keyframes)\n"
-"\n"
-"# Evaluate animation at specific times\n"
-"def evaluateAnimationExample(op):\n"
-"	# Create a simple animation\n"
-"	op.createChannel('bounce')\n"
-"	op.setKeyframe('bounce', 0.0, 0.0)\n"
-"	op.setKeyframe('bounce', 0.5, 1.0)\n"
-"	op.setKeyframe('bounce', 1.0, 0.0)\n"
-"	\n"
-"	# Evaluate at specific time\n"
-"	value = op.evaluateChannel('bounce', 0.25)  # Should be around 0.5\n"
-"	print(f'Bounce animation at t=0.25: {value}')\n"
-"	\n"
-"	# Evaluate all channels\n"
-"	allValues = op.evaluateAllChannels(0.25)\n"
-"	for channel, value in allValues.items():\n"
-"		print(f'Channel {channel} at t=0.25: {value}')\n"
-"\n"
-"# Example using custom tangent handles\n"
-"def createAdvancedAnimation(op):\n"
-"	# Create a channel\n"
-"	op.createChannel('custom_ease')\n"
-"	\n"
-"	# Set keyframes with custom tangent handles\n"
-"	# Format: setKeyframe(channel, time, value, mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value)\n"
-"	\n"
-"	# First keyframe with custom out tangent (flat start, then steep acceleration)\n"
-"	op.setKeyframe('custom_ease', 0.0, 0.0, 2, 0.0, 0.0, 0.3, 0.0)  # TangentMode::smoothManual=2\n"
-"	\n"
-"	# Middle keyframe with custom in/out tangents for an overshoot effect\n"
-"	op.setKeyframe('custom_ease', 1.0, 1.0, 2, 0.8, 1.2, 1.2, 0.8)\n"
-"	\n"
-"	# Final keyframe with custom in tangent\n"
-"	op.setKeyframe('custom_ease', 2.0, 0.0, 2, 1.7, 0.2, 2.0, 0.0)\n"
-"	\n"
-"	# You can also use different tangent modes:\n"
-"	# 0 = linear (straight lines between keyframes)\n"
-"	# 1 = flat (flat tangents)\n"
-"	# 2 = smoothManual (manually positioned tangent handles)\n"
-"	# 3 = smoothAuto (automatically calculated smooth tangents)\n"
-"	# 4 = stepped (value jumps at keyframes)\n"
-"	\n"
-"	# Evaluate and print the curve at several points\n"
-"	print(f\"Custom easing curve values:\")\n"
-"	for t in [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]:\n"
-"		value = op.evaluateChannel('custom_ease', t)\n"
-"		print(f\"  t={t:.2f}: {value:.3f}\")\n"
-"";
+"\n";
 
 // These functions are basic C function, which the DLL loader can find
 // much easier than finding a C++ Class.
@@ -368,7 +339,7 @@ void
 AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
 	// This will cause the node to cook every frame
-	ginfo->cookEveryFrameIfAsked = true;
+	ginfo->cookEveryFrameIfAsked = false;
 
 	// Note: To disable timeslicing you'll need to turn this off, as well as ensure that
 	// getOutputInfo() returns true, and likely also set the info->numSamples to how many
@@ -447,129 +418,6 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 			}
 		}
 	}
-
-// 	double	 scale = inputs->getParDouble("Scale");
-
-// 	// In this case we'll just take the first input and re-output it scaled.
-
-// 	if (inputs->getNumInputs() > 0)
-// 	{
-// 		// We know the first CHOP has the same number of channels
-// 		// because we returned false from getOutputInfo. 
-
-// 		inputs->enablePar("Speed", 0);		inputs->enablePar("Reset", 0);		inputs->enablePar("Shape", 0);
-// 		int ind = 0;
-// 		const OP_CHOPInput	*cinput = inputs->getInputCHOP(0);
-
-// 		for (int i = 0 ; i < output->numChannels; i++)
-// 		{
-// 			for (int j = 0; j < output->numSamples; j++)
-// 			{
-// 				output->channels[i][j] = float(cinput->getChannelData(i)[ind] * scale);
-// 				ind++;
-
-// 				// Make sure we don't read past the end of the CHOP input
-// 				ind = ind % cinput->numSamples;
-// 			}
-// 		}
-
-// 	}	else // If not input is connected, output our animation channels
-// 	{
-// 		inputs->enablePar("Speed", 1);
-// 		inputs->enablePar("Reset", 1);
-
-// 		double speed = inputs->getParDouble("Speed");
-
-// 		// Apply Python class modifications
-// 		speed *= m_speedMod;
-
-// 		// We'll only be adding one extra argument
-// 		PyObject* args = m_nodeInfo->context->createArgumentsTuple(1, nullptr);
-// 		// The first argument is already set to the 'op' variable, so we set the second argument to our speed value
-// 		PyTuple_SET_ITEM(args, 1, PyFloat_FromDouble(speed));
-
-// 		PyObject *result = m_nodeInfo->context->callPythonCallback("getSpeedAdjust", args, nullptr, nullptr);
-// 		// callPythonCallback doesn't take ownership of the args
-// 		Py_DECREF(args);
-
-// 		// We own result now, so we need to Py_DECREF it unless we want to hold onto it
-// 		if (result)
-// 		{
-// 			// If we got a float back, replace our current speed with the returned on
-// 			if (PyFloat_Check(result))
-// 			{
-// 				speed = PyFloat_AsDouble(result);
-// 			}
-// 			Py_DECREF(result);
-// 		}
-
-// 		double step = speed * 0.01f;
-		
-// 	// Get the current time from the inputs
-// 		double currentTime = inputs->getTimeInfo()->frame;
-		
-// 		// If we have animation channels, output their values at the current time
-// 		std::vector<std::string> channelNames = m_animation.get_channel_names();
-		
-// 		if (!channelNames.empty())
-// 		{
-// 			// We have animation channels, evaluate them at current time
-// 			std::map<std::string, double> channelValues = m_animation.evaluate_channels(currentTime);
-			
-// 			for (int i = 0; i < output->numChannels; i++)
-// 			{
-// 				// Get the channel name for this index
-// 				std::string channelName = (i < static_cast<int>(channelNames.size())) ? 
-//                                          channelNames[i] : "default";
-				
-// 				// Get the evaluated value for this channel
-// 				double value = (channelValues.find(channelName) != channelValues.end()) ? 
-// 					channelValues[channelName] * scale : 0.0;
-				
-// 				// Output the value for all samples
-// 				for (int j = 0; j < output->numSamples; j++)
-// 				{
-// 					output->channels[i][j] = float(value);
-// 				}
-// 			}
-// 		}
-// 		else
-// 		{
-// 			// No animation channels, output a default sine wave as before
-// 			// menu items can be evaluated as either an integer menu position, or a string
-// 			int shape = inputs->getParInt("Shape");
-			
-// 			// keep each channel at a different phase
-// 			double phase = 2.0f * 3.14159f / (float)(output->numChannels);
-			
-// 			for (int i = 0; i < output->numChannels; i++)
-// 			{
-// 				double offset = m_offset + phase*i;
-// 				double v = 0.0f;
-// 				switch(shape)
-// 				{
-// 					case 0:		// sine
-// 						v = sin(offset);
-// 						break;
-
-// 					case 1:		// square
-// 						v = fabs(fmod(offset, 1.0)) > 0.5;
-// 						break;
-
-// 					case 2:		// ramp	
-// 						v = fabs(fmod(offset, 1.0));
-// 						break;
-// 				}
-// 				v *= scale;
-// 				for (int j = 0; j < output->numSamples; j++)
-// 				{
-// 					output->channels[i][j] = float(v);
-// 					offset += step;
-// 				}
-// 			}
-// 			m_offset += step * output->numSamples; 
-// 		}
-// 	}
 }
 
 int32_t
