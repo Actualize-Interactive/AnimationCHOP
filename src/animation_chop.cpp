@@ -13,8 +13,11 @@
 */
 
 #include "animation_chop.h"
-#include "py_point.h"
-#include "py_tangent_mode.h"
+#include "py_anim_bindings/py_point.h"
+#include "py_anim_bindings/py_tangent_mode.h"
+#include "py_anim_bindings/py_channel.h"
+#include "py_anim_bindings/py_keyframe.h"
+#include "py_anim_bindings/py_animation.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -242,6 +245,13 @@ static PyMethodDef methods[] =
 
 
 
+// Forward declarations of all the getter functions for our Python types
+static PyObject* get_point2d_type(PyObject*, void*);
+static PyObject* get_tangent_mode_enum(PyObject*, void*);
+static PyObject* get_keyframe_type(PyObject*, void*);
+static PyObject* get_channel_type(PyObject*, void*);
+static PyObject* get_animation_type(PyObject*, void*);
+
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
 {
@@ -249,6 +259,13 @@ static PyGetSetDef getSets[] =
 	{"speedMod", pyGetSpeedMod, pySetSpeedMod, "Get or Set the speed modulation.", nullptr},
 	// This one doesn't define a 'setter', so it's a read-only value.
 	{"executeCount", pyGetExecuteCount, nullptr, "Get execute count.", nullptr},
+    
+    // Add getters for all our Python types
+    {"Point2D", get_point2d_type, nullptr, "Point2D type for representing time-value pairs.", nullptr},
+    {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe tangent behavior.", nullptr},
+    {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
+    {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},
+    {"Animation", get_animation_type, nullptr, "Animation container for channels and keyframes.", nullptr},
 	{0}
 };
 

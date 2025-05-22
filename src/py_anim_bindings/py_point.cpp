@@ -1,31 +1,17 @@
-#include <anim/point2d.hpp>
-
-#ifdef _WIN32
-	#include <Python.h>
-	#include <structmember.h>
-#else
-	#include <Python/Python.h>
-	#include <Python/structmember.h>
-#endif
-
-typedef struct {
-    PyObject_HEAD
-    anim::Point2D point;  // The actual C++ object
-} PyPoint2D;
-
+#include "py_point.h"
 
 // Allocation/deallocation functions
 static PyObject* PyPoint2D_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
     PyPoint2D *self = (PyPoint2D *)type->tp_alloc(type, 0);
     if (self != NULL) {
         // Initialize with default values
-        self->point = anim::Point2D(0.0, 0.0);
+        new (&self->point) anim::Point2D(0.0, 0.0);
     }
     return (PyObject *)self;
 }
 
 static void PyPoint2D_dealloc(PyPoint2D *self) {
-    // No special cleanup needed, just free the object
+    self->point.~Point2D();
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
@@ -77,12 +63,10 @@ PyGetSetDef PyPoint2D_getset[] = {
 };
 
 static PyObject* PyPoint2D_str(PyPoint2D *self) {
-    char buffer[100]; // Adjust size as needed
-    sprintf_s(buffer, "Point2D(time=%f, value=%f)", self->point.time, self->point.value);
-    return PyUnicode_FromString(buffer);
+    return PyUnicode_FromFormat("Point2D(time=%f, value=%f)", self->point.time, self->point.value);
 }
 
-static PyTypeObject PyPoint2DType = {
+PyTypeObject PyPoint2DType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "anim.Point2D",             // tp_name
     sizeof(PyPoint2D),         // tp_basicsize
@@ -123,18 +107,31 @@ static PyTypeObject PyPoint2DType = {
     PyPoint2D_new,             // tp_new 
 };
 
-// Convert from C++ type to Python object
-[[maybe_unused]] static PyObject* Point2DToPyObject(const anim::Point2D& point) {
+
+[[maybe_unused]] PyPoint2D* Point2DToPyPoint2D(const anim::Point2D& point) {
+    // Ensure the type is initialized before creating an instance
+    if (PyType_Ready(&PyPoint2DType) < 0) {
+        return NULL;
+    }
     PyPoint2D* pyPoint = PyObject_New(PyPoint2D, &PyPoint2DType);
+    if (pyPoint == NULL) {
+        return NULL; // PyErr_NoMemory() might have been set by PyObject_New
+    }
+    new (&pyPoint->point) anim::Point2D(point);
+    return pyPoint;
+}
+
+// Convert from C++ type to Python object
+[[maybe_unused]] PyObject* Point2DToPyObject(const anim::Point2D& point) {
+    PyPoint2D* pyPoint = Point2DToPyPoint2D(point);
     if (pyPoint == NULL) {
         return NULL;
     }
-    pyPoint->point = point;
     return (PyObject*)pyPoint;
 }
 
 // Convert from Python object to C++ type
-[[maybe_unused]] static bool PyObjectToPoint2D(PyObject* obj, anim::Point2D& point) {
+[[maybe_unused]] bool PyObjectToPoint2D(PyObject* obj, anim::Point2D& point) {
     if (!PyObject_TypeCheck(obj, &PyPoint2DType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a Point2D object");
         return false;
@@ -144,3 +141,13 @@ static PyTypeObject PyPoint2DType = {
     point = pyPoint->point;
     return true;
 }
+
+// Type getter for external use
+[[maybe_unused]] PyObject* get_point2d_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+    if (PyType_Ready(&PyPoint2DType) < 0) {
+        return NULL;
+    }
+    Py_INCREF(&PyPoint2DType);
+    return (PyObject*)&PyPoint2DType;
+}
+
