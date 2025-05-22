@@ -16,7 +16,8 @@
 Derivative Developers: Make sure the virtual function order
 stays the same, otherwise changes won't be backwards compatible
 ********/
-
+#pragma warning(push)
+#pragma warning(disable : 4100)
 
 #ifndef __CPlusPlus_Common__
 #define __CPlusPlus_Common__
@@ -1917,3 +1918,5 @@ typedef TD::SOP_CPlusPlusBase* (__cdecl *CREATESOPINSTANCE)(const TD::OP_NodeInf
 typedef void(__cdecl *DESTROYSOPINSTANCE)(TD::SOP_CPlusPlusBase*);
 
 #endif
+
+#pragma warning(pop)

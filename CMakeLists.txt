@@ -14,36 +14,18 @@ set(SOURCES
 set(ANIM_BUILD_TESTS OFF CACHE BOOL "Build anim tests" FORCE)
 set(ANIM_BUILD_EXAMPLES OFF CACHE BOOL "Build anim examples" FORCE)
 
-# Ensure this path points to the root of your local Python 3.11 SDK
-set(Python_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/python311") 
-set(Python_EXECUTABLE "${Python_ROOT_DIR}/python.exe")
-set(Python_LIBRARIES "${Python_ROOT_DIR}/libs/python311.lib")
-list(APPEND CMAKE_PREFIX_PATH "${Python_ROOT_DIR}")
-
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
-message(STATUS "Builing with Python version: ${Python_VERSION}")
-
-set(nanobind_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/nanobind/cmake")
-find_package(nanobind CONFIG REQUIRED)
-
-nanobind_build_library(nanobind-static)
-
 # Add subdirectory for anim library to build it
 add_subdirectory(ext/anim)
 
 # Create the animation_chop target
 add_library(animation_chop SHARED ${SOURCES})
 
-add_dependencies(animation_chop nanobind-static)
-
 # Include directories
 target_include_directories(animation_chop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/td/include
-    # ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include
-    # ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
-    ${Python_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/nanobind/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/anim/include
 )
 
@@ -54,7 +36,6 @@ target_link_directories(animation_chop PRIVATE
 # Link against the anim library
 target_link_libraries(animation_chop PRIVATE 
     python311
-    nanobind-static
     anim
 )
 

@@ -31,6 +31,8 @@
  *	Derivative Developers:: Make sure the virtual function order
  *	stays the same, otherwise changes won't be backwards compatible
  */
+#pragma warning(push)
+#pragma warning(disable : 4100)
 
 #ifndef __CHOP_CPlusPlusBase__
 #define __CHOP_CPlusPlusBase__
@@ -405,3 +407,6 @@ static_assert(offsetof(CHOP_Output, channels) == 24, "Incorrect Alignment");
 static_assert(sizeof(CHOP_Output) == 112, "Incorrect Size");
 #endif
 }; // namespace TD
+
+
+#pragma warning(pop)
