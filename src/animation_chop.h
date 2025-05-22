@@ -159,3 +159,16 @@ private:
 	anim::Animation     m_animation;
 
 };
+
+// Python binding function definitions
+static PyObject* pyCreateChannel(PyObject* self, PyObject* args);
+static PyObject* pyRemoveChannel(PyObject* self, PyObject* args);
+static PyObject* pyGetChannelNames(PyObject* self);
+static PyObject* pySetKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframe(PyObject* self, PyObject* args);
+static PyObject* pySetKeyframes(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframes(PyObject* self, PyObject* args);
+static PyObject* pyEvaluateChannel(PyObject* self, PyObject* args);
+static PyObject* pyEvaluateAllChannels(PyObject* self, PyObject* args);
+
+static PyObject* pyPointLength(PyObject* self, PyObject* args);
