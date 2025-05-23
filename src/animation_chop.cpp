@@ -13,8 +13,7 @@
 */
 
 #include "animation_chop.h"
-#include "py_point.h"
-#include "py_tangent_mode.h"
+#include "py_anim_bindings/py_bindings.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -117,14 +116,23 @@ pyReset(PyObject* self)
 
 // Python binding function definitions
 static PyObject* pyCreateChannel(PyObject* self, PyObject* args);
+static PyObject* pyGetChannel(PyObject* self, PyObject* args);
 static PyObject* pyRemoveChannel(PyObject* self, PyObject* args);
 static PyObject* pyGetChannelNames(PyObject* self);
+
 static PyObject* pySetKeyframe(PyObject* self, PyObject* args);
+static PyObject* pySetKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* pyGetKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyGetKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* pyHasKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyHasKeyframeAtTime(PyObject* self, PyObject* args);
 static PyObject* pyRemoveKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframeAtTime(PyObject* self, PyObject* args);
+
 static PyObject* pySetKeyframes(PyObject* self, PyObject* args);
+static PyObject* pySetKeyframesAtTime(PyObject* self, PyObject* args);
 static PyObject* pyRemoveKeyframes(PyObject* self, PyObject* args);
-static PyObject* pyEvaluateChannel(PyObject* self, PyObject* args);
-static PyObject* pyEvaluateAllChannels(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframesAtTime(PyObject* self, PyObject* args);
 
 static PyMethodDef methods[] =
 {
@@ -132,14 +140,24 @@ static PyMethodDef methods[] =
 	
 	// Channel management methods
 	{"createChannel", (PyCFunction)pyCreateChannel, METH_VARARGS, "Creates a new animation channel with the given name."},
+	{"getChannel", (PyCFunction)pyGetChannel, METH_VARARGS, "Gets an existing channel by name or index."},
 	{"removeChannel", (PyCFunction)pyRemoveChannel, METH_VARARGS, "Removes an animation channel by name."},
 	{"getChannelNames", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
 	
 	// Keyframe management methods
 	{"setKeyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
+	{"setKeyframeAtTime", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe at a specific time in a channel."},
+	{"getKeyframe", (PyCFunction)pyGetKeyframe, METH_VARARGS, "Gets a keyframe by index from a channel."},
+	{"getKeyframeAtTime", (PyCFunction)pyGetKeyframeAtTime, METH_VARARGS, "Gets a keyframe at a specific time from a channel."},
+	{"hasKeyframe", (PyCFunction)pyHasKeyframe, METH_VARARGS, "Checks if a keyframe exists at a specific index."},
+	{"hasKeyframeAtTime", (PyCFunction)pyHasKeyframeAtTime, METH_VARARGS, "Checks if a keyframe exists at a specific time."},
 	{"removeKeyframe", (PyCFunction)pyRemoveKeyframe, METH_VARARGS, "Removes a keyframe from a channel at the specified time."},
+	{"removeKeyframeAtTime", (PyCFunction)pyRemoveKeyframeAtTime, METH_VARARGS, "Removes a keyframe at a specific time from a channel."},
+	
 	{"setKeyframes", (PyCFunction)pySetKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
+	{"setKeyframesAtTime", (PyCFunction)pySetKeyframesAtTime, METH_VARARGS, "Sets multiple keyframes at specific times in a channel."},
 	{"removeKeyframes", (PyCFunction)pyRemoveKeyframes, METH_VARARGS, "Removes multiple keyframes from a channel."},
+	{"removeKeyframesAtTime", (PyCFunction)pyRemoveKeyframesAtTime, METH_VARARGS, "Removes multiple keyframes at specific times from a channel."},
 	
 	// Evaluation methods
 	{"evaluateChannel", (PyCFunction)pyEvaluateChannel, METH_VARARGS, "Evaluates a channel at a specific time."},
@@ -237,7 +255,11 @@ pyGetExecuteCount(PyObject* self, void*)
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
 {
-	{"anim_types", anim_types_module_getter, nullptr, "Module containing animation types.", nullptr},
+	{"anim_types", get_tangent_mode_enum, nullptr, "TangentMode enum for animation.", nullptr},
+	{"Point2D", get_point2d_type, nullptr, "Point2D type for animation.", nullptr},
+	{"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation.", nullptr},
+	{"Channel", get_channel_type, nullptr, "Channel type for animation.", nullptr},
+	{"Animation", get_animation_type, nullptr, "Animation type for animation.", nullptr},
 	{"speedMod", pyGetSpeedMod, pySetSpeedMod, "Get or Set the speed modulation.", nullptr},
 	// This one doesn't define a 'setter', so it's a read-only value.
 	{"executeCount", pyGetExecuteCount, nullptr, "Get execute count.", nullptr},
@@ -837,8 +859,9 @@ pyCreateChannel(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
+    int insertIndex = -1;  // default value
     
-    if (!PyArg_ParseTuple(args, "s", &name))
+    if (!PyArg_ParseTuple(args, "s|i", &name, &insertIndex))
     {
         return nullptr;
     }
@@ -851,10 +874,15 @@ pyCreateChannel(PyObject* self, PyObject* args)
         return nullptr;
     }
     
-    bool success = inst->createChannel(name);
+    const anim::Channel* channel = inst->createChannel(name, insertIndex);
     me->context->makeNodeDirty();
     
-    return PyBool_FromLong(success);
+    if (!channel) {
+        Py_RETURN_NONE;  // Channel creation failed
+    }
+    
+    // Return the channel name
+    return PyUnicode_FromString(channel->name.c_str());
 }
 
 static PyObject*
@@ -934,7 +962,7 @@ pySetKeyframe(PyObject* self, PyObject* args)
         return nullptr;
     }
     
-    bool success = inst->setKeyframe(name, time, value, 
+    bool success = inst->setKeyframeAtTime(name, time, value, 
                                    static_cast<anim::TangentMode>(mode),
                                    in_tangent_time, in_tangent_value, 
                                    out_tangent_time, out_tangent_value);
@@ -963,7 +991,7 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
         return nullptr;
     }
     
-    bool success = inst->removeKeyframe(name, time);
+    bool success = inst->removeKeyframeAtTime(name, time);
     me->context->makeNodeDirty();
     
     return PyBool_FromLong(success);
@@ -1086,6 +1114,76 @@ pyRemoveKeyframes(PyObject* self, PyObject* args)
     me->context->makeNodeDirty();
     
     return PyLong_FromLong(removedCount);
+}
+
+// New method implementations for the updated API
+
+static PyObject*
+pyGetChannel(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    // Implementation will be provided in the full bindings
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+pySetKeyframeAtTime(PyObject* self, PyObject* args)
+{
+    // Alias for pySetKeyframe - same implementation
+    return pySetKeyframe(self, args);
+}
+
+static PyObject*
+pyGetKeyframe(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    // Implementation will be provided in the full bindings
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+pyGetKeyframeAtTime(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    // Implementation will be provided in the full bindings
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+pyHasKeyframe(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    // Implementation will be provided in the full bindings
+    Py_RETURN_FALSE;
+}
+
+static PyObject*
+pyHasKeyframeAtTime(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    // Implementation will be provided in the full bindings
+    Py_RETURN_FALSE;
+}
+
+static PyObject*
+pyRemoveKeyframeAtTime(PyObject* self, PyObject* args)
+{
+    // Alias for pyRemoveKeyframe - same implementation
+    return pyRemoveKeyframe(self, args);
+}
+
+static PyObject*
+pySetKeyframesAtTime(PyObject* self, PyObject* args)
+{
+    // Alias for pySetKeyframes - same implementation
+    return pySetKeyframes(self, args);
+}
+
+static PyObject*
+pyRemoveKeyframesAtTime(PyObject* self, PyObject* args)
+{
+    // Alias for pyRemoveKeyframes - same implementation
+    return pyRemoveKeyframes(self, args);
 }
 
 static PyObject*

@@ -8,6 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Define the sources for our CHOP
 set(SOURCES
     src/animation_chop.cpp
+    src/py_anim_bindings/py_animation.cpp
+    src/py_anim_bindings/py_channel.cpp
+    src/py_anim_bindings/py_keyframe.cpp
+    src/py_anim_bindings/py_point.cpp
+    src/py_anim_bindings/py_tangent_mode.cpp
 )
 
 # Explicitly disable anim tests and examples when building as submodule
@@ -23,6 +28,7 @@ add_library(animation_chop SHARED ${SOURCES})
 # Include directories
 target_include_directories(animation_chop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/py_anim_bindings
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/td/include
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC

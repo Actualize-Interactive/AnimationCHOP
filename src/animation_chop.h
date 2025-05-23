@@ -54,11 +54,14 @@ public:
 	void    			setSpeedMod(double v) { m_speedMod = v; }
 	int     			getExecuteCount() const { return m_executeCount; }
 	
+	// Animation access
+	anim::Animation& 	animation() { return m_animation; }
+	
 	// Channel management methods
 	
-	// Create a new animation channel with the given name
-	// Returns true if successful, false if a channel with that name already exists
-	bool                createChannel(const std::string& name);
+	// Create a new animation channel with the given name and optional insert index
+	// Returns channel pointer if successful, nullptr if a channel with that name already exists
+	const anim::Channel* createChannel(const std::string& name, int32_t insertIndex = -1);
 	
 	// Remove a channel by name
 	// Returns true if the channel was found and removed, false otherwise
@@ -66,67 +69,32 @@ public:
 	
 	// Remove a channel by index
 	// Returns true if the channel was found and removed, false otherwise
-	bool                removeChannelByIndex(size_t index);
+	bool                removeChannel(size_t index);
 	
 	// Add multiple channels at once
 	// Returns the number of successfully added channels
-	int                 addChannels(const std::vector<std::string>& channelNames);
+	void                createChannels(const std::vector<std::string>& channelNames);
 	
 	// Remove multiple channels by name
 	// Returns the number of successfully removed channels
-	int                 removeChannels(const std::vector<std::string>& channelNames);
-		// Keyframe management methods
+	bool                removeChannels(const std::vector<std::string>& channelNames);
+	
+	// Keyframe management methods
 	
 	// Set a keyframe in a channel by name
 	// If channel doesn't exist, returns false
-	bool                setKeyframe(const std::string& channelName, double time, double value, 
+	bool                setKeyframeAtTime(const std::string& channelName, double time, double value, 
 	                               anim::TangentMode mode = anim::TangentMode::smoothAuto,
 	                               double in_tangent_time = 0, double in_tangent_value = 0,
 	                               double out_tangent_time = 0, double out_tangent_value = 0);
 	
-	// Set a keyframe in a channel by index
-	// If index is out of range, returns false
-	bool                setKeyframeInChannel(size_t channelIndex, double time, double value,
-	                                      anim::TangentMode mode = anim::TangentMode::smoothAuto,
-	                                      double in_tangent_time = 0, double in_tangent_value = 0,
-	                                      double out_tangent_time = 0, double out_tangent_value = 0);
-	
 	// Remove a keyframe from a channel by name at the specified time
 	// Returns true if keyframe was removed, false if channel doesn't exist or no keyframe at that time
-	bool                removeKeyframe(const std::string& channelName, double time);
-	
-	// Remove a keyframe from a channel by index at the specified time
-	// Returns true if keyframe was removed, false if index is out of range or no keyframe at that time
-	bool                removeKeyframeFromChannel(size_t channelIndex, double time);
-		// Set multiple keyframes in a channel by name
-	// Returns the number of keyframes successfully set
-	int                 setKeyframes(const std::string& channelName, 
-	                               const std::vector<std::pair<double, double>>& timeValuePairs,
-	                               anim::TangentMode mode = anim::TangentMode::smoothAuto);
-	
-	// Set multiple keyframes in a channel by index
-	// Returns the number of keyframes successfully set
-	int                 setKeyframesInChannel(size_t channelIndex, 
-	                                       const std::vector<std::pair<double, double>>& timeValuePairs,
-	                                       anim::TangentMode mode = anim::TangentMode::smoothAuto);
+	bool                removeKeyframeAtTime(const std::string& channelName, double time);
 	
 	// Remove multiple keyframes from a channel by name
-	// Returns the number of keyframes successfully removed
-	int                 removeKeyframes(const std::string& channelName, const std::vector<double>& times);
-	
-	// Remove multiple keyframes from a channel by index
-	// Returns the number of keyframes successfully removed
-	int                 removeKeyframesFromChannel(size_t channelIndex, const std::vector<double>& times);
-	
-	// Evaluation methods
-	
-	// Evaluate a channel at a specific time
-	// Returns the value, or 0.0 if the channel doesn't exist
-	double              evaluateChannel(const std::string& channelName, double time);
-	
-	// Evaluate all channels at a specific time
-	// Returns a map of channel names to their evaluated values
-	std::map<std::string, double> evaluateAllChannels(double time);
+	// Returns true if all keyframes were removed, false otherwise
+	bool                removeKeyframes(const std::string& channelName, const std::vector<double>& times);
 	
 	// Query methods
 	
@@ -159,3 +127,22 @@ private:
 	anim::Animation     m_animation;
 
 };
+
+// Python binding function declarations
+static PyObject* pyCreateChannel(PyObject* self, PyObject* args);
+static PyObject* pyGetChannel(PyObject* self, PyObject* args);
+static PyObject* pyRemoveChannel(PyObject* self, PyObject* args);
+static PyObject* pyGetChannelNames(PyObject* self);
+
+static PyObject* pySetKeyframe(PyObject* self, PyObject* args);
+static PyObject* pySetKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* pyGetKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyGetKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* pyHasKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyHasKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframe(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframeAtTime(PyObject* self, PyObject* args);
+
+static PyObject* pySetKeyframes(PyObject* self, PyObject* args);
+static PyObject* pySetKeyframesAtTime(PyObject* self, PyObject* args);
+static PyObject* pyRemoveKeyframesAtTime(PyObject* self, PyObject* args);
