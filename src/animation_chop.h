@@ -6,22 +6,6 @@
 
 using namespace TD;
 
-/*
-This is a TouchDesigner CHOP that provides animation curve functionality using the anim library.
-It allows creating keyframe animations with various interpolation modes, and provides methods
-for managing channels and keyframes through Python bindings.
-
-The AnimationCHOP manages a collection of animation channels, each with keyframes that can be
-evaluated over time. Each channel can be accessed by name or index, and keyframes can be added,
-removed, or modified.
-
-For our initial implementation, we'll only create channels and keyframes through functions/python
-bindings (no OP_Inputs* will have an effect).
-*/
-
-class AnimationCHOP;
-
-// To get more help about these functions, look at CHOP_CPlusPlusBase.h
 class AnimationCHOP : public CHOP_CPlusPlusBase
 {
 public:
