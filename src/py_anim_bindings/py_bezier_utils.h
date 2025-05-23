@@ -274,7 +274,6 @@ static PyObject* py_create_flat_bezier_handles(PyObject* self, PyObject* args) {
         return NULL;
     }
 }
-
 // Method definitions for BezierUtils namespace
 static PyMethodDef py_bezier_utils_methods[] = {
     {"evaluate_cubic_bezier", (PyCFunction)py_evaluate_cubic_bezier, METH_VARARGS,

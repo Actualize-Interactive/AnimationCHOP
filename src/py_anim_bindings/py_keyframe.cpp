@@ -1,4 +1,5 @@
 #include "py_keyframe.h"
+#include <format>
 
 // Allocation/deallocation functions
 static PyObject* PyKeyframe_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
@@ -157,8 +158,8 @@ static PyObject* PyKeyframe_get_mode(PyKeyframe *self, [[maybe_unused]] void *cl
 static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
     if (PyLong_Check(value)) {
         long mode_val = PyLong_AsLong(value);
-        // Validate mode value
-        if (mode_val >= 0 && mode_val <= 5) { // Assuming 6 modes from the enum class
+        auto mode_count = static_cast<long>(anim::TangentMode::count);
+        if (mode_val >= 0 && mode_val < mode_count) {
             self->keyframe.set_mode(static_cast<anim::TangentMode>(mode_val));
             return 0;
         } else {
@@ -200,9 +201,10 @@ static PyGetSetDef PyKeyframe_getset[] = {
 
 // String representation
 static PyObject* PyKeyframe_str(PyKeyframe *self) {
-    return PyUnicode_FromFormat("Keyframe(time=%f, value=%f, mode=%d)", 
-                                self->keyframe.time(), self->keyframe.value(), 
-                                static_cast<int>(self->keyframe.mode()));
+    auto str = std::format("Keyframe(time={}, value={}, mode={})", 
+                            self->keyframe.time(), self->keyframe.value(), 
+                            static_cast<int>(self->keyframe.mode()));
+    return PyUnicode_FromString(str.c_str());
 }
 
 // Type definition

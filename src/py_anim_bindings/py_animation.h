@@ -16,10 +16,13 @@
 
 typedef struct {
     PyObject_HEAD
-    anim::Animation animation;  // The actual C++ object
+    anim::Animation* animation_ptr; 
+    bool is_owner; // Indicates if this object owns the animation
 } PyAnimation;
 
 extern PyTypeObject PyAnimationType;
+
+PyObject* PyAnimation_WrapExisting(anim::Animation& animation, bool owned_by_python_wrapper = false);
 
 // Type getter for external use
 [[maybe_unused]] PyObject* get_animation_type(PyObject* self, void* closure);

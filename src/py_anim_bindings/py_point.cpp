@@ -1,4 +1,6 @@
 #include "py_point.h"
+#include <string>
+#include <format>
 
 // Allocation/deallocation functions
 static PyObject* PyPoint2D_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
@@ -63,7 +65,8 @@ PyGetSetDef PyPoint2D_getset[] = {
 };
 
 static PyObject* PyPoint2D_str(PyPoint2D *self) {
-    return PyUnicode_FromFormat("Point2D(time=%f, value=%f)", self->point.time, self->point.value);
+    auto str = std::format("Point2D(time={}, value={})", self->point.time, self->point.value);
+    return PyUnicode_FromString(str.c_str());
 }
 
 PyTypeObject PyPoint2DType = {

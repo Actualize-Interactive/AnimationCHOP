@@ -13,11 +13,8 @@
 */
 
 #include "animation_chop.h"
-#include "py_anim_bindings/py_point.h"
-#include "py_anim_bindings/py_tangent_mode.h"
-#include "py_anim_bindings/py_channel.h"
-#include "py_anim_bindings/py_keyframe.h"
-#include "py_anim_bindings/py_animation.h"
+#include "py_anim_bindings/py_bindings.h"
+
 
 #include <stdio.h>
 #include <string.h>
@@ -33,234 +30,32 @@
 	#include <Python/structmember.h>
 #endif
 
-static struct PyModuleDef module_def = {
-    PyModuleDef_HEAD_INIT,
-    "anim_types",                     // Module name
-    "Types for animation channels and keyframes used with the AnimationCHOP.", // Module documentation
-    -1,                         // Module keeps state in global variables
-    NULL
-};
-
-
-// Module will be created once and stored here
-static PyObject* cached_anim_types_module = NULL;
-
-static PyObject* 
-anim_types_module_getter([[maybe_unused]] PyObject* self, [[maybe_unused]] void*) {
-    // Return cached module if we already created it
-    if (cached_anim_types_module) {
-        Py_INCREF(cached_anim_types_module);
-        return cached_anim_types_module;
-    }
-    
-    // Otherwise create the module
-    PyObject* module = PyModule_Create(&module_def);
-    if (!module) {
-        return NULL;
-    }
-    
-    // Initialize the Point2D type
-    if (PyType_Ready(&PyPoint2DType) < 0) {
-        return NULL;
-    }
-    
-    // Add the Point2D type to the module
-    Py_INCREF(&PyPoint2DType);
-    if (PyModule_AddObject(module, "Point2D", (PyObject*)&PyPoint2DType) < 0) {
-        Py_DECREF(&PyPoint2DType);
-        Py_DECREF(module);
-        return NULL;
-    }
-    
-    // Create and add the TangentMode enum
-    PyObject* tangent_mode_enum = create_tangent_mode_enum();
-    if (!tangent_mode_enum) { 
-        // create_tangent_mode_enum failed and has set an error.
-        Py_DECREF(module); // Clean up the module we created.
-        return NULL;       // Propagate the error.
-    }
-    
-    // PyModule_AddObject will steal this reference on success.
-    if (PyModule_AddObject(module, "TangentMode", tangent_mode_enum) < 0) {
-        Py_DECREF(tangent_mode_enum); // So, we must DECREF it.
-        Py_DECREF(module);
-        return NULL;
-    }
-    
-    // Store in our cached module
-    cached_anim_types_module = module;
-    Py_INCREF(cached_anim_types_module);
-    
-    return module;
-}
-
-static PyObject*
-pyReset(PyObject* self)
-{
-	PY_Struct* me = (PY_Struct*)self;
-
-	PY_GetInfo info;
-	// We don't want to cook the node before we set this, since it doesn't depend on it's current state
-	info.autoCook = false;
-	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-	// It's possible the instance will be nullptr, such as if the node has been deleted
-	// while the Python class is still being held on and used elsewhere.
-	if (inst)
-	{
-		inst->resetFilter();
-		// Make the node dirty so it will cook an output a newly reset filter when asked next
-		me->context->makeNodeDirty();
-	}
-
-	// We need to inc-ref the None object if we are going to return it.
-	Py_INCREF(Py_None);
-	return Py_None;
-}
-
-
-
-
-static PyObject*
-pyGetSpeedMod(PyObject* self, void*)
-{
-	PY_Struct* me = (PY_Struct*)self;
-
-	PY_GetInfo info;
-	// Since thie variable is internally held in the class instance and not a product of the 'cook'
-	// we don't need to cook the node before getting it.
-	info.autoCook = false;
-	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-	// It's possible the instance will be nullptr, such as if the node has been deleted
-	// while the Python class is still being held on and used elsewhere.
-	if (inst)
-	{
-		return PyFloat_FromDouble(inst->getSpeedMod());
-	}
-
-	// an error has occured
-	return nullptr;
-}
-
-static int
-pySetSpeedMod(PyObject* self, PyObject* value, void*)
-{
-	// Do nothing in this case
-	if (!value)
-		return 0;
-
-	PY_Struct* me = (PY_Struct*)self;
-
-	PY_GetInfo info;
-	info.autoCook = false;
-	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-	// It's possible the instance will be nullptr, such as if the node has been deleted
-	// while the Python class is still being held on and used elsewhere.
-	if (inst)
-	{
-		// Try to cast it to a double object
-		PyObject* cast = PyNumber_Float(value);
-
-		if (cast && !PyErr_Occurred())
-		{
-			double v = PyFloat_AsDouble(cast);
-			inst->setSpeedMod(v);
-			me->context->makeNodeDirty();
-			Py_XDECREF(cast);
-			// success
-			return 0;
-		}
-	}
-	else
-	{
-		// getNodeInstance() will have already added a Python error if it returned a null
-	}
-
-	// an error has occured
-	return -1;
-}
-
-static PyObject*
-pyGetExecuteCount(PyObject* self, void*)
-{
-	PY_Struct* me = (PY_Struct*)self;
-
-	PY_GetInfo info;
-	// We want to cook the node in this case before getting the execute count
-	// so we have an accurate result.
-	info.autoCook = true;
-	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-	// It's possible the instance will be nullptr, such as if the node has been deleted
-	// while the Python class is still being held on and used elsewhere.
-	if (inst)
-	{
-		return PyLong_FromLong(inst->getExecuteCount());
-	}
-
-	// an error has occured
-	return nullptr;
-}
-
-static PyObject* pyPointLength([[maybe_unused]] PyObject* self, PyObject* args) {
-    // Get the point from the arguments
-    PyObject* point2DObj;
-	if (!PyArg_ParseTuple(args, "O!", &PyPoint2DType, &point2DObj)) {
-		return nullptr;
-	}
-
-	// Cast the object to the correct type
-	PyPoint2D* point = (PyPoint2D*)point2DObj;
-
-	// Calculate the length of the point
-	double length = sqrt(point->point.value * point->point.value + point->point.time * point->point.time);
-
-	// Return the length as a Python float
-	return PyFloat_FromDouble(length);
-}
 
 static PyMethodDef methods[] =
 {
-	{"reset", (PyCFunction)pyReset, METH_NOARGS, "Resets the Filter."},
-	
-	// Channel management methods
-	{"createChannel", (PyCFunction)pyCreateChannel, METH_VARARGS, "Creates a new animation channel with the given name."},
-	{"removeChannel", (PyCFunction)pyRemoveChannel, METH_VARARGS, "Removes an animation channel by name."},
-	{"getChannelNames", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
-	
-	// Keyframe management methods
-	{"setKeyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
-	{"removeKeyframe", (PyCFunction)pyRemoveKeyframe, METH_VARARGS, "Removes a keyframe from a channel at the specified time."},
-	{"setKeyframes", (PyCFunction)pySetKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
-	{"removeKeyframes", (PyCFunction)pyRemoveKeyframes, METH_VARARGS, "Removes multiple keyframes from a channel."},
-	
-	// Evaluation methods
-	{"evaluateChannel", (PyCFunction)pyEvaluateChannel, METH_VARARGS, "Evaluates a channel at a specific time."},
-	{"evaluateAllChannels", (PyCFunction)pyEvaluateAllChannels, METH_VARARGS, "Evaluates all channels at a specific time."},
-	
-	// Utility methods
-	{"pointLength", (PyCFunction)pyPointLength, METH_VARARGS, "Calculates the length of a Point2D."},
-	
+	{"create_channel", (PyCFunction)pyCreateChannel, METH_VARARGS, "Creates a new animation channel with the given name."},
+	{"get_channel", (PyCFunction)pyGetChannel, METH_VARARGS, "Gets an animation channel by name."},
+	{"remove_channel", (PyCFunction)pyRemoveChannel, METH_VARARGS, "Removes an animation channel by name."},
+	{"get_channel_names", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
+
+	{"set_keyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel."},
+	{"set_keyframe_at_time", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
+	{"get_keyframe", (PyCFunction)pyGetKeyframe, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
+	{"get_keyframe_at_time", (PyCFunction)pyGetKeyframeAtTime, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
+	{"has_keyframe", (PyCFunction)pyHasKeyframe, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
+	{"has_keyframe_at_time", (PyCFunction)pyHasKeyframeAtTime, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
+	{"remove_keyframe", (PyCFunction)pyRemoveKeyframe, METH_VARARGS, "Removes a keyframe from a channel."},
+	{"remove_keyframe_at_time", (PyCFunction)pyRemoveKeyframeAtTime, METH_VARARGS, "Removes a keyframe from a channel at the specified time."},
+
+	{"set_keyframes", (PyCFunction)pySetKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
+	{"set_keyframes_at_time", (PyCFunction)pySetKeyframesAtTime, METH_VARARGS, "Sets multiple keyframes in a channel."},
+	{"remove_keyframes_at_time", (PyCFunction)pyRemoveKeyframesAtTime, METH_VARARGS, "Removes multiple keyframes from a channel."},
 	{0}
 };
-
-
-
-
-// Forward declarations of all the getter functions for our Python types
-static PyObject* get_point2d_type(PyObject*, void*);
-static PyObject* get_tangent_mode_enum(PyObject*, void*);
-static PyObject* get_keyframe_type(PyObject*, void*);
-static PyObject* get_channel_type(PyObject*, void*);
-static PyObject* get_animation_type(PyObject*, void*);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
 {
-	{"anim_types", anim_types_module_getter, nullptr, "Module containing animation types.", nullptr},
-	{"speedMod", pyGetSpeedMod, pySetSpeedMod, "Get or Set the speed modulation.", nullptr},
-	// This one doesn't define a 'setter', so it's a read-only value.
-	{"executeCount", pyGetExecuteCount, nullptr, "Get execute count.", nullptr},
-    
-    // Add getters for all our Python types
     {"Point2D", get_point2d_type, nullptr, "Point2D type for representing time-value pairs.", nullptr},
     {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe tangent behavior.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
@@ -343,22 +138,18 @@ DestroyCHOPInstance(CHOP_CPlusPlusBase* instance)
 };
 
 
-AnimationCHOP::AnimationCHOP(const OP_NodeInfo* info) : m_nodeInfo(info)
+AnimationCHOP::AnimationCHOP(const OP_NodeInfo* info) 
+	: m_nodeInfo(info)
+	, m_warning(nullptr)
+	, m_error(nullptr)
+	, m_animation()
 {
-	m_executeCount = 0;
-	m_offset = 0.0;
-	m_speedMod = 1.0;
 }
 
 AnimationCHOP::~AnimationCHOP()
 {
 }
 
-void
-AnimationCHOP::resetFilter()
-{
-	m_offset = 0;
-}
 
 void
 AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, [[maybe_unused]] const OP_Inputs* inputs, [[maybe_unused]] void* reserved1)
@@ -425,8 +216,9 @@ AnimationCHOP::getChannelName(int32_t index, OP_String *name, [[maybe_unused]]co
 void
 AnimationCHOP::execute(CHOP_Output* output, [[maybe_unused]] const OP_Inputs* inputs, [[maybe_unused]]void* reserved1)
 {
-	m_executeCount++;
-	
+	m_error = nullptr;
+	m_warning = nullptr;
+
 	auto num_anim_channels = m_animation.get_channel_count();
 	auto num_anim_samples = m_animation.num_samples(output->sampleRate);
 	for (int i = 0 ; i < output->numChannels; i++) {
@@ -445,81 +237,16 @@ AnimationCHOP::execute(CHOP_Output* output, [[maybe_unused]] const OP_Inputs* in
 	}
 }
 
-int32_t
-AnimationCHOP::getNumInfoCHOPChans([[maybe_unused]]void * reserved1)
+void 
+AnimationCHOP::getWarningString(OP_String *warning, [[maybe_unused]] void* reserved1)
 {
-	// We return the number of channel we want to output to any Info CHOP
-	// connected to the CHOP. In this example we are just going to send one channel.
-	return 2;
+	warning->setString(m_warning);
 }
 
 void
-AnimationCHOP::getInfoCHOPChan(int32_t index,
-										OP_InfoCHOPChan* chan,
-										[[maybe_unused]]void* reserved1)
+AnimationCHOP::getErrorString(OP_String *error, [[maybe_unused]] void* reserved1)
 {
-	// This function will be called once for each channel we said we'd want to return
-	// In this example it'll only be called once.
-
-	if (index == 0)
-	{
-		chan->name->setString("executeCount");
-		chan->value = (float)m_executeCount;
-	}
-
-	if (index == 1)
-	{
-		chan->name->setString("offset");
-		chan->value = (float)m_offset;
-	}
-}
-
-bool		
-AnimationCHOP::getInfoDATSize(OP_InfoDATSize* infoSize, [[maybe_unused]]void* reserved1)
-{
-	infoSize->rows = 2;
-	infoSize->cols = 2;
-	// Setting this to false means we'll be assigning values to the table
-	// one row at a time. True means we'll do it one column at a time.
-	infoSize->byColumn = false;
-	return true;
-}
-
-void
-AnimationCHOP::getInfoDATEntries(int32_t index,
-										[[maybe_unused]] int32_t nEntries,
-										[[maybe_unused]] OP_InfoDATEntries* entries, 
-										[[maybe_unused]]void* reserved1)
-{
-	char tempBuffer[4096];
-
-	if (index == 0)
-	{
-		// Set the value for the first column
-		entries->values[0]->setString("executeCount");
-
-		// Set the value for the second column
-#ifdef _WIN32
-		sprintf_s(tempBuffer, "%d", m_executeCount);
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%d", m_executeCount);
-#endif
-		entries->values[1]->setString(tempBuffer);
-	}
-
-	if (index == 1)
-	{
-		// Set the value for the first column
-		entries->values[0]->setString("offset");
-
-		// Set the value for the second column
-#ifdef _WIN32
-		sprintf_s(tempBuffer, "%g", m_offset);
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%g", m_offset);
-#endif
-		entries->values[1]->setString( tempBuffer);
-	}
+	error->setString(m_error);
 }
 
 void
@@ -583,23 +310,34 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] voi
 
 }
 
+void
+AnimationCHOP::pulsePressed(const char* name, [[maybe_unused]] void* reserved1)
+{
+    // Handle parameter pulses here
+    if (strcmp(name, "Reset") == 0)
+    {
+
+    }
+}
+
 
 
 /*** Channel and Keyframe Management Implementation ***/
 
 // Channel management methods
-bool 
-AnimationCHOP::createChannel(const std::string& name) 
+const anim::Channel*
+AnimationCHOP::createChannel(const std::string& name, int32_t insertIndex) 
 {
     // Check if channel already exists
     if (m_animation.get_channel(name) != nullptr) {
-        return false;
+        return nullptr;
     }
     
-    // Create and add new channel
-    anim::Channel channel(name);
-    m_animation.add_channel(channel);
-    return true;
+	if (insertIndex < 0) {
+		return m_animation.create_channel(name);
+	} else {
+		return m_animation.insert_channel(insertIndex, anim::Channel(name));
+	}
 }
 
 bool 
@@ -609,42 +347,36 @@ AnimationCHOP::removeChannel(const std::string& name)
 }
 
 bool 
-AnimationCHOP::removeChannelByIndex(size_t index) 
+AnimationCHOP::removeChannel(size_t index) 
 {
     return m_animation.remove_channel(index);
 }
 
-int 
-AnimationCHOP::addChannels(const std::vector<std::string>& channelNames) 
+void 
+AnimationCHOP::createChannels(const std::vector<std::string>& channelNames) 
 {
-    int addedCount = 0;
-    
     for (const auto& name : channelNames) {
         if (createChannel(name)) {
-            addedCount++;
         }
     }
-    
-    return addedCount;
 }
 
-int 
+bool 
 AnimationCHOP::removeChannels(const std::vector<std::string>& channelNames) 
 {
-    int removedCount = 0;
-    
+    bool allRemoved = true;
+
     for (const auto& name : channelNames) {
-        if (removeChannel(name)) {
-            removedCount++;
+        if (!removeChannel(name)) {
+            allRemoved = false;
         }
     }
-    
-    return removedCount;
+    return allRemoved;
 }
 
 // Keyframe management methods
 bool 
-AnimationCHOP::setKeyframe(const std::string& channelName, double time, double value, 
+AnimationCHOP::setKeyframeAtTime(const std::string& channelName, double time, double value, 
                          anim::TangentMode mode, double in_tangent_time, double in_tangent_value,
                          double out_tangent_time, double out_tangent_value) 
 {
@@ -652,126 +384,24 @@ AnimationCHOP::setKeyframe(const std::string& channelName, double time, double v
     if (!channel) {
         return false;
     }
-    
-    // Create tangent handles from provided values or use defaults
-    anim::Point2D in_tangent;
-    anim::Point2D out_tangent;
-    
-    // If the tangent parameters are zero (default), calculate default values
-    if (in_tangent_time == 0 && in_tangent_value == 0) {
-        in_tangent = anim::Point2D(time - 0.1, value);
-    } else {
-        in_tangent = anim::Point2D(in_tangent_time, in_tangent_value);
-    }
-    
-    if (out_tangent_time == 0 && out_tangent_value == 0) {
-        out_tangent = anim::Point2D(time + 0.1, value);
-    } else {
-        out_tangent = anim::Point2D(out_tangent_time, out_tangent_value);
-    }
-    
-    channel->set_keyframe(time, value, in_tangent, out_tangent, mode);
+    channel->set_keyframe_at_time(time, value, 
+		anim::Point2D(in_tangent_time, in_tangent_value), 
+		anim::Point2D(out_tangent_time, out_tangent_value), 
+		mode);
     return true;
 }
 
 bool 
-AnimationCHOP::setKeyframeInChannel(size_t channelIndex, double time, double value, 
-                                  anim::TangentMode mode, double in_tangent_time, double in_tangent_value,
-                                  double out_tangent_time, double out_tangent_value) 
-{
-    auto* channel = m_animation.get_channel(channelIndex);
-    if (!channel) {
-        return false;
-    }
-    
-    // Create tangent handles from provided values or use defaults
-    anim::Point2D in_tangent;
-    anim::Point2D out_tangent;
-    
-    // If the tangent parameters are zero (default), calculate default values
-    if (in_tangent_time == 0 && in_tangent_value == 0) {
-        in_tangent = anim::Point2D(time - 0.1, value);
-    } else {
-        in_tangent = anim::Point2D(in_tangent_time, in_tangent_value);
-    }
-    
-    if (out_tangent_time == 0 && out_tangent_value == 0) {
-        out_tangent = anim::Point2D(time + 0.1, value);
-    } else {
-        out_tangent = anim::Point2D(out_tangent_time, out_tangent_value);
-    }
-    
-    channel->set_keyframe(time, value, in_tangent, out_tangent, mode);
-    return true;
-}
-
-bool 
-AnimationCHOP::removeKeyframe(const std::string& channelName, double time) 
+AnimationCHOP::removeKeyframeAtTime(const std::string& channelName, double time) 
 {
     auto* channel = m_animation.get_channel(channelName);
     if (!channel) {
         return false;
     }
-    
-    return channel->remove_keyframe(time);
+    return channel->remove_keyframe_at_time(time);
 }
 
 bool 
-AnimationCHOP::removeKeyframeFromChannel(size_t channelIndex, double time) 
-{
-    auto* channel = m_animation.get_channel(channelIndex);
-    if (!channel) {
-        return false;
-    }
-    
-    return channel->remove_keyframe(time);
-}
-
-int 
-AnimationCHOP::setKeyframes(const std::string& channelName, 
-                         const std::vector<std::pair<double, double>>& timeValuePairs,
-                         anim::TangentMode mode) 
-{
-    auto* channel = m_animation.get_channel(channelName);
-    if (!channel) {
-        return 0;
-    }
-    
-    int setCount = 0;
-    for (const auto& [time, value] : timeValuePairs) {
-        anim::Point2D in_tangent(time - 0.1, value);
-        anim::Point2D out_tangent(time + 0.1, value);
-        
-        channel->set_keyframe(time, value, in_tangent, out_tangent, mode);
-        setCount++;
-    }
-    
-    return setCount;
-}
-
-int 
-AnimationCHOP::setKeyframesInChannel(size_t channelIndex, 
-                                  const std::vector<std::pair<double, double>>& timeValuePairs,
-                                  anim::TangentMode mode) 
-{
-    auto* channel = m_animation.get_channel(channelIndex);
-    if (!channel) {
-        return 0;
-    }
-    
-    int setCount = 0;
-    for (const auto& [time, value] : timeValuePairs) {
-        anim::Point2D in_tangent(time - 0.1, value);
-        anim::Point2D out_tangent(time + 0.1, value);
-        
-        channel->set_keyframe(time, value, in_tangent, out_tangent, mode);
-        setCount++;
-    }
-    
-    return setCount;
-}
-
-int 
 AnimationCHOP::removeKeyframes(const std::string& channelName, const std::vector<double>& times) 
 {
     auto* channel = m_animation.get_channel(channelName);
@@ -779,50 +409,13 @@ AnimationCHOP::removeKeyframes(const std::string& channelName, const std::vector
         return 0;
     }
     
-    int removedCount = 0;
-    for (double time : times) {
-        if (channel->remove_keyframe(time)) {
-            removedCount++;
-        }
-    }
-    
-    return removedCount;
-}
-
-int 
-AnimationCHOP::removeKeyframesFromChannel(size_t channelIndex, const std::vector<double>& times) 
-{
-    auto* channel = m_animation.get_channel(channelIndex);
-    if (!channel) {
-        return 0;
-    }
-    
-    int removedCount = 0;
-    for (double time : times) {
-        if (channel->remove_keyframe(time)) {
-            removedCount++;
-        }
-    }
-    
-    return removedCount;
-}
-
-// Evaluation methods
-double 
-AnimationCHOP::evaluateChannel(const std::string& channelName, double time) 
-{
-    auto* channel = m_animation.get_channel(channelName);
-    if (!channel) {
-        return 0.0;
-    }
-    
-    return channel->evaluate(time);
-}
-
-std::map<std::string, double> 
-AnimationCHOP::evaluateAllChannels(double time) 
-{
-    return m_animation.evaluate_channels(time);
+	bool removedAll = true;
+	for (double time : times) {
+		if (!channel->remove_keyframe_at_time(time)) {
+			removedAll = false;
+		}
+	}
+	return removedAll;
 }
 
 // Query methods
@@ -841,17 +434,16 @@ AnimationCHOP::getChannelNames() const
 bool 
 AnimationCHOP::channelExists(const std::string& name) const 
 {
-    return m_animation.get_channel(name) != nullptr;
+    return m_animation.has_channel(name);
 }
 
 size_t 
 AnimationCHOP::getKeyframeCount(const std::string& channelName) const 
 {
-    const auto* channel = m_animation.get_channel(channelName);
+    auto channel = m_animation.get_channel(channelName);
     if (!channel) {
         return 0;
     }
-    
     return channel->get_all_keyframes().size();
 }
 
@@ -863,24 +455,70 @@ pyCreateChannel(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
-    
-    if (!PyArg_ParseTuple(args, "s", &name))
-    {
+    if (!PyArg_ParseTuple(args, "s", &name)) {
         return nullptr;
     }
     
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
+    if (!inst) {
         return nullptr;
     }
     
-    bool success = inst->createChannel(name);
-    me->context->makeNodeDirty();
-    
-    return PyBool_FromLong(success);
+    auto channel = inst->createChannel(name);
+	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to create channel");
+		return nullptr;
+	}
+	me->context->makeNodeDirty();
+
+	auto pyChannel = ChannelToPyObject(*channel);
+	if (!pyChannel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to create Python channel object");
+		return nullptr;
+	}
+
+	return pyChannel;
+}
+
+static PyObject*
+pyGetChannel(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    PyObject* identifier_obj;
+	if (!PyArg_ParseTuple(args, "O", &identifier_obj)) {
+		return nullptr;
+	}
+
+	PY_GetInfo Info;
+	Info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(Info);
+	if (!inst) {
+		return nullptr;
+	}
+	anim::Channel* channel = nullptr;
+
+	if (PyUnicode_Check(identifier_obj)) {
+		const char* name = PyUnicode_AsUTF8(identifier_obj);
+		channel = inst->animation().get_channel(name);
+	} else if (PyLong_Check(identifier_obj)) {
+		int index = static_cast<int>(PyLong_AsLong(identifier_obj));
+		channel = inst->animation().get_channel(index);
+	} else {
+		PyErr_SetString(PyExc_TypeError, "Identifier must be a string or an integer.");
+		return nullptr;
+	}
+	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to get channel");
+		return nullptr;
+	}
+	PyObject* pyChannel = ChannelToPyObject(*channel);
+	if (!pyChannel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to create Python channel object");
+		return nullptr;
+	}
+	return pyChannel;
 }
 
 static PyObject*
@@ -889,23 +527,20 @@ pyRemoveChannel(PyObject* self, PyObject* args)
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
     
-    if (!PyArg_ParseTuple(args, "s", &name))
-    {
+    if (!PyArg_ParseTuple(args, "s", &name)) {
         return nullptr;
     }
     
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
+    if (!inst) {
         return nullptr;
     }
     
-    bool success = inst->removeChannel(name);
+    inst->removeChannel(name);
     me->context->makeNodeDirty();
-    
-    return PyBool_FromLong(success);
+    Py_RETURN_NONE;
 }
 
 static PyObject*
@@ -916,25 +551,71 @@ pyGetChannelNames(PyObject* self)
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
+    if (!inst) {
         return nullptr;
     }
     
     std::vector<std::string> names = inst->getChannelNames();
     PyObject* namesList = PyList_New(names.size());
     
-    for (size_t i = 0; i < names.size(); i++)
-    {
+    for (size_t i = 0; i < names.size(); i++)  {
         PyList_SetItem(namesList, i, PyUnicode_FromString(names[i].c_str()));
     }
-    
     return namesList;
 }
 
-// Keyframe methods
 static PyObject*
 pySetKeyframe(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	size_t index;
+    double value;
+    int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
+    double in_tangent_time = 0.0;
+    double in_tangent_value = 0.0;
+    double out_tangent_time = 0.0;
+    double out_tangent_value = 0.0;
+
+	// Parse the arguments: channel name, index, time, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
+	if (!PyArg_ParseTuple(args, "sid|idddd", &name, &index, &value, &mode, 
+		&in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst)
+	{
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel){
+		return nullptr;
+	}
+	if (index < 0 || index >= channel->keyframe_count()) {
+		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
+		return nullptr;
+	}
+	try {
+		auto& keyframe = channel->get_keyframe(index);
+		keyframe.set_value(value);
+		keyframe.set_in_tangent(anim::Point2D(in_tangent_time, in_tangent_value));
+		keyframe.set_out_tangent(anim::Point2D(out_tangent_time, out_tangent_value));
+		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
+	}
+	catch (const std::exception& e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return nullptr;
+	}
+	me->context->makeNodeDirty();
+	Py_RETURN_NONE;
+}
+
+static PyObject*
+pySetKeyframeAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -947,20 +628,18 @@ pySetKeyframe(PyObject* self, PyObject* args)
     
     // Parse the arguments: channel name, time, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
     if (!PyArg_ParseTuple(args, "sdd|idddd", &name, &time, &value, &mode, 
-                         &in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value))
-    {
+                         &in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value)) {
         return nullptr;
     }
     
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
+    if (!inst) {
         return nullptr;
     }
     
-    bool success = inst->setKeyframe(name, time, value, 
+    bool success = inst->setKeyframeAtTime(name, time, value, 
                                    static_cast<anim::TangentMode>(mode),
                                    in_tangent_time, in_tangent_value, 
                                    out_tangent_time, out_tangent_value);
@@ -969,8 +648,164 @@ pySetKeyframe(PyObject* self, PyObject* args)
     return PyBool_FromLong(success);
 }
 
+static PyObject* 
+pyGetKeyframe(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	size_t index;
+
+	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		return nullptr;
+	}
+
+	if (index < 0 || index >= channel->keyframe_count()) {
+		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
+		return nullptr;
+	}
+
+	auto keyframe = channel->get_keyframe(index);
+
+	auto pyKeyframe = KeyframeToPyObject(keyframe);
+	if (!pyKeyframe) {
+		return nullptr;
+	}
+	return pyKeyframe;
+}
+
+static PyObject* 
+pyGetKeyframeAtTime(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	double time;
+
+	if (!PyArg_ParseTuple(args, "sd", &name, &time)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		return nullptr;
+	}
+
+	auto res = channel->get_keyframe_at_time(time);
+	if (!res) {
+		Py_RETURN_NONE;
+	}
+	auto keyframe = res.value();
+
+	auto pyKeyframe = KeyframeToPyObject(keyframe);
+	if (!pyKeyframe) {
+		return nullptr;
+	}
+	return pyKeyframe;
+}
+
+static PyObject* 
+pyHasKeyframe(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	size_t index;
+
+	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		return nullptr;
+	}
+
+	auto has_keyframe = channel->has_keyframe(index);
+	return PyBool_FromLong(has_keyframe ? 1 : 0);
+}
+
 static PyObject*
+pyHasKeyframeAtTime(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	double time;
+
+	if (!PyArg_ParseTuple(args, "sd", &name, &time)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		return nullptr;
+	}
+
+	auto has_keyframe = channel->has_keyframe_at_time(time);
+	return PyBool_FromLong(has_keyframe ? 1 : 0);
+}
+
+static PyObject* 
 pyRemoveKeyframe(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	size_t index;
+
+	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		return nullptr;
+	}
+
+	channel->remove_keyframe(index);
+	me->context->makeNodeDirty();
+
+	Py_RETURN_NONE;
+}
+
+static PyObject*
+pyRemoveKeyframeAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -988,8 +823,8 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
     {
         return nullptr;
     }
-    
-    bool success = inst->removeKeyframe(name, time);
+
+    bool success = inst->removeKeyframeAtTime(name, time);
     me->context->makeNodeDirty();
     
     return PyBool_FromLong(success);
@@ -998,87 +833,213 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
 static PyObject*
 pySetKeyframes(PyObject* self, PyObject* args)
 {
-    PY_Struct* me = (PY_Struct*)self;
-    const char* name;
-    PyObject* timeValueList;
-    int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
-    
-    if (!PyArg_ParseTuple(args, "sO|i", &name, &timeValueList, &mode))
-    {
-        return nullptr;
-    }
-    
-    // Check if we got a proper list
-    if (!PyList_Check(timeValueList))
-    {
-        PyErr_SetString(PyExc_TypeError, "Expected a list of (time, value) pairs");
-        return nullptr;
-    }
-    
-    PY_GetInfo info;
-    info.autoCook = false;
-    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
-        return nullptr;
-    }
-    
-    std::vector<std::pair<double, double>> timeValuePairs;
-    Py_ssize_t size = PyList_Size(timeValueList);
-    
-    for (Py_ssize_t i = 0; i < size; i++)
-    {
-        PyObject* item = PyList_GetItem(timeValueList, i);
-        
-        // Each item should be a tuple with two elements
-        if (!PyTuple_Check(item) || PyTuple_Size(item) != 2)
-        {
-            PyErr_SetString(PyExc_TypeError, "Each item must be a (time, value) tuple");
-            return nullptr;
-        }
-        
-        PyObject* timeObj = PyTuple_GetItem(item, 0);
-        PyObject* valueObj = PyTuple_GetItem(item, 1);
-        
-        if (!PyFloat_Check(timeObj) && !PyLong_Check(timeObj))
-        {
-            PyErr_SetString(PyExc_TypeError, "Time must be a number");
-            return nullptr;
-        }
-        
-        if (!PyFloat_Check(valueObj) && !PyLong_Check(valueObj))
-        {
-            PyErr_SetString(PyExc_TypeError, "Value must be a number");
-            return nullptr;
-        }
-        
-        double time = PyFloat_AsDouble(timeObj);
-        double value = PyFloat_AsDouble(valueObj);
-        
-        timeValuePairs.push_back(std::make_pair(time, value));
-    }
-    
-    int setCount = inst->setKeyframes(name, timeValuePairs, static_cast<anim::TangentMode>(mode));
-    me->context->makeNodeDirty();
-    
-    return PyLong_FromLong(setCount);
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+	// a list of dicts 
+	// {'index': 0.0, 'value': 1.0, 'mode': 0, 
+	// 'in_tangent_time': 0.0, 'in_tangent_value': 0.0, 
+	// 'out_tangent_time': 0.0, 'out_tangent_value': 0.0}
+	PyObject* indexKeyframeList; 
+
+	if (!PyArg_ParseTuple(args, "sO", &name, &indexKeyframeList)) {
+		return nullptr;
+	}
+
+	if (!PyList_Check(indexKeyframeList)) {
+		PyErr_SetString(PyExc_TypeError, "Expected a list of keyframes");
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to get channel");
+		return nullptr;
+	}
+	auto size = PyList_Size(indexKeyframeList);
+
+	for (auto i = 0; i < size; i++)
+	{
+		PyObject* item = PyList_GetItem(indexKeyframeList, i);
+
+		if (!PyDict_Check(item))
+		{
+			PyErr_SetString(PyExc_TypeError, "Each keyframe must be a dictionary");
+			return nullptr;
+		}
+		// Extract the keyframe data from the dictionary
+		PyObject* indexObj = PyDict_GetItemString(item, "index");
+		PyObject* valueObj = PyDict_GetItemString(item, "value");
+		if (!indexObj || !valueObj)
+		{
+			PyErr_SetString(PyExc_TypeError, "Keyframe must have 'index' and 'value' keys");
+			return nullptr;
+		}
+		auto index = static_cast<size_t>(PyLong_AsLong(indexObj));
+		if (index < 0 || index >= channel->keyframe_count()) {
+			PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
+			return nullptr;
+		}
+		auto value = PyFloat_AsDouble(valueObj);
+		anim::TangentMode mode = anim::TangentMode::smoothAuto;
+		PyObject* modeObj = PyDict_GetItemString(item, "mode");
+		PyObject* inTangentTimeObj = PyDict_GetItemString(item, "in_tangent_time");
+		PyObject* inTangentValueObj = PyDict_GetItemString(item, "in_tangent_value");
+		PyObject* outTangentTimeObj = PyDict_GetItemString(item, "out_tangent_time");
+		PyObject* outTangentValueObj = PyDict_GetItemString(item, "out_tangent_value");
+
+		if (modeObj) {
+			if (!PyLong_Check(modeObj)) {
+				PyErr_SetString(PyExc_TypeError, "Keyframe 'mode' must be an integer");
+				return nullptr;
+			}
+			mode = static_cast<anim::TangentMode>(PyLong_AsLong(modeObj));
+		}
+		double inTangentTime = 0.0;
+		if (inTangentTimeObj) {
+			inTangentTime = PyFloat_AsDouble(inTangentTimeObj);
+		}
+		double inTangentValue = 0.0;
+		if (inTangentValueObj) {
+			inTangentValue = PyFloat_AsDouble(inTangentValueObj);
+		}
+		double outTangentTime = 0.0;
+		if (outTangentTimeObj) {
+			outTangentTime = PyFloat_AsDouble(outTangentTimeObj);
+		}
+		double outTangentValue = 0.0;
+		if (outTangentValueObj) {
+			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
+		}
+
+		auto& keyframe = channel->get_keyframe(index);
+		keyframe.set_value(value);
+		keyframe.set_in_tangent(anim::Point2D(inTangentTime, inTangentValue));
+		keyframe.set_out_tangent(anim::Point2D(outTangentTime, outTangentValue));
+		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
+		
+	}
+
+	me->context->makeNodeDirty();
+
+	Py_RETURN_NONE;
 }
 
 static PyObject*
-pyRemoveKeyframes(PyObject* self, PyObject* args)
+pySetKeyframesAtTime(PyObject* self, PyObject* args)
+{
+    PY_Struct* me = (PY_Struct*)self;
+    const char* name;
+
+	// a list of dicts 
+	// {'time': 0.0, 'value': 1.0, 'mode': 0, 
+	// 'in_tangent_time': 0.0, 'in_tangent_value': 0.0, 
+	// 'out_tangent_time': 0.0, 'out_tangent_value': 0.0}
+	PyObject* keyframeList; 
+
+	if (!PyArg_ParseTuple(args, "sO", &name, &keyframeList)) {
+		return nullptr;
+	}
+	
+	if (!PyList_Check(keyframeList)) {
+		PyErr_SetString(PyExc_TypeError, "Expected a list of keyframes");
+		return nullptr;
+	}
+	
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to get channel");
+		return nullptr;
+	}
+	
+	Py_ssize_t size = PyList_Size(keyframeList);
+	for (Py_ssize_t i = 0; i < size; i++)
+	{
+		PyObject* item = PyList_GetItem(keyframeList, i);
+		
+		if (!PyDict_Check(item))
+		{
+			PyErr_SetString(PyExc_TypeError, "Each keyframe must be a dictionary");
+			return nullptr;
+		}
+		// Extract the keyframe data from the dictionary
+		PyObject* timeObj = PyDict_GetItemString(item, "time");
+		PyObject* valueObj = PyDict_GetItemString(item, "value");
+		PyObject* modeObj = PyDict_GetItemString(item, "mode");
+		PyObject* inTangentTimeObj = PyDict_GetItemString(item, "in_tangent_time");
+		PyObject* inTangentValueObj = PyDict_GetItemString(item, "in_tangent_value");
+		PyObject* outTangentTimeObj = PyDict_GetItemString(item, "out_tangent_time");
+		PyObject* outTangentValueObj = PyDict_GetItemString(item, "out_tangent_value");
+		if (!timeObj || !valueObj)
+		{
+			PyErr_SetString(PyExc_TypeError, "Keyframe must have 'time' and 'value' keys");
+			return nullptr;
+		}
+		auto time = PyFloat_AsDouble(timeObj);
+		auto value = PyFloat_AsDouble(valueObj);
+		anim::TangentMode mode = anim::TangentMode::smoothAuto;
+		if (modeObj) {
+			if (!PyLong_Check(modeObj)) {
+				PyErr_SetString(PyExc_TypeError, "Keyframe 'mode' must be an integer");
+				return nullptr;
+			}
+			mode = static_cast<anim::TangentMode>(PyLong_AsLong(modeObj));
+		}
+		double inTangentTime = 0.0;
+		if (inTangentTimeObj) {
+			inTangentTime = PyFloat_AsDouble(inTangentTimeObj);
+		}
+		double inTangentValue = 0.0;
+		if (inTangentValueObj) {
+			inTangentValue = PyFloat_AsDouble(inTangentValueObj);
+		}
+		double outTangentTime = 0.0;
+		if (outTangentTimeObj) {
+			outTangentTime = PyFloat_AsDouble(outTangentTimeObj);
+		}
+		double outTangentValue = 0.0;
+		if (outTangentValueObj) {
+			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
+		}
+
+		channel->set_keyframe_at_time(
+			time, 
+			value, 
+			anim::Point2D(inTangentTime, inTangentValue), 
+			anim::Point2D(outTangentTime, outTangentValue), 
+			mode);
+	}
+
+	me->context->makeNodeDirty();
+
+	Py_RETURN_NONE;
+}
+
+static PyObject*
+pyRemoveKeyframesAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
     PyObject* timeList;
     
-    if (!PyArg_ParseTuple(args, "sO", &name, &timeList))
-    {
+    if (!PyArg_ParseTuple(args, "sO", &name, &timeList)) {
         return nullptr;
     }
     
     // Check if we got a proper list
-    if (!PyList_Check(timeList))
-    {
+    if (!PyList_Check(timeList)) {
         PyErr_SetString(PyExc_TypeError, "Expected a list of times");
         return nullptr;
     }
@@ -1086,8 +1047,7 @@ pyRemoveKeyframes(PyObject* self, PyObject* args)
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
+    if (!inst) {
         return nullptr;
     }
     
@@ -1108,75 +1068,10 @@ pyRemoveKeyframes(PyObject* self, PyObject* args)
         times.push_back(time);
     }
     
-    int removedCount = inst->removeKeyframes(name, times);
+    auto removed_all = inst->removeKeyframes(name, times);
     me->context->makeNodeDirty();
-    
-    return PyLong_FromLong(removedCount);
+
+    return PyBool_FromLong(removed_all ? 1 : 0);
 }
 
-static PyObject*
-pyEvaluateChannel(PyObject* self, PyObject* args)
-{
-    PY_Struct* me = (PY_Struct*)self;
-    const char* name;
-    double time;
-    
-    if (!PyArg_ParseTuple(args, "sd", &name, &time))
-    {
-        return nullptr;
-    }
-    
-    PY_GetInfo info;
-    info.autoCook = false;
-    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
-        return nullptr;
-    }
-    
-    double value = inst->evaluateChannel(name, time);
-    
-    return PyFloat_FromDouble(value);
-}
-
-static PyObject*
-pyEvaluateAllChannels(PyObject* self, PyObject* args)
-{
-    PY_Struct* me = (PY_Struct*)self;
-    double time;
-    
-    if (!PyArg_ParseTuple(args, "d", &time))
-    {
-        return nullptr;
-    }
-    
-    PY_GetInfo info;
-    info.autoCook = false;
-    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst)
-    {
-        return nullptr;
-    }
-    
-    std::map<std::string, double> values = inst->evaluateAllChannels(time);
-    PyObject* dict = PyDict_New();
-    
-    for (const auto& pair : values)
-    {
-        PyDict_SetItemString(dict, pair.first.c_str(), PyFloat_FromDouble(pair.second));
-    }
-    
-    return dict;
-}
-
-void
-AnimationCHOP::pulsePressed(const char* name, [[maybe_unused]] void* reserved1)
-{
-    // Handle parameter pulses here
-    if (strcmp(name, "Reset") == 0)
-    {
-        // Reset the filter
-        resetFilter();
-    }
-}
 

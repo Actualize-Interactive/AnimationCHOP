@@ -30,122 +30,6 @@ static int PyChannel_init(PyChannel *self, PyObject *args, PyObject *kwds) {
     return 0;
 }
 
-// Methods
-static PyObject* PyChannel_set_keyframe(PyChannel *self, PyObject *args, PyObject *kwds) {
-    double time = 0.0, value = 0.0;
-    PyObject* in_tangent_obj = NULL;
-    PyObject* out_tangent_obj = NULL;
-    PyObject* mode_obj = NULL;
-    
-    static char *kwlist[] = {
-        (char*)"time", (char*)"value", (char*)"in_tangent", 
-        (char*)"out_tangent", (char*)"mode", NULL
-    };
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "dd|OOO", kwlist, 
-                                     &time, &value, &in_tangent_obj, 
-                                     &out_tangent_obj, &mode_obj))
-        return NULL;
-    
-    // Default handles
-    anim::BezierHandle in_tangent(time - 0.1, value);
-    anim::BezierHandle out_tangent(time + 0.1, value);
-    anim::TangentMode mode = anim::TangentMode::linear;
-    
-    // Parse in_tangent if provided
-    if (in_tangent_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(in_tangent_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
-            return NULL;
-        }
-        in_tangent.time = temp_point.time;
-        in_tangent.value = temp_point.value;
-    }
-    
-    // Parse out_tangent if provided
-    if (out_tangent_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(out_tangent_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
-            return NULL;
-        }
-        out_tangent.time = temp_point.time;
-        out_tangent.value = temp_point.value;
-    }
-    
-    // Parse mode if provided
-    if (mode_obj) {
-        if (PyLong_Check(mode_obj)) {
-            long mode_val = PyLong_AsLong(mode_obj);
-            // Validate mode value
-            if (mode_val >= 0 && mode_val <= 5) { // Assuming 6 modes from the enum class
-                mode = static_cast<anim::TangentMode>(mode_val);
-            } else {
-                PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
-                return NULL;
-            }
-        } else {
-            // Try to extract an int from a TangentMode enum object
-            PyObject* value_attr = PyObject_GetAttrString(mode_obj, "value");
-            if (value_attr && PyLong_Check(value_attr)) {
-                long mode_val = PyLong_AsLong(value_attr);
-                Py_DECREF(value_attr);
-                
-                // Validate mode value
-                if (mode_val >= 0 && mode_val <= 5) { // Assuming 6 modes from the enum class
-                    mode = static_cast<anim::TangentMode>(mode_val);
-                } else {
-                    PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
-                    return NULL;
-                }
-            } else {
-                Py_XDECREF(value_attr);
-                PyErr_SetString(PyExc_TypeError, "Mode must be a TangentMode enum value or an int");
-                return NULL;
-            }
-        }
-    }
-    
-    try {
-        self->channel.set_keyframe(time, value, in_tangent, out_tangent, mode);
-        Py_RETURN_NONE;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyChannel_set_keyframe_time(PyChannel *self, PyObject *args) {
-    double old_time, new_time;
-    
-    if (!PyArg_ParseTuple(args, "dd", &old_time, &new_time))
-        return NULL;
-    
-    try {
-        self->channel.set_keyframe_time(old_time, new_time);
-        Py_RETURN_NONE;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyChannel_set_keyframe_value(PyChannel *self, PyObject *args) {
-    double time, new_value;
-    
-    if (!PyArg_ParseTuple(args, "dd", &time, &new_value))
-        return NULL;
-    
-    try {
-        self->channel.set_keyframe_value(time, new_value);
-        Py_RETURN_NONE;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
 static PyObject* PyChannel_remove_keyframe(PyChannel *self, PyObject *args) {
     double time;
     
@@ -290,12 +174,6 @@ static PyObject* PyChannel_get_end_time(PyChannel *self, [[maybe_unused]] PyObje
 
 // Method definitions
 static PyMethodDef PyChannel_methods[] = {
-    {"set_keyframe", (PyCFunction)PyChannel_set_keyframe, METH_VARARGS | METH_KEYWORDS,
-     "Set a keyframe at the specified time and value"},
-    {"set_keyframe_time", (PyCFunction)PyChannel_set_keyframe_time, METH_VARARGS,
-     "Change the time of an existing keyframe"},
-    {"set_keyframe_value", (PyCFunction)PyChannel_set_keyframe_value, METH_VARARGS,
-     "Change the value of an existing keyframe"},
     {"remove_keyframe", (PyCFunction)PyChannel_remove_keyframe, METH_VARARGS,
      "Remove a keyframe at the specified time"},
     {"get_keyframe", (PyCFunction)PyChannel_get_keyframe, METH_VARARGS,
@@ -365,17 +243,9 @@ PyTypeObject PyChannelType = {
     PyChannel_new,             // tp_new
 };
 
-// Type initializer
-static int PyChannel_Initialize() {
-    if (PyType_Ready(&PyChannelType) < 0) {
-        return -1;
-    }
-    return 0;
-}
-
 // Type getter for external use
 [[maybe_unused]] PyObject* get_channel_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
-    if (PyChannel_Initialize() < 0) { // Ensure type is ready
+    if (PyType_Ready(&PyChannelType) < 0) { // Ensure type is ready
         return NULL;
     }
     Py_INCREF(&PyChannelType);
