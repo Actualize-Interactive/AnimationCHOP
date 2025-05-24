@@ -1,8 +1,7 @@
 #pragma once
 
 #include <anim/bezier_utils.hpp>
-#include <anim/point2d.hpp>
-#include "py_point.h"
+#include "py_bezier_handle.h"
 
 #ifdef _WIN32
     #include <Python.h>
@@ -25,54 +24,21 @@ static PyObject* py_evaluate_cubic_bezier(PyObject* self, PyObject* args) {
     if (!PyArg_ParseTuple(args, "OOOOd", &p0_obj, &p1_obj, &p2_obj, &p3_obj, &t))
         return NULL;
     
-    // Extract Point2D objects
-    anim::Point2D p0, p1, p2, p3;
+    // Extract BezierHandle objects directly
+    anim::BezierHandle p0, p1, p2, p3;
     
-    // Helper function to extract a Point2D from a Python object
-    auto extract_point = [](PyObject* obj, anim::Point2D& point) -> bool {
-        if (!PyObject_HasAttrString(obj, "time") || !PyObject_HasAttrString(obj, "value")) {
-            PyErr_SetString(PyExc_TypeError, "Expected Point2D object");
-            return false;
-        }
-        
-        PyObject* py_time = PyObject_GetAttrString(obj, "time");
-        PyObject* py_value = PyObject_GetAttrString(obj, "value");
-        
-        if (!PyFloat_Check(py_time) || !PyFloat_Check(py_value)) {
-            Py_XDECREF(py_time);
-            Py_XDECREF(py_value);
-            PyErr_SetString(PyExc_TypeError, "Point2D attributes must be floats");
-            return false;
-        }
-        
-        point.time = PyFloat_AsDouble(py_time);
-        point.value = PyFloat_AsDouble(py_value);
-        
-        Py_DECREF(py_time);
-        Py_DECREF(py_value);
-        return true;
-    };
-    
-    if (!extract_point(p0_obj, p0) || !extract_point(p1_obj, p1) || 
-        !extract_point(p2_obj, p2) || !extract_point(p3_obj, p3)) {
+    if (!PyObjectToBezierHandle(p0_obj, p0) || !PyObjectToBezierHandle(p1_obj, p1) || 
+        !PyObjectToBezierHandle(p2_obj, p2) || !PyObjectToBezierHandle(p3_obj, p3)) {
         return NULL;
     }
     
     try {
-        anim::Point2D result = anim::bezier_utils::evaluate_cubic_bezier(p0, p1, p2, p3, t);
-          // Create a Point2D object directly
-        PyPoint2D* py_point = PyObject_New(PyPoint2D, &PyPoint2DType);
-        if (py_point == NULL) {
-            return NULL;
-        }
-        
-        py_point->point = result;
-        return (PyObject*)py_point;
+        anim::BezierHandle result = anim::bezier_utils::evaluate_cubic_bezier(p0, p1, p2, p3, t);
+        return BezierHandleToPyObject(result);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    return NULL;
 }
 
 // Function to find the parameter t that corresponds to a specific time value
@@ -95,36 +61,11 @@ static PyObject* py_find_parameter_for_time(PyObject* self, PyObject* args, PyOb
                                    &target_time, &precision, &max_iterations))
         return NULL;
     
-    // Extract Point2D objects
-    anim::Point2D p0, p1, p2, p3;
+    // Extract BezierHandle objects directly
+    anim::BezierHandle p0, p1, p2, p3;
     
-    // Helper function to extract a Point2D from a Python object
-    auto extract_point = [](PyObject* obj, anim::Point2D& point) -> bool {
-        if (!PyObject_HasAttrString(obj, "time") || !PyObject_HasAttrString(obj, "value")) {
-            PyErr_SetString(PyExc_TypeError, "Expected Point2D object");
-            return false;
-        }
-        
-        PyObject* py_time = PyObject_GetAttrString(obj, "time");
-        PyObject* py_value = PyObject_GetAttrString(obj, "value");
-        
-        if (!PyFloat_Check(py_time) || !PyFloat_Check(py_value)) {
-            Py_XDECREF(py_time);
-            Py_XDECREF(py_value);
-            PyErr_SetString(PyExc_TypeError, "Point2D attributes must be floats");
-            return false;
-        }
-        
-        point.time = PyFloat_AsDouble(py_time);
-        point.value = PyFloat_AsDouble(py_value);
-        
-        Py_DECREF(py_time);
-        Py_DECREF(py_value);
-        return true;
-    };
-    
-    if (!extract_point(p0_obj, p0) || !extract_point(p1_obj, p1) || 
-        !extract_point(p2_obj, p2) || !extract_point(p3_obj, p3)) {
+    if (!PyObjectToBezierHandle(p0_obj, p0) || !PyObjectToBezierHandle(p1_obj, p1) || 
+        !PyObjectToBezierHandle(p2_obj, p2) || !PyObjectToBezierHandle(p3_obj, p3)) {
         return NULL;
     }
     
@@ -147,58 +88,31 @@ static PyObject* py_create_linear_bezier_handles(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "OO", &p0_obj, &p3_obj))
         return NULL;
     
-    // Extract Point2D objects
-    anim::Point2D p0, p3;
+    // Extract BezierHandle objects directly
+    anim::BezierHandle p0, p3;
     
-    // Helper function to extract a Point2D from a Python object
-    auto extract_point = [](PyObject* obj, anim::Point2D& point) -> bool {
-        if (!PyObject_HasAttrString(obj, "time") || !PyObject_HasAttrString(obj, "value")) {
-            PyErr_SetString(PyExc_TypeError, "Expected Point2D object");
-            return false;
-        }
-        
-        PyObject* py_time = PyObject_GetAttrString(obj, "time");
-        PyObject* py_value = PyObject_GetAttrString(obj, "value");
-        
-        if (!PyFloat_Check(py_time) || !PyFloat_Check(py_value)) {
-            Py_XDECREF(py_time);
-            Py_XDECREF(py_value);
-            PyErr_SetString(PyExc_TypeError, "Point2D attributes must be floats");
-            return false;
-        }
-        
-        point.time = PyFloat_AsDouble(py_time);
-        point.value = PyFloat_AsDouble(py_value);
-        
-        Py_DECREF(py_time);
-        Py_DECREF(py_value);
-        return true;
-    };
-    
-    if (!extract_point(p0_obj, p0) || !extract_point(p3_obj, p3)) {
+    if (!PyObjectToBezierHandle(p0_obj, p0) || !PyObjectToBezierHandle(p3_obj, p3)) {
         return NULL;
     }
     
     try {
-        anim::Point2D p1, p2;
+        anim::BezierHandle p1, p2;
         anim::bezier_utils::create_linear_bezier_handles(p0, p3, p1, p2);
-          // Create Point2D objects directly
-        PyPoint2D* p1_point = PyObject_New(PyPoint2D, &PyPoint2DType);
-        if (p1_point == NULL) {
+        
+        PyObject* p1_py = BezierHandleToPyObject(p1);
+        if (p1_py == NULL) {
             return NULL;
         }
-        p1_point->point = p1;
         
-        PyPoint2D* p2_point = PyObject_New(PyPoint2D, &PyPoint2DType);
-        if (p2_point == NULL) {
-            Py_DECREF(p1_point);
+        PyObject* p2_py = BezierHandleToPyObject(p2);
+        if (p2_py == NULL) {
+            Py_DECREF(p1_py);
             return NULL;
         }
-        p2_point->point = p2;
         
-        PyObject* result_tuple = PyTuple_Pack(2, p1_point, p2_point);
-        Py_DECREF(p1_point);
-        Py_DECREF(p2_point);
+        PyObject* result_tuple = PyTuple_Pack(2, p1_py, p2_py);
+        Py_DECREF(p1_py);
+        Py_DECREF(p2_py);
         
         return result_tuple;
     } catch (const std::exception& e) {
@@ -210,63 +124,37 @@ static PyObject* py_create_linear_bezier_handles(PyObject* self, PyObject* args)
 // Function to create flat tangent handles for a keyframe
 static PyObject* py_create_flat_bezier_handles(PyObject* self, PyObject* args) {
     PyObject* keyframe_point_obj = NULL;
-    double time_offset = 0.1;
+    double time_offset = 0.1; // Default value, can be overridden
     
+    // Allow time_offset to be optional
     if (!PyArg_ParseTuple(args, "O|d", &keyframe_point_obj, &time_offset))
         return NULL;
     
-    // Extract Point2D object
-    anim::Point2D keyframe_point;
+    // Extract BezierHandle object directly
+    anim::BezierHandle keyframe_point;
     
-    // Helper function to extract a Point2D from a Python object
-    auto extract_point = [](PyObject* obj, anim::Point2D& point) -> bool {
-        if (!PyObject_HasAttrString(obj, "time") || !PyObject_HasAttrString(obj, "value")) {
-            PyErr_SetString(PyExc_TypeError, "Expected Point2D object");
-            return false;
-        }
-        
-        PyObject* py_time = PyObject_GetAttrString(obj, "time");
-        PyObject* py_value = PyObject_GetAttrString(obj, "value");
-        
-        if (!PyFloat_Check(py_time) || !PyFloat_Check(py_value)) {
-            Py_XDECREF(py_time);
-            Py_XDECREF(py_value);
-            PyErr_SetString(PyExc_TypeError, "Point2D attributes must be floats");
-            return false;
-        }
-        
-        point.time = PyFloat_AsDouble(py_time);
-        point.value = PyFloat_AsDouble(py_value);
-        
-        Py_DECREF(py_time);
-        Py_DECREF(py_value);
-        return true;
-    };
-    
-    if (!extract_point(keyframe_point_obj, keyframe_point)) {
+    if (!PyObjectToBezierHandle(keyframe_point_obj, keyframe_point)) {
         return NULL;
     }
     
     try {
-        anim::Point2D in_handle, out_handle;
+        anim::BezierHandle in_handle, out_handle;
         anim::bezier_utils::create_flat_bezier_handles(keyframe_point, time_offset, in_handle, out_handle);
-          // Create Point2D objects directly
-        PyPoint2D* in_handle_point = PyObject_New(PyPoint2D, &PyPoint2DType);
-        if (in_handle_point == NULL) {
+
+        PyObject* in_handle_py = BezierHandleToPyObject(in_handle);
+        if (in_handle_py == NULL) {
             return NULL;
         }
-        in_handle_point->point = in_handle;
         
-        PyPoint2D* out_handle_point = PyObject_New(PyPoint2D, &PyPoint2DType);
-        if (out_handle_point == NULL) {
-            Py_DECREF(in_handle_point);
+        PyObject* out_handle_py = BezierHandleToPyObject(out_handle);
+        if (out_handle_py == NULL) {
+            Py_DECREF(in_handle_py);
             return NULL;
         }
-        out_handle_point->point = out_handle;
         
-        PyObject* result_tuple = PyTuple_Pack(2, in_handle_point, out_handle_point);
-        Py_DECREF(in_handle_point);
-        Py_DECREF(out_handle_point);
+        PyObject* result_tuple = PyTuple_Pack(2, in_handle_py, out_handle_py);
+        Py_DECREF(in_handle_py);
+        Py_DECREF(out_handle_py);
         
         return result_tuple;
     } catch (const std::exception& e) {

@@ -36,27 +36,20 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
     anim::BezierHandle in_tangent(time - 1.0, value);
     anim::BezierHandle out_tangent(time + 1.0, value);
     anim::TangentMode mode = anim::TangentMode::linear;
-    
-    // Parse in_tangent if provided
+      // Parse in_tangent if provided
     if (in_tangent_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(in_tangent_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
+        if (!PyObjectToBezierHandle(in_tangent_obj, in_tangent)) {
+            // PyObjectToBezierHandle already sets the error
             return -1;
         }
-        in_tangent.time = temp_point.time;
-        in_tangent.value = temp_point.value;
     }
     
     // Parse out_tangent if provided
     if (out_tangent_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(out_tangent_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
+        if (!PyObjectToBezierHandle(out_tangent_obj, out_tangent)) {
+            // PyObjectToBezierHandle already sets the error
             return -1;
         }
-        out_tangent.time = temp_point.time;
-        out_tangent.value = temp_point.value;
     }
     
     // Parse mode if provided
@@ -113,39 +106,35 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unuse
 }
 
 static PyObject* PyKeyframe_get_in_tangent(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& in_tangent_handle = self->keyframe.in_tangent();
-    anim::Point2D point(in_tangent_handle.time, in_tangent_handle.value);
-    return Point2DToPyObject(point);
+    const anim::BezierHandle& in_handle = self->keyframe.in_handle();
+    return BezierHandleToPyObject(in_handle);
 }
 
 static int PyKeyframe_set_in_tangent(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
-    anim::Point2D point;
-    if (!PyObjectToPoint2D(value, point)) {
-        // PyObjectToPoint2D already sets the error
+    anim::BezierHandle handle;
+    if (!PyObjectToBezierHandle(value, handle)) {
+        // PyObjectToBezierHandle already sets the error
         return -1;
     }
     
-    anim::BezierHandle handle(point.time, point.value);
-    self->keyframe.set_in_tangent(handle);
+    self->keyframe.set_in_handle(handle);
     
     return 0;
 }
 
 static PyObject* PyKeyframe_get_out_tangent(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& out_tangent_handle = self->keyframe.out_tangent();
-    anim::Point2D point(out_tangent_handle.time, out_tangent_handle.value);
-    return Point2DToPyObject(point);
+    const anim::BezierHandle& out_handle = self->keyframe.out_handle();
+    return BezierHandleToPyObject(out_handle);
 }
 
 static int PyKeyframe_set_out_tangent(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
-    anim::Point2D point;
-    if (!PyObjectToPoint2D(value, point)) {
-        // PyObjectToPoint2D already sets the error
+    anim::BezierHandle handle;
+    if (!PyObjectToBezierHandle(value, handle)) {
+        // PyObjectToBezierHandle already sets the error
         return -1;
     }
     
-    anim::BezierHandle handle(point.time, point.value);
-    self->keyframe.set_out_tangent(handle);
+    self->keyframe.set_out_handle(handle);
     
     return 0;
 }

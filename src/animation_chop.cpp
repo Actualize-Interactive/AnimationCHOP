@@ -56,7 +56,7 @@ static PyMethodDef methods[] =
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
 {
-    {"Point2D", get_point2d_type, nullptr, "Point2D type for representing time-value pairs.", nullptr},
+    {"BezierHandle", get_bezier_handle_type, nullptr, "BezierHandle type for representing time-value pairs.", nullptr},
     {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe tangent behavior.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},
@@ -383,10 +383,9 @@ AnimationCHOP::setKeyframeAtTime(const std::string& channelName, double time, do
     auto* channel = m_animation.get_channel(channelName);
     if (!channel) {
         return false;
-    }
-    channel->set_keyframe_at_time(time, value, 
-		anim::Point2D(in_tangent_time, in_tangent_value), 
-		anim::Point2D(out_tangent_time, out_tangent_value), 
+    }    channel->set_keyframe_at_time(time, value, 
+		anim::BezierHandle(in_tangent_time, in_tangent_value), 
+		anim::BezierHandle(out_tangent_time, out_tangent_value), 
 		mode);
     return true;
 }
@@ -599,11 +598,10 @@ pySetKeyframe(PyObject* self, PyObject* args)
 		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
 		return nullptr;
 	}
-	try {
-		auto& keyframe = channel->get_keyframe(index);
+	try {		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::Point2D(in_tangent_time, in_tangent_value));
-		keyframe.set_out_tangent(anim::Point2D(out_tangent_time, out_tangent_value));
+		keyframe.set_in_handle(anim::BezierHandle(in_tangent_time, in_tangent_value));
+		keyframe.set_out_handle(anim::BezierHandle(out_tangent_time, out_tangent_value));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 	}
 	catch (const std::exception& e) {
@@ -916,11 +914,10 @@ pySetKeyframes(PyObject* self, PyObject* args)
 		if (outTangentValueObj) {
 			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
 		}
-
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::Point2D(inTangentTime, inTangentValue));
-		keyframe.set_out_tangent(anim::Point2D(outTangentTime, outTangentValue));
+		keyframe.set_in_handle(anim::BezierHandle(inTangentTime, inTangentValue));
+		keyframe.set_out_handle(anim::BezierHandle(outTangentTime, outTangentValue));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 		
 	}
@@ -1013,12 +1010,11 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 		if (outTangentValueObj) {
 			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
 		}
-
 		channel->set_keyframe_at_time(
 			time, 
 			value, 
-			anim::Point2D(inTangentTime, inTangentValue), 
-			anim::Point2D(outTangentTime, outTangentValue), 
+			anim::BezierHandle(inTangentTime, inTangentValue), 
+			anim::BezierHandle(outTangentTime, outTangentValue), 
 			mode);
 	}
 
