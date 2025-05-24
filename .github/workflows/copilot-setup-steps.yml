@@ -28,7 +28,7 @@ jobs:
         app-id: ${{ vars.AUTH_PULL_REPO_ID }}
         private-key: ${{ secrets.AUTH_PULL_REPO_SECRET }}
         owner: Actualize-Interactive
-        repositories: anim
+        repositories: anim, AnimationCHOP
 
     - name: Checkout code
       uses: actions/checkout@v4
