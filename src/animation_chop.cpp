@@ -377,16 +377,16 @@ AnimationCHOP::removeChannels(const std::vector<std::string>& channelNames)
 // Keyframe management methods
 bool 
 AnimationCHOP::setKeyframeAtTime(const std::string& channelName, double time, double value, 
-                         anim::TangentMode mode, double in_tangent_time, double in_tangent_value,
-                         double out_tangent_time, double out_tangent_value) 
+                         anim::TangentMode mode, double in_handle_time, double in_handle_value,
+                         double out_handle_time, double out_handle_value) 
 {
     auto* channel = m_animation.get_channel(channelName);
     if (!channel) {
         return false;
     }
     channel->set_keyframe_at_time(time, value, 
-		anim::Point2D(in_tangent_time, in_tangent_value), 
-		anim::Point2D(out_tangent_time, out_tangent_value), 
+		anim::BezierHandle(in_handle_time, in_handle_value), 
+		anim::BezierHandle(out_handle_time, out_handle_value), 
 		mode);
     return true;
 }
@@ -572,14 +572,14 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	size_t index;
     double value;
     int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
-    double in_tangent_time = 0.0;
-    double in_tangent_value = 0.0;
-    double out_tangent_time = 0.0;
-    double out_tangent_value = 0.0;
+    double in_handle_time = 0.0;
+    double in_handle_value = 0.0;
+    double out_handle_time = 0.0;
+    double out_handle_value = 0.0;
 
-	// Parse the arguments: channel name, index, time, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
+	// Parse the arguments: channel name, index, time, value, [mode, in_handle_time, in_handle_value, out_handle_time, out_handle_value]
 	if (!PyArg_ParseTuple(args, "sid|idddd", &name, &index, &value, &mode, 
-		&in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value)) {
+		&in_handle_time, &in_handle_value, &out_handle_time, &out_handle_value)) {
 		return nullptr;
 	}
 
@@ -602,8 +602,8 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	try {
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::Point2D(in_tangent_time, in_tangent_value));
-		keyframe.set_out_tangent(anim::Point2D(out_tangent_time, out_tangent_value));
+		keyframe.set_in_tangent(anim::BezierHandle(in_handle_time, in_handle_value));
+		keyframe.set_out_tangent(anim::BezierHandle(out_handle_time, out_handle_value));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 	}
 	catch (const std::exception& e) {
@@ -621,14 +621,14 @@ pySetKeyframeAtTime(PyObject* self, PyObject* args)
     const char* name;
     double time, value;
     int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
-    double in_tangent_time = 0.0;
-    double in_tangent_value = 0.0;
-    double out_tangent_time = 0.0;
-    double out_tangent_value = 0.0;
+    double in_handle_time = 0.0;
+    double in_handle_value = 0.0;
+    double out_handle_time = 0.0;
+    double out_handle_value = 0.0;
     
-    // Parse the arguments: channel name, time, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
+    // Parse the arguments: channel name, time, value, [mode, in_handle_time, in_handle_value, out_handle_time, out_handle_value]
     if (!PyArg_ParseTuple(args, "sdd|idddd", &name, &time, &value, &mode, 
-                         &in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value)) {
+                         &in_handle_time, &in_handle_value, &out_handle_time, &out_handle_value)) {
         return nullptr;
     }
     
@@ -641,8 +641,8 @@ pySetKeyframeAtTime(PyObject* self, PyObject* args)
     
     bool success = inst->setKeyframeAtTime(name, time, value, 
                                    static_cast<anim::TangentMode>(mode),
-                                   in_tangent_time, in_tangent_value, 
-                                   out_tangent_time, out_tangent_value);
+                                   in_handle_time, in_handle_value, 
+                                   out_handle_time, out_handle_value);
     me->context->makeNodeDirty();
     
     return PyBool_FromLong(success);
@@ -837,8 +837,8 @@ pySetKeyframes(PyObject* self, PyObject* args)
 	const char* name;
 	// a list of dicts 
 	// {'index': 0.0, 'value': 1.0, 'mode': 0, 
-	// 'in_tangent_time': 0.0, 'in_tangent_value': 0.0, 
-	// 'out_tangent_time': 0.0, 'out_tangent_value': 0.0}
+	// 'in_handle_time': 0.0, 'in_handle_value': 0.0, 
+	// 'out_handle_time': 0.0, 'out_handle_value': 0.0}
 	PyObject* indexKeyframeList; 
 
 	if (!PyArg_ParseTuple(args, "sO", &name, &indexKeyframeList)) {
@@ -888,10 +888,10 @@ pySetKeyframes(PyObject* self, PyObject* args)
 		auto value = PyFloat_AsDouble(valueObj);
 		anim::TangentMode mode = anim::TangentMode::smoothAuto;
 		PyObject* modeObj = PyDict_GetItemString(item, "mode");
-		PyObject* inTangentTimeObj = PyDict_GetItemString(item, "in_tangent_time");
-		PyObject* inTangentValueObj = PyDict_GetItemString(item, "in_tangent_value");
-		PyObject* outTangentTimeObj = PyDict_GetItemString(item, "out_tangent_time");
-		PyObject* outTangentValueObj = PyDict_GetItemString(item, "out_tangent_value");
+		PyObject* inHandleTimeObj = PyDict_GetItemString(item, "in_handle_time");
+		PyObject* inHandleValueObj = PyDict_GetItemString(item, "in_handle_value");
+		PyObject* outHandleTimeObj = PyDict_GetItemString(item, "out_handle_time");
+		PyObject* outHandleValueObj = PyDict_GetItemString(item, "out_handle_value");
 
 		if (modeObj) {
 			if (!PyLong_Check(modeObj)) {
@@ -900,27 +900,27 @@ pySetKeyframes(PyObject* self, PyObject* args)
 			}
 			mode = static_cast<anim::TangentMode>(PyLong_AsLong(modeObj));
 		}
-		double inTangentTime = 0.0;
-		if (inTangentTimeObj) {
-			inTangentTime = PyFloat_AsDouble(inTangentTimeObj);
+		double inHandleTime = 0.0;
+		if (inHandleTimeObj) {
+			inHandleTime = PyFloat_AsDouble(inHandleTimeObj);
 		}
-		double inTangentValue = 0.0;
-		if (inTangentValueObj) {
-			inTangentValue = PyFloat_AsDouble(inTangentValueObj);
+		double inHandleValue = 0.0;
+		if (inHandleValueObj) {
+			inHandleValue = PyFloat_AsDouble(inHandleValueObj);
 		}
-		double outTangentTime = 0.0;
-		if (outTangentTimeObj) {
-			outTangentTime = PyFloat_AsDouble(outTangentTimeObj);
+		double outHandleTime = 0.0;
+		if (outHandleTimeObj) {
+			outHandleTime = PyFloat_AsDouble(outHandleTimeObj);
 		}
-		double outTangentValue = 0.0;
-		if (outTangentValueObj) {
-			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
+		double outHandleValue = 0.0;
+		if (outHandleValueObj) {
+			outHandleValue = PyFloat_AsDouble(outHandleValueObj);
 		}
 
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::Point2D(inTangentTime, inTangentValue));
-		keyframe.set_out_tangent(anim::Point2D(outTangentTime, outTangentValue));
+		keyframe.set_in_tangent(anim::BezierHandle(inHandleTime, inHandleValue));
+		keyframe.set_out_tangent(anim::BezierHandle(outHandleTime, outHandleValue));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 		
 	}
@@ -938,8 +938,8 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 
 	// a list of dicts 
 	// {'time': 0.0, 'value': 1.0, 'mode': 0, 
-	// 'in_tangent_time': 0.0, 'in_tangent_value': 0.0, 
-	// 'out_tangent_time': 0.0, 'out_tangent_value': 0.0}
+	// 'in_handle_time': 0.0, 'in_handle_value': 0.0, 
+	// 'out_handle_time': 0.0, 'out_handle_value': 0.0}
 	PyObject* keyframeList; 
 
 	if (!PyArg_ParseTuple(args, "sO", &name, &keyframeList)) {
@@ -978,10 +978,10 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 		PyObject* timeObj = PyDict_GetItemString(item, "time");
 		PyObject* valueObj = PyDict_GetItemString(item, "value");
 		PyObject* modeObj = PyDict_GetItemString(item, "mode");
-		PyObject* inTangentTimeObj = PyDict_GetItemString(item, "in_tangent_time");
-		PyObject* inTangentValueObj = PyDict_GetItemString(item, "in_tangent_value");
-		PyObject* outTangentTimeObj = PyDict_GetItemString(item, "out_tangent_time");
-		PyObject* outTangentValueObj = PyDict_GetItemString(item, "out_tangent_value");
+		PyObject* inHandleTimeObj = PyDict_GetItemString(item, "in_handle_time");
+		PyObject* inHandleValueObj = PyDict_GetItemString(item, "in_handle_value");
+		PyObject* outHandleTimeObj = PyDict_GetItemString(item, "out_handle_time");
+		PyObject* outHandleValueObj = PyDict_GetItemString(item, "out_handle_value");
 		if (!timeObj || !valueObj)
 		{
 			PyErr_SetString(PyExc_TypeError, "Keyframe must have 'time' and 'value' keys");
@@ -997,28 +997,28 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 			}
 			mode = static_cast<anim::TangentMode>(PyLong_AsLong(modeObj));
 		}
-		double inTangentTime = 0.0;
-		if (inTangentTimeObj) {
-			inTangentTime = PyFloat_AsDouble(inTangentTimeObj);
+		double inHandleTime = 0.0;
+		if (inHandleTimeObj) {
+			inHandleTime = PyFloat_AsDouble(inHandleTimeObj);
 		}
-		double inTangentValue = 0.0;
-		if (inTangentValueObj) {
-			inTangentValue = PyFloat_AsDouble(inTangentValueObj);
+		double inHandleValue = 0.0;
+		if (inHandleValueObj) {
+			inHandleValue = PyFloat_AsDouble(inHandleValueObj);
 		}
-		double outTangentTime = 0.0;
-		if (outTangentTimeObj) {
-			outTangentTime = PyFloat_AsDouble(outTangentTimeObj);
+		double outHandleTime = 0.0;
+		if (outHandleTimeObj) {
+			outHandleTime = PyFloat_AsDouble(outHandleTimeObj);
 		}
-		double outTangentValue = 0.0;
-		if (outTangentValueObj) {
-			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
+		double outHandleValue = 0.0;
+		if (outHandleValueObj) {
+			outHandleValue = PyFloat_AsDouble(outHandleValueObj);
 		}
 
 		channel->set_keyframe_at_time(
 			time, 
 			value, 
-			anim::Point2D(inTangentTime, inTangentValue), 
-			anim::Point2D(outTangentTime, outTangentValue), 
+			anim::BezierHandle(inHandleTime, inHandleValue), 
+			anim::BezierHandle(outHandleTime, outHandleValue), 
 			mode);
 	}
 

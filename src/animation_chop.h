@@ -33,7 +33,7 @@ public:
 	void createChannels(const std::vector<std::string>& channelNames);
 	bool removeChannels(const std::vector<std::string>& channelNames);
 
-	bool setKeyframeAtTime(const std::string& channelName, double time, double value, anim::TangentMode mode, double in_tangent_time, double in_tangent_value, double out_tangent_time, double out_tangent_value);
+	bool setKeyframeAtTime(const std::string& channelName, double time, double value, anim::TangentMode mode, double in_handle_time, double in_handle_value, double out_handle_time, double out_handle_value);
 	bool removeKeyframeAtTime(const std::string& channelName, double time);
 	bool removeKeyframes(const std::string& channelName, const std::vector<double>& times);
 
