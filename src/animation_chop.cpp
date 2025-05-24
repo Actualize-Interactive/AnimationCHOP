@@ -26,8 +26,8 @@
 	#include <modsupport.h>
 
 #else
-	#include <python3.12/Python.h>
-	#include <python3.12/structmember.h>
+	#include <Python.h>
+	#include <structmember.h>
 #endif
 
 
