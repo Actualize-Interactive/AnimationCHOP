@@ -68,7 +68,7 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
             if (mode_val >= 0 && mode_val <= 5) { 
                 mode = static_cast<anim::TangentMode>(mode_val);
             } else {
-                PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
+                PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
                 return -1;
             }
         } else {
@@ -113,7 +113,7 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unuse
 }
 
 static PyObject* PyKeyframe_get_in_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& in_handle_handle = self->keyframe.in_tangent();
+    const anim::BezierHandle& in_handle_handle = self->keyframe.in_handle();
     anim::Point2D point(in_handle_handle.time, in_handle_handle.value);
     return Point2DToPyObject(point);
 }
@@ -126,13 +126,13 @@ static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, [[maybe_u
     }
     
     anim::BezierHandle handle(point.time, point.value);
-    self->keyframe.set_in_tangent(handle);
+    self->keyframe.set_in_handle(handle);
     
     return 0;
 }
 
 static PyObject* PyKeyframe_get_out_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& out_handle_handle = self->keyframe.out_tangent();
+    const anim::BezierHandle& out_handle_handle = self->keyframe.out_handle();
     anim::Point2D point(out_handle_handle.time, out_handle_handle.value);
     return Point2DToPyObject(point);
 }
@@ -145,7 +145,7 @@ static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, [[maybe_
     }
     
     anim::BezierHandle handle(point.time, point.value);
-    self->keyframe.set_out_tangent(handle);
+    self->keyframe.set_out_handle(handle);
     
     return 0;
 }
@@ -163,7 +163,7 @@ static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, [[maybe_unused
             self->keyframe.set_mode(static_cast<anim::TangentMode>(mode_val));
             return 0;
         } else {
-            PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
+            PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
             return -1;
         }
     } else {
@@ -178,7 +178,7 @@ static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, [[maybe_unused
                 self->keyframe.set_mode(static_cast<anim::TangentMode>(mode_val));
                 return 0;
             } else {
-                PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
+                PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
                 return -1;
             }
         } else {
@@ -195,7 +195,7 @@ static PyGetSetDef PyKeyframe_getset[] = {
     {"value", (getter)PyKeyframe_get_value, (setter)PyKeyframe_set_value, "Value of the keyframe", NULL},
     {"in_handle", (getter)PyKeyframe_get_in_handle, (setter)PyKeyframe_set_in_handle, "Incoming handle", NULL},
     {"out_handle", (getter)PyKeyframe_get_out_handle, (setter)PyKeyframe_set_out_handle, "Outgoing handle", NULL},
-    {"mode", (getter)PyKeyframe_get_mode, (setter)PyKeyframe_set_mode, "Tangent mode", NULL},
+    {"mode", (getter)PyKeyframe_get_mode, (setter)PyKeyframe_set_mode, "Handle mode", NULL},
     {NULL}  // Sentinel
 };
 

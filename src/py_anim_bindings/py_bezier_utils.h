@@ -210,7 +210,7 @@ static PyObject* py_create_linear_bezier_handles(PyObject* self, PyObject* args)
     }
 }
 
-// Function to create flat tangent handles for a keyframe
+// Function to create flat handle points for a keyframe
 static PyObject* py_create_flat_bezier_handles(PyObject* self, PyObject* args) {
     PyObject* keyframe_point_obj = NULL;
     double time_offset = 0.1;
@@ -288,6 +288,6 @@ static PyMethodDef py_bezier_utils_methods[] = {
     {"create_linear_bezier_handles", (PyCFunction)py_create_linear_bezier_handles, METH_VARARGS,
      "Create control points for a linear Bézier curve"},
     {"create_flat_bezier_handles", (PyCFunction)py_create_flat_bezier_handles, METH_VARARGS,
-     "Create flat tangent handles for a keyframe"},
+     "Create flat handle points for a keyframe"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };

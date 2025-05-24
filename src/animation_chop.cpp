@@ -39,7 +39,7 @@ static PyMethodDef methods[] =
 	{"get_channel_names", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
 
 	{"set_keyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel."},
-	{"set_keyframe_at_time", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
+	{"set_keyframe_at_time", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over handle points."},
 	{"get_keyframe", (PyCFunction)pyGetKeyframe, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
 	{"get_keyframe_at_time", (PyCFunction)pyGetKeyframeAtTime, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
 	{"has_keyframe", (PyCFunction)pyHasKeyframe, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
@@ -57,7 +57,7 @@ static PyMethodDef methods[] =
 static PyGetSetDef getSets[] =
 {
     {"Point2D", get_point2d_type, nullptr, "Point2D type for representing time-value pairs.", nullptr},
-    {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe tangent behavior.", nullptr},
+    {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe handle behavior.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},
     {"Animation", get_animation_type, nullptr, "Animation container for channels and keyframes.", nullptr},
@@ -602,8 +602,8 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	try {
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::BezierHandle(in_handle_time, in_handle_value));
-		keyframe.set_out_tangent(anim::BezierHandle(out_handle_time, out_handle_value));
+		keyframe.set_in_handle(anim::BezierHandle(in_handle_time, in_handle_value));
+		keyframe.set_out_handle(anim::BezierHandle(out_handle_time, out_handle_value));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 	}
 	catch (const std::exception& e) {
@@ -919,8 +919,8 @@ pySetKeyframes(PyObject* self, PyObject* args)
 
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_tangent(anim::BezierHandle(inHandleTime, inHandleValue));
-		keyframe.set_out_tangent(anim::BezierHandle(outHandleTime, outHandleValue));
+		keyframe.set_in_handle(anim::BezierHandle(inHandleTime, inHandleValue));
+		keyframe.set_out_handle(anim::BezierHandle(outHandleTime, outHandleValue));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 		
 	}
