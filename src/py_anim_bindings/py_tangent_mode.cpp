@@ -1,16 +1,15 @@
-#pragma once
-
+#include "py_tangent_mode.h"
 #include <anim/tangent_mode.hpp>
 
-#ifdef _WIN32
-    #include <Python.h>
-    #include <structmember.h>
-#else
-    #include <Python/Python.h>
-    #include <Python/structmember.h>
-#endif
+static PyObject* tangent_mode_enum_singleton = NULL;
 
 static PyObject* create_tangent_mode_enum() {
+    // If we already have a singleton instance, return that
+    if (tangent_mode_enum_singleton) {
+        Py_INCREF(tangent_mode_enum_singleton);
+        return tangent_mode_enum_singleton;
+    }
+    
     PyObject* enum_module = NULL;
     PyObject* int_enum_class = NULL;
     PyObject* members_dict = NULL;
@@ -25,19 +24,14 @@ static PyObject* create_tangent_mode_enum() {
 
     int_enum_class = PyObject_GetAttrString(enum_module, "IntEnum");
     if (!int_enum_class) {
-        Py_XDECREF(tangent_mode_enum_name);
-        Py_XDECREF(members_dict);
-        Py_XDECREF(int_enum_class);
-        Py_XDECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
+        Py_DECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
         return NULL; 
     }
 
     members_dict = PyDict_New();
     if (!members_dict) {
-        Py_XDECREF(tangent_mode_enum_name);
-        Py_XDECREF(members_dict);
-        Py_XDECREF(int_enum_class);
-        Py_XDECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
+        Py_DECREF(int_enum_class);
+        Py_DECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
         return NULL; 
     }
 
@@ -60,31 +54,29 @@ static PyObject* create_tangent_mode_enum() {
         !add_member("SMOOTH_MANUAL", anim::TangentMode::smoothManual) ||
         !add_member("SMOOTH_AUTO", anim::TangentMode::smoothAuto) ||
         !add_member("STEPPED", anim::TangentMode::stepped)) {
-        Py_XDECREF(tangent_mode_enum_name);
-        Py_XDECREF(members_dict);
-        Py_XDECREF(int_enum_class);
-        Py_XDECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
+        Py_DECREF(members_dict);
+        Py_DECREF(int_enum_class);
+        Py_DECREF(enum_module); 
         return NULL; 
     }
 
     tangent_mode_enum_name = PyUnicode_FromString("TangentMode");
     if (!tangent_mode_enum_name) {
-        Py_XDECREF(tangent_mode_enum_name);
-        Py_XDECREF(members_dict);
-        Py_XDECREF(int_enum_class);
-        Py_XDECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
+        Py_DECREF(members_dict);
+        Py_DECREF(int_enum_class);
+        Py_DECREF(enum_module);
         return NULL; 
     }
 
     // Create the IntEnum type: IntEnum("TangentMode", {"LINEAR": 0, ...})
     tangent_mode_enum_type = PyObject_CallFunctionObjArgs(int_enum_class, tangent_mode_enum_name, members_dict, NULL);
     if (!tangent_mode_enum_type) {
-        Py_XDECREF(tangent_mode_enum_name);
-        Py_XDECREF(members_dict);
-        Py_XDECREF(int_enum_class);
-        Py_XDECREF(enum_module); // enum_module is guaranteed non-NULL if int_enum_class was attempted
+        Py_DECREF(tangent_mode_enum_name);
+        Py_DECREF(members_dict);
+        Py_DECREF(int_enum_class);
+        Py_DECREF(enum_module);
         return NULL; 
-    }
+    }    
 
     // Success path: Clean up intermediate objects
     Py_DECREF(tangent_mode_enum_name);
@@ -92,5 +84,12 @@ static PyObject* create_tangent_mode_enum() {
     Py_DECREF(int_enum_class);
     Py_DECREF(enum_module);
     
+    // Store the created enum as our singleton
+    tangent_mode_enum_singleton = tangent_mode_enum_type;
     return tangent_mode_enum_type; // Return new reference to the created enum type
+}
+
+// Getter function for the TangentMode enum
+PyObject* get_tangent_mode_enum([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+    return create_tangent_mode_enum();
 }

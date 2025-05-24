@@ -1,14 +1,20 @@
 cmake_minimum_required(VERSION 3.14)
 project(AnimationCHOP VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Define the sources for our CHOP
-set(SOURCES
-    src/animation_chop.cpp
+# recursively get all .cpp files in the src directory
+file(GLOB_RECURSE SOURCES
+    src/*.cpp
 )
+set(VERBOSE_STATUS OFF CACHE BOOL "Verbose status messages" FORCE)
+if(VERBOSE_STATUS)
+    foreach(SOURCE ${SOURCES})
+        message(STATUS "Found source file: ${SOURCE}")
+    endforeach()
+endif()
 
 # Explicitly disable anim tests and examples when building as submodule
 set(ANIM_BUILD_TESTS OFF CACHE BOOL "Build anim tests" FORCE)
