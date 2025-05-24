@@ -1,13 +1,13 @@
 #pragma once
 
-#include <anim/point2d.hpp>
+#include "point2d.hpp"
 
 #ifdef _WIN32
 	#include <Python.h>
 	#include <structmember.h>
 #else
-	#include <Python/Python.h>
-	#include <Python/structmember.h>
+	#include <python3.12/Python.h>
+	#include <python3.12/structmember.h>
 #endif
 
 typedef struct {

@@ -26,8 +26,8 @@
 	#include <modsupport.h>
 
 #else
-	#include <Python/Python.h>
-	#include <Python/structmember.h>
+	#include <python3.12/Python.h>
+	#include <python3.12/structmember.h>
 #endif
 
 
@@ -603,8 +603,8 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	try {
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_handle(anim::BezierHandle(in_handle_time, in_handle_value));
-		keyframe.set_out_handle(anim::BezierHandle(out_handle_time, out_handle_value));
+		keyframe.set_in_tangent(anim::BezierHandle(in_handle_time, in_handle_value));
+		keyframe.set_out_tangent(anim::BezierHandle(out_handle_time, out_handle_value));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 	}
 	catch (const std::exception& e) {
@@ -920,8 +920,8 @@ pySetKeyframes(PyObject* self, PyObject* args)
 
 		auto& keyframe = channel->get_keyframe(index);
 		keyframe.set_value(value);
-		keyframe.set_in_handle(anim::BezierHandle(inHandleTime, inHandleValue));
-		keyframe.set_out_handle(anim::BezierHandle(outHandleTime, outHandleValue));
+		keyframe.set_in_tangent(anim::BezierHandle(inHandleTime, inHandleValue));
+		keyframe.set_out_tangent(anim::BezierHandle(outHandleTime, outHandleValue));
 		keyframe.set_mode(static_cast<anim::TangentMode>(mode));
 		
 	}

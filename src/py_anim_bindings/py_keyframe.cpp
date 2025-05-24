@@ -119,7 +119,7 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unuse
 }
 
 static PyObject* PyKeyframe_get_in_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& in_handle = self->keyframe.in_handle();
+    const anim::BezierHandle& in_handle = self->keyframe.in_tangent();
     return BezierHandleToPyObject(in_handle);
 }
 
@@ -137,12 +137,12 @@ static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, [[maybe_u
         handle.value = point.value;
     }
     
-    self->keyframe.set_in_handle(handle);
+    self->keyframe.set_in_tangent(handle);
     return 0;
 }
 
 static PyObject* PyKeyframe_get_out_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& out_handle = self->keyframe.out_handle();
+    const anim::BezierHandle& out_handle = self->keyframe.out_tangent();
     return BezierHandleToPyObject(out_handle);
 }
 
@@ -160,7 +160,7 @@ static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, [[maybe_
         handle.value = point.value;
     }
     
-    self->keyframe.set_out_handle(handle);
+    self->keyframe.set_out_tangent(handle);
     return 0;
 }
 
