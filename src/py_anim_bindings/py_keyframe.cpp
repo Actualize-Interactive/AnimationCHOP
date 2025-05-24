@@ -39,24 +39,30 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
     
     // Parse in_handle if provided
     if (in_handle_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(in_handle_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
-            return -1;
+        if (!PyObjectToBezierHandle(in_handle_obj, in_handle)) {
+            // If direct conversion fails, try Point2D for backward compatibility
+            anim::Point2D temp_point;
+            if (!PyObjectToPoint2D(in_handle_obj, temp_point)) {
+                PyErr_SetString(PyExc_TypeError, "Expected a BezierHandle or Point2D object for in_handle");
+                return -1;
+            }
+            in_handle.time = temp_point.time;
+            in_handle.value = temp_point.value;
         }
-        in_handle.time = temp_point.time;
-        in_handle.value = temp_point.value;
     }
     
     // Parse out_handle if provided
     if (out_handle_obj) {
-        anim::Point2D temp_point;
-        if (!PyObjectToPoint2D(out_handle_obj, temp_point)) {
-            // PyObjectToPoint2D already sets the error
-            return -1;
+        if (!PyObjectToBezierHandle(out_handle_obj, out_handle)) {
+            // If direct conversion fails, try Point2D for backward compatibility
+            anim::Point2D temp_point;
+            if (!PyObjectToPoint2D(out_handle_obj, temp_point)) {
+                PyErr_SetString(PyExc_TypeError, "Expected a BezierHandle or Point2D object for out_handle");
+                return -1;
+            }
+            out_handle.time = temp_point.time;
+            out_handle.value = temp_point.value;
         }
-        out_handle.time = temp_point.time;
-        out_handle.value = temp_point.value;
     }
     
     // Parse mode if provided
@@ -113,40 +119,48 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unuse
 }
 
 static PyObject* PyKeyframe_get_in_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& in_handle_handle = self->keyframe.in_handle();
-    anim::Point2D point(in_handle_handle.time, in_handle_handle.value);
-    return Point2DToPyObject(point);
+    const anim::BezierHandle& in_handle = self->keyframe.in_handle();
+    return BezierHandleToPyObject(in_handle);
 }
 
 static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
-    anim::Point2D point;
-    if (!PyObjectToPoint2D(value, point)) {
-        // PyObjectToPoint2D already sets the error
-        return -1;
+    anim::BezierHandle handle;
+    if (!PyObjectToBezierHandle(value, handle)) {
+        // First try as BezierHandle, if that fails, try as Point2D for backward compatibility
+        anim::Point2D point;
+        if (!PyObjectToPoint2D(value, point)) {
+            // Both conversions failed
+            PyErr_SetString(PyExc_TypeError, "Expected a BezierHandle or Point2D object");
+            return -1;
+        }
+        handle.time = point.time;
+        handle.value = point.value;
     }
     
-    anim::BezierHandle handle(point.time, point.value);
     self->keyframe.set_in_handle(handle);
-    
     return 0;
 }
 
 static PyObject* PyKeyframe_get_out_handle(PyKeyframe *self, [[maybe_unused]] void *closure) {
-    const anim::BezierHandle& out_handle_handle = self->keyframe.out_handle();
-    anim::Point2D point(out_handle_handle.time, out_handle_handle.value);
-    return Point2DToPyObject(point);
+    const anim::BezierHandle& out_handle = self->keyframe.out_handle();
+    return BezierHandleToPyObject(out_handle);
 }
 
 static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
-    anim::Point2D point;
-    if (!PyObjectToPoint2D(value, point)) {
-        // PyObjectToPoint2D already sets the error
-        return -1;
+    anim::BezierHandle handle;
+    if (!PyObjectToBezierHandle(value, handle)) {
+        // First try as BezierHandle, if that fails, try as Point2D for backward compatibility
+        anim::Point2D point;
+        if (!PyObjectToPoint2D(value, point)) {
+            // Both conversions failed
+            PyErr_SetString(PyExc_TypeError, "Expected a BezierHandle or Point2D object");
+            return -1;
+        }
+        handle.time = point.time;
+        handle.value = point.value;
     }
     
-    anim::BezierHandle handle(point.time, point.value);
     self->keyframe.set_out_handle(handle);
-    
     return 0;
 }
 

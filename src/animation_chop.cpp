@@ -57,6 +57,7 @@ static PyMethodDef methods[] =
 static PyGetSetDef getSets[] =
 {
     {"Point2D", get_point2d_type, nullptr, "Point2D type for representing time-value pairs.", nullptr},
+    {"BezierHandle", get_bezier_handle_type, nullptr, "BezierHandle type for representing handle control points.", nullptr},
     {"TangentMode", get_tangent_mode_enum, nullptr, "TangentMode enum for keyframe handle behavior.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},

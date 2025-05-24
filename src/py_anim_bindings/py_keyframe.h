@@ -3,6 +3,7 @@
 #include <anim/keyframe.hpp>
 #include <anim/tangent_mode.hpp>
 #include "py_point.h"
+#include "py_bezier_handle.h"
 
 #ifdef _WIN32
     #include <Python.h>
