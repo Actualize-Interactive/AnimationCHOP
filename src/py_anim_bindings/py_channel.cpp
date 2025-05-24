@@ -1,6 +1,5 @@
 #include "py_channel.h"
 #include "py_keyframe.h" // For KeyframeToPyKeyframe, PyKeyframeType
-#include "py_point.h"    // For PyObjectToPoint2D
 #include <vector>
 #include <optional>
 
