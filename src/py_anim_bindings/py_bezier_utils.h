@@ -2,6 +2,7 @@
 
 #include <anim/bezier_utils.hpp>
 #include <anim/point2d.hpp>
+#include <anim/bezier_handle.hpp>
 #include "py_point.h"
 
 #ifdef _WIN32
@@ -180,21 +181,23 @@ static PyObject* py_create_linear_bezier_handles(PyObject* self, PyObject* args)
     }
     
     try {
-        anim::Point2D p1, p2;
+        anim::BezierHandle p1, p2;
         anim::bezier_utils::create_linear_bezier_handles(p0, p3, p1, p2);
           // Create Point2D objects directly
         PyPoint2D* p1_point = PyObject_New(PyPoint2D, &PyPoint2DType);
         if (p1_point == NULL) {
             return NULL;
         }
-        p1_point->point = p1;
+        p1_point->point.time = p1.time;
+        p1_point->point.value = p1.value;
         
         PyPoint2D* p2_point = PyObject_New(PyPoint2D, &PyPoint2DType);
         if (p2_point == NULL) {
             Py_DECREF(p1_point);
             return NULL;
         }
-        p2_point->point = p2;
+        p2_point->point.time = p2.time;
+        p2_point->point.value = p2.value;
         
         PyObject* result_tuple = PyTuple_Pack(2, p1_point, p2_point);
         Py_DECREF(p1_point);
@@ -248,21 +251,23 @@ static PyObject* py_create_flat_bezier_handles(PyObject* self, PyObject* args) {
     }
     
     try {
-        anim::Point2D in_handle, out_handle;
+        anim::BezierHandle in_handle, out_handle;
         anim::bezier_utils::create_flat_bezier_handles(keyframe_point, time_offset, in_handle, out_handle);
-          // Create Point2D objects directly
+        // Create Point2D objects for Python compatibility
         PyPoint2D* in_handle_point = PyObject_New(PyPoint2D, &PyPoint2DType);
         if (in_handle_point == NULL) {
             return NULL;
         }
-        in_handle_point->point = in_handle;
+        in_handle_point->point.time = in_handle.time;
+        in_handle_point->point.value = in_handle.value;
         
         PyPoint2D* out_handle_point = PyObject_New(PyPoint2D, &PyPoint2DType);
         if (out_handle_point == NULL) {
             Py_DECREF(in_handle_point);
             return NULL;
         }
-        out_handle_point->point = out_handle;
+        out_handle_point->point.time = out_handle.time;
+        out_handle_point->point.value = out_handle.value;
         
         PyObject* result_tuple = PyTuple_Pack(2, in_handle_point, out_handle_point);
         Py_DECREF(in_handle_point);
