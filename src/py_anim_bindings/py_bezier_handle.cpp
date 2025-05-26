@@ -3,7 +3,7 @@
 #include <format>
 
 // Allocation/deallocation functions
-static PyObject* PyBezierHandle_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
+static PyObject* PyBezierHandle_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyBezierHandle *self = (PyBezierHandle *)type->tp_alloc(type, 0);
     if (self != NULL) {
         // Initialize with default values
@@ -29,11 +29,11 @@ static int PyBezierHandle_init(PyBezierHandle *self, PyObject *args, PyObject *k
     return 0;
 }
 
-static PyObject* PyBezierHandle_get_time(PyBezierHandle *self, [[maybe_unused]]void *closure) {
+static PyObject* PyBezierHandle_get_time(PyBezierHandle *self, void *closure) {
     return PyFloat_FromDouble(self->point.time);
 }
 
-static int PyBezierHandle_set_time(PyBezierHandle *self, PyObject *value, [[maybe_unused]]void *closure) {
+static int PyBezierHandle_set_time(PyBezierHandle *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The time attribute must be a float");
         return -1;
@@ -43,11 +43,11 @@ static int PyBezierHandle_set_time(PyBezierHandle *self, PyObject *value, [[mayb
     return 0;
 }
 
-static PyObject* PyBezierHandle_get_value(PyBezierHandle *self, [[maybe_unused]] void *closure) {
+static PyObject* PyBezierHandle_get_value(PyBezierHandle *self, void *closure) {
     return PyFloat_FromDouble(self->point.value);
 }
 
-static int PyBezierHandle_set_value(PyBezierHandle *self, PyObject *value, [[maybe_unused]]void *closure) {
+static int PyBezierHandle_set_value(PyBezierHandle *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The value attribute must be a float");
         return -1;
@@ -111,7 +111,7 @@ PyTypeObject PyBezierHandleType = {
 };
 
 
-[[maybe_unused]] PyBezierHandle* BezierHandleToPyBezierHandle(const anim::BezierHandle& handle) {
+PyBezierHandle* BezierHandleToPyBezierHandle(const anim::BezierHandle& handle) {
     // Ensure the type is initialized before creating an instance
     if (PyType_Ready(&PyBezierHandleType) < 0) {
         return NULL;
@@ -125,7 +125,7 @@ PyTypeObject PyBezierHandleType = {
 }
 
 // Convert from C++ type to Python object
-[[maybe_unused]] PyObject* BezierHandleToPyObject(const anim::BezierHandle& handle) {
+PyObject* BezierHandleToPyObject(const anim::BezierHandle& handle) {
     PyBezierHandle* pyHandle = BezierHandleToPyBezierHandle(handle);
     if (pyHandle == NULL) {
         return NULL;
@@ -134,7 +134,7 @@ PyTypeObject PyBezierHandleType = {
 }
 
 // Convert from Python object to C++ type
-[[maybe_unused]] bool PyObjectToBezierHandle(PyObject* obj, anim::BezierHandle& handle) {
+bool PyObjectToBezierHandle(PyObject* obj, anim::BezierHandle& handle) {
     if (!PyObject_TypeCheck(obj, &PyBezierHandleType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a BezierHandle object");
         return false;
@@ -146,7 +146,7 @@ PyTypeObject PyBezierHandleType = {
 }
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_bezier_handle_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+PyObject* get_bezier_handle_type(PyObject* self, void* closure) {
     if (PyType_Ready(&PyBezierHandleType) < 0) {
         return NULL;
     }

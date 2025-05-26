@@ -19,9 +19,9 @@ typedef struct {
 extern PyTypeObject PyBezierHandleType;
 
 // Utility functions for conversion
-[[maybe_unused]] PyBezierHandle* BezierHandleToPyBezierHandle(const anim::BezierHandle& handle);
-[[maybe_unused]] PyObject* BezierHandleToPyObject(const anim::BezierHandle& handle);
-[[maybe_unused]] bool PyObjectToBezierHandle(PyObject* obj, anim::BezierHandle& handle);
+PyBezierHandle* BezierHandleToPyBezierHandle(const anim::BezierHandle& handle);
+PyObject* BezierHandleToPyObject(const anim::BezierHandle& handle);
+bool PyObjectToBezierHandle(PyObject* obj, anim::BezierHandle& handle);
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_bezier_handle_type(PyObject* self, void* closure);
+PyObject* get_bezier_handle_type(PyObject* self, void* closure);

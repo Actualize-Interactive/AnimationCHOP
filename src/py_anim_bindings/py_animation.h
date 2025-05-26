@@ -25,9 +25,9 @@ extern PyTypeObject PyAnimationType;
 PyObject* PyAnimation_WrapExisting(anim::Animation& animation, bool owned_by_python_wrapper = false);
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_animation_type(PyObject* self, void* closure);
+PyObject* get_animation_type(PyObject* self, void* closure);
 
 // Utility functions for conversion
-[[maybe_unused]] PyAnimation* AnimationToPyAnimation(const anim::Animation& animation);
-[[maybe_unused]] PyObject* AnimationToPyObject(const anim::Animation& animation);
-[[maybe_unused]] bool PyObjectToAnimation(PyObject* obj, anim::Animation& animation);
+PyAnimation* AnimationToPyAnimation(const anim::Animation& animation);
+PyObject* AnimationToPyObject(const anim::Animation& animation);
+bool PyObjectToAnimation(PyObject* obj, anim::Animation& animation);

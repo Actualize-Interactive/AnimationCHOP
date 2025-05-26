@@ -37,6 +37,7 @@ static PyMethodDef methods[] =
 	{"get_channel", (PyCFunction)pyGetChannel, METH_VARARGS, "Gets an animation channel by name."},
 	{"remove_channel", (PyCFunction)pyRemoveChannel, METH_VARARGS, "Removes an animation channel by name."},
 	{"get_channel_names", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
+	{"clear_channels", (PyCFunction)pyClearChannels, METH_NOARGS, "Clears all animation channels."},
 
 	{"set_keyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel."},
 	{"set_keyframe_at_time", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
@@ -50,6 +51,7 @@ static PyMethodDef methods[] =
 	{"set_keyframes", (PyCFunction)pySetKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
 	{"set_keyframes_at_time", (PyCFunction)pySetKeyframesAtTime, METH_VARARGS, "Sets multiple keyframes in a channel."},
 	{"remove_keyframes_at_time", (PyCFunction)pyRemoveKeyframesAtTime, METH_VARARGS, "Removes multiple keyframes from a channel."},
+	{"debug_channel", (PyCFunction)pyDebugChannel, METH_VARARGS, "Debug function to inspect channel state."},
 	{0}
 };
 
@@ -200,7 +202,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
 }
 
 void
-AnimationCHOP::getChannelName(int32_t index, OP_String *name, [[maybe_unused]]const OP_Inputs* inputs, [[maybe_unused]]void* reserved1)
+AnimationCHOP::getChannelName(int32_t index, OP_String *name, const OP_Inputs* inputs, void* reserved1)
 {
 	// If we have animation channels, use their names
 	std::vector<std::string> channelNames = m_animation.get_channel_names();
@@ -214,7 +216,7 @@ AnimationCHOP::getChannelName(int32_t index, OP_String *name, [[maybe_unused]]co
 }
 
 void
-AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, [[maybe_unused]]void* reserved1)
+AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reserved1)
 {
 	m_error = nullptr;
 	m_warning = nullptr;
@@ -372,6 +374,14 @@ AnimationCHOP::removeChannels(const std::vector<std::string>& channelNames)
         }
     }
     return allRemoved;
+}
+
+void
+AnimationCHOP::clearChannels() 
+{
+	for (const auto& name : m_animation.get_channel_names()) {
+		m_animation.remove_channel(name);
+	}
 }
 
 // Keyframe management methods
@@ -564,11 +574,28 @@ pyGetChannelNames(PyObject* self)
 }
 
 static PyObject*
+pyClearChannels(PyObject* self)
+{
+    PY_Struct* me = (PY_Struct*)self;
+
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        return nullptr;
+    }
+
+    inst->clearChannels();
+    me->context->makeNodeDirty();
+    Py_RETURN_NONE;
+}
+
+static PyObject*
 pySetKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
-	size_t index;
+	int index;  // Changed from size_t to int
     double value;
     int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
     double in_tangent_time = 0.0;
@@ -576,7 +603,7 @@ pySetKeyframe(PyObject* self, PyObject* args)
     double out_tangent_time = 0.0;
     double out_tangent_value = 0.0;
 
-	// Parse the arguments: channel name, index, time, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
+	// Parse the arguments: channel name, index, value, [mode, in_tangent_time, in_tangent_value, out_tangent_time, out_tangent_value]
 	if (!PyArg_ParseTuple(args, "sid|idddd", &name, &index, &value, &mode, 
 		&in_tangent_time, &in_tangent_value, &out_tangent_time, &out_tangent_value)) {
 		return nullptr;
@@ -594,11 +621,12 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	if (!channel){
 		return nullptr;
 	}
-	if (index < 0 || index >= channel->keyframe_count()) {
+	if (index < 0 || static_cast<size_t>(index) >= channel->keyframe_count()) {
 		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
 		return nullptr;
 	}
-	try {		auto& keyframe = channel->get_keyframe(index);
+	try {
+		auto& keyframe = channel->get_keyframe(static_cast<size_t>(index));
 		keyframe.set_value(value);
 		keyframe.set_in_handle(anim::BezierHandle(in_tangent_time, in_tangent_value));
 		keyframe.set_out_handle(anim::BezierHandle(out_tangent_time, out_tangent_value));
@@ -651,7 +679,7 @@ pyGetKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
-	size_t index;
+	int index;  // Changed from size_t to int
 
 	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
 		return nullptr;
@@ -669,12 +697,25 @@ pyGetKeyframe(PyObject* self, PyObject* args)
 		return nullptr;
 	}
 
-	if (index < 0 || index >= channel->keyframe_count()) {
-		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
+	// Check for negative index
+	if (index < 0) {
+		PyErr_SetString(PyExc_IndexError, "Keyframe index cannot be negative");
 		return nullptr;
 	}
 
-	auto keyframe = channel->get_keyframe(index);
+	// Debug: Check keyframe count before accessing
+	size_t keyframe_count = channel->keyframe_count();
+	if (static_cast<size_t>(index) >= keyframe_count) {
+		// Set a more informative error message
+		char error_msg[256];
+		snprintf(error_msg, sizeof(error_msg), 
+			"Keyframe index %d out of range (channel has %zu keyframes)", 
+			index, keyframe_count);
+		PyErr_SetString(PyExc_IndexError, error_msg);
+		return nullptr;
+	}
+
+	auto keyframe = channel->get_keyframe(static_cast<size_t>(index));
 
 	auto pyKeyframe = KeyframeToPyObject(keyframe);
 	if (!pyKeyframe) {
@@ -724,7 +765,7 @@ pyHasKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
-	size_t index;
+	int index;  // Changed from size_t to int
 
 	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
 		return nullptr;
@@ -734,15 +775,25 @@ pyHasKeyframe(PyObject* self, PyObject* args)
 	info.autoCook = false;
 	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
 	if (!inst) {
-		return nullptr;
+		return PyBool_FromLong(0);
 	}
 
 	auto channel = inst->animation().get_channel(name);
 	if (!channel) {
-		return nullptr;
+		return PyBool_FromLong(0);
 	}
 
-	auto has_keyframe = channel->has_keyframe(index);
+	// Check for negative index
+	if (index < 0) {
+		return PyBool_FromLong(0);
+	}
+
+	// Debug: Let's see what keyframe_count() actually returns
+	size_t keyframe_count = channel->keyframe_count();
+	
+	// The has_keyframe method should simply check if index < keyframe_count()
+	// since keyframes are stored in a vector and valid indices are 0 to count-1
+	bool has_keyframe = (static_cast<size_t>(index) < keyframe_count);
 	return PyBool_FromLong(has_keyframe ? 1 : 0);
 }
 
@@ -761,12 +812,12 @@ pyHasKeyframeAtTime(PyObject* self, PyObject* args)
 	info.autoCook = false;
 	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
 	if (!inst) {
-		return nullptr;
+		return PyBool_FromLong(0);
 	}
 
 	auto channel = inst->animation().get_channel(name);
 	if (!channel) {
-		return nullptr;
+		return PyBool_FromLong(0);
 	}
 
 	auto has_keyframe = channel->has_keyframe_at_time(time);
@@ -778,7 +829,7 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
-	size_t index;
+	int index;  // Changed from size_t to int
 
 	if (!PyArg_ParseTuple(args, "si", &name, &index)) {
 		return nullptr;
@@ -793,10 +844,16 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
 
 	auto channel = inst->animation().get_channel(name);
 	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Channel not found");
 		return nullptr;
 	}
 
-	channel->remove_keyframe(index);
+	if (index < 0 || static_cast<size_t>(index) >= channel->keyframe_count()) {
+		PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
+		return nullptr;
+	}
+
+	channel->remove_keyframe(static_cast<size_t>(index));
 	me->context->makeNodeDirty();
 
 	Py_RETURN_NONE;
@@ -834,7 +891,7 @@ pySetKeyframes(PyObject* self, PyObject* args)
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
 	// a list of dicts 
-	// {'index': 0.0, 'value': 1.0, 'mode': 0, 
+	// {'index': 0, 'value': 1.0, 'mode': 0, 
 	// 'in_tangent_time': 0.0, 'in_tangent_value': 0.0, 
 	// 'out_tangent_time': 0.0, 'out_tangent_value': 0.0}
 	PyObject* indexKeyframeList; 
@@ -878,8 +935,8 @@ pySetKeyframes(PyObject* self, PyObject* args)
 			PyErr_SetString(PyExc_TypeError, "Keyframe must have 'index' and 'value' keys");
 			return nullptr;
 		}
-		auto index = static_cast<size_t>(PyLong_AsLong(indexObj));
-		if (index < 0 || index >= channel->keyframe_count()) {
+		int index = static_cast<int>(PyLong_AsLong(indexObj));  // Changed to int
+		if (index < 0 || static_cast<size_t>(index) >= channel->keyframe_count()) {
 			PyErr_SetString(PyExc_IndexError, "Keyframe index out of range");
 			return nullptr;
 		}
@@ -914,7 +971,7 @@ pySetKeyframes(PyObject* self, PyObject* args)
 		if (outTangentValueObj) {
 			outTangentValue = PyFloat_AsDouble(outTangentValueObj);
 		}
-		auto& keyframe = channel->get_keyframe(index);
+		auto& keyframe = channel->get_keyframe(static_cast<size_t>(index));  // Cast to size_t
 		keyframe.set_value(value);
 		keyframe.set_in_handle(anim::BezierHandle(inTangentTime, inTangentValue));
 		keyframe.set_out_handle(anim::BezierHandle(outTangentTime, outTangentValue));
@@ -1068,6 +1125,59 @@ pyRemoveKeyframesAtTime(PyObject* self, PyObject* args)
     me->context->makeNodeDirty();
 
     return PyBool_FromLong(removed_all ? 1 : 0);
+}
+
+static PyObject*
+pyDebugChannel(PyObject* self, PyObject* args)
+{
+	PY_Struct* me = (PY_Struct*)self;
+	const char* name;
+
+	if (!PyArg_ParseTuple(args, "s", &name)) {
+		return nullptr;
+	}
+
+	PY_GetInfo info;
+	info.autoCook = false;
+	AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+	if (!inst) {
+		return nullptr;
+	}
+
+	auto channel = inst->animation().get_channel(name);
+	if (!channel) {
+		PyErr_SetString(PyExc_RuntimeError, "Channel not found");
+		return nullptr;
+	}
+
+	// Create a debug info dictionary
+	PyObject* debug_info = PyDict_New();
+	
+	// Add keyframe count
+	PyDict_SetItemString(debug_info, "keyframe_count", PyLong_FromSize_t(channel->keyframe_count()));
+	
+	// Add channel name
+	PyDict_SetItemString(debug_info, "name", PyUnicode_FromString(channel->name().c_str()));
+	
+	// Check if channel is empty
+	PyDict_SetItemString(debug_info, "is_empty", PyBool_FromLong(channel->is_empty()));
+	
+	// Get start and end times if available
+	auto start_time = channel->get_start_time();
+	if (start_time.has_value()) {
+		PyDict_SetItemString(debug_info, "start_time", PyFloat_FromDouble(start_time.value()));
+	} else {
+		PyDict_SetItemString(debug_info, "start_time", Py_None);
+	}
+	
+	auto end_time = channel->get_end_time();
+	if (end_time.has_value()) {
+		PyDict_SetItemString(debug_info, "end_time", PyFloat_FromDouble(end_time.value()));
+	} else {
+		PyDict_SetItemString(debug_info, "end_time", Py_None);
+	}
+
+	return debug_info;
 }
 
 

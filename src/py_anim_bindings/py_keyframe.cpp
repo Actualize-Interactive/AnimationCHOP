@@ -2,7 +2,7 @@
 #include <format>
 
 // Allocation/deallocation functions
-static PyObject* PyKeyframe_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
+static PyObject* PyKeyframe_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyKeyframe *self = (PyKeyframe *)type->tp_alloc(type, 0);
     if (self != NULL) {
         new (&self->keyframe) anim::Keyframe(0.0, 0.0, anim::BezierHandle(0, 0), anim::BezierHandle(0, 0), anim::TangentMode::linear);
@@ -77,11 +77,11 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
 }
 
 // Getter/setter functions for properties
-static PyObject* PyKeyframe_get_time(PyKeyframe *self, [[maybe_unused]] void *closure) {
+static PyObject* PyKeyframe_get_time(PyKeyframe *self, void *closure) {
     return PyFloat_FromDouble(self->keyframe.time());
 }
 
-static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
+static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The time attribute must be a float");
         return -1;
@@ -91,11 +91,11 @@ static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, [[maybe_unused
     return 0;
 }
 
-static PyObject* PyKeyframe_get_value(PyKeyframe *self, [[maybe_unused]] void *closure) {
+static PyObject* PyKeyframe_get_value(PyKeyframe *self, void *closure) {
     return PyFloat_FromDouble(self->keyframe.value());
 }
 
-static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
+static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The value attribute must be a float");
         return -1;
@@ -105,12 +105,12 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, [[maybe_unuse
     return 0;
 }
 
-static PyObject* PyKeyframe_get_in_tangent(PyKeyframe *self, [[maybe_unused]] void *closure) {
+static PyObject* PyKeyframe_get_in_tangent(PyKeyframe *self, void *closure) {
     const anim::BezierHandle& in_handle = self->keyframe.in_handle();
     return BezierHandleToPyObject(in_handle);
 }
 
-static int PyKeyframe_set_in_tangent(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
+static int PyKeyframe_set_in_tangent(PyKeyframe *self, PyObject *value, void *closure) {
     anim::BezierHandle handle;
     if (!PyObjectToBezierHandle(value, handle)) {
         // PyObjectToBezierHandle already sets the error
@@ -122,12 +122,12 @@ static int PyKeyframe_set_in_tangent(PyKeyframe *self, PyObject *value, [[maybe_
     return 0;
 }
 
-static PyObject* PyKeyframe_get_out_tangent(PyKeyframe *self, [[maybe_unused]] void *closure) {
+static PyObject* PyKeyframe_get_out_tangent(PyKeyframe *self, void *closure) {
     const anim::BezierHandle& out_handle = self->keyframe.out_handle();
     return BezierHandleToPyObject(out_handle);
 }
 
-static int PyKeyframe_set_out_tangent(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
+static int PyKeyframe_set_out_tangent(PyKeyframe *self, PyObject *value, void *closure) {
     anim::BezierHandle handle;
     if (!PyObjectToBezierHandle(value, handle)) {
         // PyObjectToBezierHandle already sets the error
@@ -139,12 +139,12 @@ static int PyKeyframe_set_out_tangent(PyKeyframe *self, PyObject *value, [[maybe
     return 0;
 }
 
-static PyObject* PyKeyframe_get_mode(PyKeyframe *self, [[maybe_unused]] void *closure) {
+static PyObject* PyKeyframe_get_mode(PyKeyframe *self, void *closure) {
     // Return a Python integer representing the enum value
     return PyLong_FromLong(static_cast<long>(self->keyframe.mode()));
 }
 
-static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, [[maybe_unused]] void *closure) {
+static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
         long mode_val = PyLong_AsLong(value);
         auto mode_count = static_cast<long>(anim::TangentMode::count);
@@ -182,8 +182,8 @@ static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, [[maybe_unused
 static PyGetSetDef PyKeyframe_getset[] = {
     {"time", (getter)PyKeyframe_get_time, (setter)PyKeyframe_set_time, "Time of the keyframe", NULL},
     {"value", (getter)PyKeyframe_get_value, (setter)PyKeyframe_set_value, "Value of the keyframe", NULL},
-    {"in_tangent", (getter)PyKeyframe_get_in_tangent, (setter)PyKeyframe_set_in_tangent, "Incoming tangent handle", NULL},
-    {"out_tangent", (getter)PyKeyframe_get_out_tangent, (setter)PyKeyframe_set_out_tangent, "Outgoing tangent handle", NULL},
+    {"in_handle", (getter)PyKeyframe_get_in_tangent, (setter)PyKeyframe_set_in_tangent, "Incoming tangent handle", NULL},
+    {"out_handle", (getter)PyKeyframe_get_out_tangent, (setter)PyKeyframe_set_out_tangent, "Outgoing tangent handle", NULL},
     {"mode", (getter)PyKeyframe_get_mode, (setter)PyKeyframe_set_mode, "Tangent mode", NULL},
     {NULL}  // Sentinel
 };
@@ -239,7 +239,7 @@ PyTypeObject PyKeyframeType = {
 };
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_keyframe_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+PyObject* get_keyframe_type(PyObject* self, void* closure) {
     if (PyType_Ready(&PyKeyframeType) < 0) {
         return NULL;
     }
@@ -247,7 +247,7 @@ PyTypeObject PyKeyframeType = {
     return (PyObject*)&PyKeyframeType;
 }
 
-[[maybe_unused]] PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe) {
+PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe) {
     // Ensure the type is initialized before creating an instance
     if (PyType_Ready(&PyKeyframeType) < 0) {
         return NULL;
@@ -261,11 +261,11 @@ PyTypeObject PyKeyframeType = {
 }
 
 // Helper functions for conversion between C++ and Python
-[[maybe_unused]] PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe) {
+PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe) {
     return (PyObject*)KeyframeToPyKeyframe(keyframe);
 }
 
-[[maybe_unused]] bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe) {
+bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe) {
     if (!py_keyframe) { // This check might be redundant if type checking is done before calling
         PyErr_SetString(PyExc_TypeError, "Expected a Keyframe object, got NULL");
         return false;
@@ -278,7 +278,7 @@ PyTypeObject PyKeyframeType = {
     return true;
 }
 
-[[maybe_unused]] bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe) {
+bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe) {
     if (!PyObject_TypeCheck(obj, &PyKeyframeType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a Keyframe object");
         return false;

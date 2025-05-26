@@ -4,7 +4,7 @@
 #include <optional>
 
 // Allocation/deallocation functions
-static PyObject* PyChannel_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
+static PyObject* PyChannel_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyChannel *self = (PyChannel *)type->tp_alloc(type, 0);
     if (self != NULL) {
         new (&self->channel) anim::Channel();
@@ -80,7 +80,7 @@ static PyObject* PyChannel_get_keyframe_at_time(PyChannel *self, PyObject *args)
     return KeyframeToPyObject(keyframe_opt.value());
 }
 
-static PyObject* PyChannel_get_all_keyframes(PyChannel *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyChannel_get_all_keyframes(PyChannel *self, PyObject *args) {
     const std::vector<anim::Keyframe>& keyframes = self->channel.get_all_keyframes();
 
     PyObject* keyframes_list = PyList_New(keyframes.size());
@@ -175,12 +175,12 @@ static PyObject* PyChannel_evaluate_range_by_rate(PyChannel *self, PyObject *arg
     }
 }
 
-static PyObject* PyChannel_is_empty(PyChannel *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyChannel_is_empty(PyChannel *self, PyObject *args) {
     bool is_empty = self->channel.is_empty();
     return PyBool_FromLong(is_empty ? 1 : 0);
 }
 
-static PyObject* PyChannel_get_start_time(PyChannel *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyChannel_get_start_time(PyChannel *self, PyObject *args) {
     std::optional<double> start_time = self->channel.get_start_time();
     if (start_time) {
         return PyFloat_FromDouble(*start_time);
@@ -189,7 +189,7 @@ static PyObject* PyChannel_get_start_time(PyChannel *self, [[maybe_unused]] PyOb
     }
 }
 
-static PyObject* PyChannel_get_end_time(PyChannel *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyChannel_get_end_time(PyChannel *self, PyObject *args) {
     std::optional<double> end_time = self->channel.get_end_time();
     if (end_time) {
         return PyFloat_FromDouble(*end_time);
@@ -274,7 +274,7 @@ PyTypeObject PyChannelType = {
 };
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_channel_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+PyObject* get_channel_type(PyObject* self, void* closure) {
     if (PyType_Ready(&PyChannelType) < 0) { // Ensure type is ready
         return NULL;
     }
@@ -283,7 +283,7 @@ PyTypeObject PyChannelType = {
 }
 
 // Helper functions for conversion between C++ and Python
-[[maybe_unused]] PyObject* ChannelToPyObject(const anim::Channel& channel) {
+PyObject* ChannelToPyObject(const anim::Channel& channel) {
     // Ensure the type is initialized before creating an instance
     if (PyType_Ready(&PyChannelType) < 0) {
         return NULL;
@@ -296,7 +296,7 @@ PyTypeObject PyChannelType = {
     return (PyObject*)py_channel;
 }
 
-[[maybe_unused]] bool PyObjectToChannel(PyObject* obj, anim::Channel& channel) {
+bool PyObjectToChannel(PyObject* obj, anim::Channel& channel) {
     if (!PyObject_TypeCheck(obj, &PyChannelType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a Channel object");
         return false;

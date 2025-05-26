@@ -32,6 +32,7 @@ public:
 
 	void createChannels(const std::vector<std::string>& channelNames);
 	bool removeChannels(const std::vector<std::string>& channelNames);
+	void clearChannels();
 
 	bool setKeyframeAtTime(const std::string& channelName, double time, double value, anim::TangentMode mode, double in_tangent_time, double in_tangent_value, double out_tangent_time, double out_tangent_value);
 	bool removeKeyframeAtTime(const std::string& channelName, double time);
@@ -55,6 +56,7 @@ static PyObject* pyCreateChannel(PyObject* self, PyObject* args);
 static PyObject* pyGetChannel(PyObject* self, PyObject* args);
 static PyObject* pyRemoveChannel(PyObject* self, PyObject* args);
 static PyObject* pyGetChannelNames(PyObject* self);
+static PyObject* pyClearChannels(PyObject* self);
 
 static PyObject* pySetKeyframe(PyObject* self, PyObject* args);
 static PyObject* pySetKeyframeAtTime(PyObject* self, PyObject* args);
@@ -68,3 +70,5 @@ static PyObject* pyRemoveKeyframeAtTime(PyObject* self, PyObject* args);
 static PyObject* pySetKeyframes(PyObject* self, PyObject* args);
 static PyObject* pySetKeyframesAtTime(PyObject* self, PyObject* args);
 static PyObject* pyRemoveKeyframesAtTime(PyObject* self, PyObject* args);
+
+static PyObject* pyDebugChannel(PyObject* self, PyObject* args);

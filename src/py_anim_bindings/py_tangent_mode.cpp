@@ -90,6 +90,6 @@ static PyObject* create_tangent_mode_enum() {
 }
 
 // Getter function for the TangentMode enum
-PyObject* get_tangent_mode_enum([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+PyObject* get_tangent_mode_enum(PyObject* self, void* closure) {
     return create_tangent_mode_enum();
 }

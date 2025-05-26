@@ -6,7 +6,7 @@
 #include <optional> // For std::optional
 
 // Allocation/deallocation functions
-static PyObject* PyAnimation_new(PyTypeObject *type, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
+static PyObject* PyAnimation_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyAnimation *self = (PyAnimation *)type->tp_alloc(type, 0);
     if (self != NULL) {
         self->animation_ptr = new anim::Animation();
@@ -28,7 +28,7 @@ static void PyAnimation_dealloc(PyAnimation *self) {
 }
 
 // Initialize the object
-static int PyAnimation_init([[maybe_unused]] PyAnimation *self, [[maybe_unused]] PyObject *args, [[maybe_unused]] PyObject *kwds) {
+static int PyAnimation_init(PyAnimation *self, PyObject *args, PyObject *kwds) {
     return 0;
 }
 
@@ -124,7 +124,7 @@ static PyObject* PyAnimation_get_channel_by_name(PyAnimation *self, PyObject *ar
     } catch (const std::out_of_range& e) { // Or other specific exception for not found
         PyErr_Format(PyExc_KeyError, "Channel with name '%s' not found", name);
         return NULL;
-    } catch ([[maybe_unused]] const std::exception& e) {
+    } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -150,12 +150,12 @@ static PyObject* PyAnimation_remove_channel_by_name(PyAnimation *self, PyObject 
     return PyBool_FromLong(result ? 1 : 0);
 }
 
-static PyObject* PyAnimation_get_channel_count(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_get_channel_count(PyAnimation *self, PyObject *args) {
     size_t count = self->animation_ptr->get_channel_count();
     return PyLong_FromSize_t(count);
 }
 
-static PyObject* PyAnimation_get_channel_names(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_get_channel_names(PyAnimation *self, PyObject *args) {
     std::vector<std::string> names = self->animation_ptr->get_channel_names();
     
     PyObject* names_list = PyList_New(names.size());
@@ -353,7 +353,7 @@ static PyObject* PyAnimation_evaluate_channels_range_by_rate(PyAnimation *self, 
     }
 }
 
-static PyObject* PyAnimation_get_start_time(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_get_start_time(PyAnimation *self, PyObject *args) {
     std::optional<double> start_time = self->animation_ptr->get_start_time();
     if (start_time) {
         return PyFloat_FromDouble(*start_time);
@@ -362,7 +362,7 @@ static PyObject* PyAnimation_get_start_time(PyAnimation *self, [[maybe_unused]] 
     }
 }
 
-static PyObject* PyAnimation_get_end_time(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_get_end_time(PyAnimation *self, PyObject *args) {
     std::optional<double> end_time = self->animation_ptr->get_end_time();
     if (end_time) {
         return PyFloat_FromDouble(*end_time);
@@ -371,7 +371,7 @@ static PyObject* PyAnimation_get_end_time(PyAnimation *self, [[maybe_unused]] Py
     }
 }
 
-static PyObject* PyAnimation_length(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_length(PyAnimation *self, PyObject *args) {
     double length = self->animation_ptr->length();
     return PyFloat_FromDouble(length);
 }
@@ -386,12 +386,12 @@ static PyObject* PyAnimation_num_samples(PyAnimation *self, PyObject *args) {
     return PyLong_FromLong(num_samples_val);
 }
 
-static PyObject* PyAnimation_is_empty(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_is_empty(PyAnimation *self, PyObject *args) {
     bool is_empty = self->animation_ptr->is_empty();
     return PyBool_FromLong(is_empty ? 1 : 0);
 }
 
-static PyObject* PyAnimation_has_no_keyframes(PyAnimation *self, [[maybe_unused]] PyObject *args) {
+static PyObject* PyAnimation_has_no_keyframes(PyAnimation *self, PyObject *args) {
     bool has_no_keyframes = self->animation_ptr->has_no_keyframes();
     return PyBool_FromLong(has_no_keyframes ? 1 : 0);
 }
@@ -497,7 +497,7 @@ PyTypeObject PyAnimationType = {
 // Factory function to wrap an existing C++ anim::Animation instance
 // If owned_by_python_wrapper is true, it means existing_animation was 'new'ed elsewhere
 // and this PyAnimation instance is now taking ownership.
-[[maybe_unused]] PyObject* PyAnimation_WrapExisting(anim::Animation* existing_animation_ptr, bool owned_by_python_wrapper) {
+PyObject* PyAnimation_WrapExisting(anim::Animation* existing_animation_ptr, bool owned_by_python_wrapper) {
     if (!existing_animation_ptr) {
         PyErr_SetString(PyExc_ValueError, "Cannot wrap a NULL anim::Animation pointer.");
         return NULL;
@@ -518,7 +518,7 @@ PyTypeObject PyAnimationType = {
 
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_animation_type([[maybe_unused]] PyObject* self, [[maybe_unused]] void* closure) {
+PyObject* get_animation_type(PyObject* self, void* closure) {
     if (PyType_Ready(&PyAnimationType) < 0) {
         return NULL;
     }
@@ -526,7 +526,7 @@ PyTypeObject PyAnimationType = {
     return (PyObject*)&PyAnimationType;
 }
 
-[[maybe_unused]] PyObject* AnimationToPyObject(const anim::Animation& animation_to_copy) {
+PyObject* AnimationToPyObject(const anim::Animation& animation_to_copy) {
     anim::Animation* new_cpp_anim_instance = new anim::Animation(animation_to_copy);
     if (!new_cpp_anim_instance) {
         return PyErr_NoMemory();
@@ -539,7 +539,7 @@ PyTypeObject PyAnimationType = {
     return py_obj;
 }
 
-[[maybe_unused]] bool PyObjectToAnimation(PyObject* obj, anim::Animation& animation) {
+bool PyObjectToAnimation(PyObject* obj, anim::Animation& animation) {
     if (!PyObject_TypeCheck(obj, &PyAnimationType)) {
         PyErr_SetString(PyExc_TypeError, "Expected an Animation object");
         return false;

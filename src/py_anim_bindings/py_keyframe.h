@@ -20,10 +20,10 @@ typedef struct {
 extern PyTypeObject PyKeyframeType;
 
 // Type getter for external use
-[[maybe_unused]] PyObject* get_keyframe_type(PyObject* self, void* closure);
+PyObject* get_keyframe_type(PyObject* self, void* closure);
 
 // Utility functions for conversion
-[[maybe_unused]] PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe);
-[[maybe_unused]] PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe);
-[[maybe_unused]] bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe);
-[[maybe_unused]] bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe);
+PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe);
+PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe);
+bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe);
+bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe);
