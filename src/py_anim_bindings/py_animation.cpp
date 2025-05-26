@@ -124,7 +124,7 @@ static PyObject* PyAnimation_get_channel_by_name(PyAnimation *self, PyObject *ar
     } catch (const std::out_of_range& e) { // Or other specific exception for not found
         PyErr_Format(PyExc_KeyError, "Channel with name '%s' not found", name);
         return NULL;
-    } catch (const std::exception& e) {
+    } catch ([[maybe_unused]] const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }

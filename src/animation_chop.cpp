@@ -152,7 +152,7 @@ AnimationCHOP::~AnimationCHOP()
 
 
 void
-AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, [[maybe_unused]] const OP_Inputs* inputs, [[maybe_unused]] void* reserved1)
+AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
 	// This will cause the node to cook every frame
 	ginfo->cookEveryFrameIfAsked = false;
@@ -167,7 +167,7 @@ AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, [[maybe_unused]] const OP
 }
 
 bool
-AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, [[maybe_unused]] const OP_Inputs* inputs, [[maybe_unused]] void* reserved1)
+AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
 	// // If there is an input connected, we are going to match it's channel names etc
 	// // otherwise we'll specify our own.
@@ -214,7 +214,7 @@ AnimationCHOP::getChannelName(int32_t index, OP_String *name, [[maybe_unused]]co
 }
 
 void
-AnimationCHOP::execute(CHOP_Output* output, [[maybe_unused]] const OP_Inputs* inputs, [[maybe_unused]]void* reserved1)
+AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, [[maybe_unused]]void* reserved1)
 {
 	m_error = nullptr;
 	m_warning = nullptr;
@@ -238,19 +238,19 @@ AnimationCHOP::execute(CHOP_Output* output, [[maybe_unused]] const OP_Inputs* in
 }
 
 void 
-AnimationCHOP::getWarningString(OP_String *warning, [[maybe_unused]] void* reserved1)
+AnimationCHOP::getWarningString(OP_String *warning, void* reserved1)
 {
 	warning->setString(m_warning);
 }
 
 void
-AnimationCHOP::getErrorString(OP_String *error, [[maybe_unused]] void* reserved1)
+AnimationCHOP::getErrorString(OP_String *error, void* reserved1)
 {
 	error->setString(m_error);
 }
 
 void
-AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] void *reserved1)
+AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 {
 	// speed
 	{
@@ -262,7 +262,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] voi
 		np.minSliders[0] = -10.0;
 		np.maxSliders[0] =  10.0;
 		
-		[[maybe_unused]] OP_ParAppendResult res = manager->appendFloat(np);
+		OP_ParAppendResult res = manager->appendFloat(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
@@ -276,7 +276,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] voi
 		np.minSliders[0] = -10.0;
 		np.maxSliders[0] =  10.0;
 		
-		[[maybe_unused]] OP_ParAppendResult res = manager->appendFloat(np);
+		OP_ParAppendResult res = manager->appendFloat(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
@@ -292,7 +292,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] voi
 		const char *names[] = { "Sine", "Square", "Ramp" };
 		const char *labels[] = { "Sine", "Square", "Ramp" };
 
-		[[maybe_unused]] OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
+		OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
@@ -304,14 +304,14 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,[[maybe_unused]] voi
 		np.name = "Reset";
 		np.label = "Reset";
 		
-		[[maybe_unused]] OP_ParAppendResult res = manager->appendPulse(np);
+		OP_ParAppendResult res = manager->appendPulse(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
 
 }
 
 void
-AnimationCHOP::pulsePressed(const char* name, [[maybe_unused]] void* reserved1)
+AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
     // Handle parameter pulses here
     if (strcmp(name, "Reset") == 0)

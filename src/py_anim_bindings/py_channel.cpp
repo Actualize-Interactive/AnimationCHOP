@@ -30,26 +30,53 @@ static int PyChannel_init(PyChannel *self, PyObject *args, PyObject *kwds) {
 }
 
 static PyObject* PyChannel_remove_keyframe(PyChannel *self, PyObject *args) {
+    size_t index;
+    
+    if (!PyArg_ParseTuple(args, "k", &index))
+        return NULL;
+
+    bool result = self->channel.remove_keyframe(index);
+    return PyBool_FromLong(result ? 1 : 0);
+}
+
+static PyObject* PyChannel_remove_keyframe_at_time(PyChannel *self, PyObject *args) {
     double time;
     
     if (!PyArg_ParseTuple(args, "d", &time))
         return NULL;
 
-    bool result = self->channel.remove_keyframe(time);
+    bool result = self->channel.remove_keyframe_at_time(time);
     return PyBool_FromLong(result ? 1 : 0);
 }
 
 static PyObject* PyChannel_get_keyframe(PyChannel *self, PyObject *args) {
-    double time;
+    size_t index;
+    if (!PyArg_ParseTuple(args, "k", &index))
+        return NULL;
     
+    try {
+        const anim::Keyframe& keyframe = self->channel.get_keyframe(index);
+        return KeyframeToPyObject(keyframe); // Assuming KeyframeToPyObject converts Keyframe to PyObject
+    } catch (const std::out_of_range& e) {
+        PyErr_SetString(PyExc_IndexError, e.what());
+        return NULL;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
+static PyObject* PyChannel_get_keyframe_at_time(PyChannel *self, PyObject *args) {
+    double time;
+
     if (!PyArg_ParseTuple(args, "d", &time))
         return NULL;
 
-    std::optional<anim::Keyframe> keyframe_opt = self->channel.get_keyframe(time);
+    std::optional<anim::Keyframe> keyframe_opt = self->channel.get_keyframe_at_time(time);
     if (!keyframe_opt) {
         Py_RETURN_NONE;
     }
-    
+
     return KeyframeToPyObject(keyframe_opt.value());
 }
 
@@ -174,9 +201,13 @@ static PyObject* PyChannel_get_end_time(PyChannel *self, [[maybe_unused]] PyObje
 // Method definitions
 static PyMethodDef PyChannel_methods[] = {
     {"remove_keyframe", (PyCFunction)PyChannel_remove_keyframe, METH_VARARGS,
+     "Remove a keyframe at the specified index"},
+    {"remove_keyframe_at_time", (PyCFunction)PyChannel_remove_keyframe_at_time, METH_VARARGS,
      "Remove a keyframe at the specified time"},
     {"get_keyframe", (PyCFunction)PyChannel_get_keyframe, METH_VARARGS,
-     "Get the keyframe at the specified time"},
+     "Get the keyframe at the specified index"},
+    {"get_keyframe_at_time", (PyCFunction)PyChannel_get_keyframe_at_time, METH_VARARGS,
+     "Get the keyframe at the specified time, or None if not found"},
     {"get_all_keyframes", (PyCFunction)PyChannel_get_all_keyframes, METH_NOARGS,
      "Get all keyframes in this channel"},
     {"evaluate", (PyCFunction)PyChannel_evaluate, METH_VARARGS,

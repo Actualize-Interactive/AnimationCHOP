@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(AnimationCHOP VERSION 1.0.0 LANGUAGES CXX)
 
+set(VERBOSE_STATUS OFF CACHE BOOL "Verbose status messages" FORCE)
+set(SUPPRESS_NOT_REFERENCED_WARNINGS ON CACHE BOOL "Suppress not referenced warnings" FORCE)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -9,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 file(GLOB_RECURSE SOURCES
     src/*.cpp
 )
-set(VERBOSE_STATUS OFF CACHE BOOL "Verbose status messages" FORCE)
+
 if(VERBOSE_STATUS)
     foreach(SOURCE ${SOURCES})
         message(STATUS "Found source file: ${SOURCE}")
@@ -51,12 +54,22 @@ set_target_properties(animation_chop PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+if(SUPPRESS_NOT_REFERENCED_WARNINGS)
+    if(MSVC)
+        target_compile_options(animation_chop PRIVATE /wd4100 /wd4189)
+        target_compile_definitions(animation_chop PRIVATE _CRT_SECURE_NO_WARNINGS)
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(animation_chop PRIVATE -Wno-unused-parameter -Wno-unused-variable)  
+    endif()
+endif()
+
 # Add a post-build command to copy the DLL to the Plugins folder
 add_custom_command(TARGET animation_chop POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/Plugins"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/test/Plugins"
     COMMAND ${CMAKE_COMMAND} -E copy 
             "$<TARGET_FILE:animation_chop>" 
-            "${CMAKE_SOURCE_DIR}/Plugins/"
+            "${CMAKE_SOURCE_DIR}/test/Plugins/"
     COMMENT "Copying animation_chop.dll to Plugins directory"
 )
 

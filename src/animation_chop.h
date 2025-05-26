@@ -12,17 +12,17 @@ public:
 	AnimationCHOP(const OP_NodeInfo* info);
 	virtual ~AnimationCHOP();
 
-	virtual void		getGeneralInfo(CHOP_GeneralInfo*, const OP_Inputs*, [[maybe_unused]] void* ) override;
-	virtual bool		getOutputInfo(CHOP_OutputInfo*, const OP_Inputs*, [[maybe_unused]] void*) override;
-	virtual void		getChannelName(int32_t index, OP_String *name, const OP_Inputs*, [[maybe_unused]] void* reserved) override;
+	virtual void		getGeneralInfo(CHOP_GeneralInfo*, const OP_Inputs*, void* ) override;
+	virtual bool		getOutputInfo(CHOP_OutputInfo*, const OP_Inputs*, void*) override;
+	virtual void		getChannelName(int32_t index, OP_String *name, const OP_Inputs*, void* reserved1) override;
 
-	virtual void		execute(CHOP_Output*, const OP_Inputs*, [[maybe_unused]] void* reserved1) override;
+	virtual void		execute(CHOP_Output*, const OP_Inputs*, void* reserved1) override;
 
-	virtual void getWarningString(OP_String *warning, [[maybe_unused]] void* reserved1) override;
-	virtual void getErrorString(OP_String *warning, [[maybe_unused]] void* reserved1) override;
+	virtual void getWarningString(OP_String *warning, void* reserved1) override;
+	virtual void getErrorString(OP_String *warning, void* reserved1) override;
 
-	virtual void		setupParameters(OP_ParameterManager* manager, [[maybe_unused]] void *reserved1) override;
-	virtual void		pulsePressed(const char* name, [[maybe_unused]] void* reserved1) override;
+	virtual void		setupParameters(OP_ParameterManager* manager, void *reserved1) override;
+	virtual void		pulsePressed(const char* name, void* reserved1) override;
 
 	anim::Animation& animation() { return m_animation; }
 
