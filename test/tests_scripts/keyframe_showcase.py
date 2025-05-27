@@ -30,9 +30,9 @@ def create_keyframe_showcase():
     tangent_modes = {
         0: "flat",
         1: "linear", 
-        2: "stepped",
-        3: "smoothAuto",
-        4: "smoothManual",
+        2: "constant",
+        3: "smooth",
+        4: "manual",
         5: "broken"
     }
     

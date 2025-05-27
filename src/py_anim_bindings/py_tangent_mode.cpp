@@ -51,9 +51,9 @@ static PyObject* create_tangent_mode_enum() {
 
     if (!add_member("LINEAR", anim::TangentMode::linear) ||
         !add_member("FLAT", anim::TangentMode::flat) ||
-        !add_member("SMOOTH_MANUAL", anim::TangentMode::smoothManual) ||
-        !add_member("SMOOTH_AUTO", anim::TangentMode::smoothAuto) ||
-        !add_member("STEPPED", anim::TangentMode::stepped)) {
+        !add_member("SMOOTH_MANUAL", anim::TangentMode::manual) ||
+        !add_member("SMOOTH_AUTO", anim::TangentMode::smooth) ||
+        !add_member("STEPPED", anim::TangentMode::constant)) {
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module); 

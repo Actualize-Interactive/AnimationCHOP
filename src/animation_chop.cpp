@@ -181,7 +181,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
 	// {
 	// 	// Set the number of channels to the number of animation channels we have
 	// 	// If we don't have any channels, we'll just output a default channel
-	// 	size_t numAnimChannels = m_animation.get_channel_count();
+	// 	size_t numAnimChannels = m_animation.num_channels();
 	// 	info->numChannels = numAnimChannels > 0 ? static_cast<int32_t>(numAnimChannels) : 1;
 
 	// 	// Since we are outputting a timeslice, the system will dictate
@@ -195,7 +195,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
 	// }
 
 	info->sampleRate = 60.0f;
-	info->numChannels = static_cast<int32_t>(m_animation.get_channel_count());
+	info->numChannels = static_cast<int32_t>(m_animation.num_channels());
 	info->numSamples = m_animation.num_samples(info->sampleRate);
 	return true;
 
@@ -221,7 +221,7 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 	m_error = nullptr;
 	m_warning = nullptr;
 
-	auto num_anim_channels = m_animation.get_channel_count();
+	auto num_anim_channels = m_animation.num_channels();
 	auto num_anim_samples = m_animation.num_samples(output->sampleRate);
 	for (int i = 0 ; i < output->numChannels; i++) {
 		if (i < num_anim_channels) {
@@ -379,9 +379,7 @@ AnimationCHOP::removeChannels(const std::vector<std::string>& channelNames)
 void
 AnimationCHOP::clearChannels() 
 {
-	for (const auto& name : m_animation.get_channel_names()) {
-		m_animation.remove_channel(name);
-	}
+	m_animation.clear_channels();
 }
 
 // Keyframe management methods
@@ -431,7 +429,7 @@ AnimationCHOP::removeKeyframes(const std::string& channelName, const std::vector
 size_t 
 AnimationCHOP::getChannelCount() const 
 {
-    return m_animation.get_channel_count();
+    return m_animation.num_channels();
 }
 
 std::vector<std::string> 
@@ -597,7 +595,7 @@ pySetKeyframe(PyObject* self, PyObject* args)
 	const char* name;
 	int index;  // Changed from size_t to int
     double value;
-    int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
+    int mode = static_cast<int>(anim::TangentMode::smooth); // Default to smooth
     double in_tangent_time = 0.0;
     double in_tangent_value = 0.0;
     double out_tangent_time = 0.0;
@@ -646,7 +644,7 @@ pySetKeyframeAtTime(PyObject* self, PyObject* args)
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
     double time, value;
-    int mode = static_cast<int>(anim::TangentMode::smoothAuto); // Default to smoothAuto
+    int mode = static_cast<int>(anim::TangentMode::smooth); // Default to smooth
     double in_tangent_time = 0.0;
     double in_tangent_value = 0.0;
     double out_tangent_time = 0.0;
@@ -941,7 +939,7 @@ pySetKeyframes(PyObject* self, PyObject* args)
 			return nullptr;
 		}
 		auto value = PyFloat_AsDouble(valueObj);
-		anim::TangentMode mode = anim::TangentMode::smoothAuto;
+		anim::TangentMode mode = anim::TangentMode::smooth;
 		PyObject* modeObj = PyDict_GetItemString(item, "mode");
 		PyObject* inTangentTimeObj = PyDict_GetItemString(item, "in_tangent_time");
 		PyObject* inTangentValueObj = PyDict_GetItemString(item, "in_tangent_value");
@@ -1043,7 +1041,7 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 		}
 		auto time = PyFloat_AsDouble(timeObj);
 		auto value = PyFloat_AsDouble(valueObj);
-		anim::TangentMode mode = anim::TangentMode::smoothAuto;
+		anim::TangentMode mode = anim::TangentMode::smooth;
 		if (modeObj) {
 			if (!PyLong_Check(modeObj)) {
 				PyErr_SetString(PyExc_TypeError, "Keyframe 'mode' must be an integer");

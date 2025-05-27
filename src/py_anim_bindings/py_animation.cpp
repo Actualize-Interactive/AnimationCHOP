@@ -150,8 +150,8 @@ static PyObject* PyAnimation_remove_channel_by_name(PyAnimation *self, PyObject 
     return PyBool_FromLong(result ? 1 : 0);
 }
 
-static PyObject* PyAnimation_get_channel_count(PyAnimation *self, PyObject *args) {
-    size_t count = self->animation_ptr->get_channel_count();
+static PyObject* PyAnimation_num_channels(PyAnimation *self, PyObject *args) {
+    size_t count = self->animation_ptr->num_channels();
     return PyLong_FromSize_t(count);
 }
 
@@ -410,7 +410,7 @@ static PyMethodDef PyAnimation_methods[] = {
      "Remove a channel by its index"},
     {"remove_channel_by_name", (PyCFunction)PyAnimation_remove_channel_by_name, METH_VARARGS,
      "Remove a channel by its name"},
-    {"get_channel_count", (PyCFunction)PyAnimation_get_channel_count, METH_NOARGS,
+    {"num_channels", (PyCFunction)PyAnimation_num_channels, METH_NOARGS,
      "Get the number of channels in the animation"},
     {"get_channel_names", (PyCFunction)PyAnimation_get_channel_names, METH_NOARGS,
      "Get a list of all channel names"},
@@ -439,7 +439,7 @@ static PyMethodDef PyAnimation_methods[] = {
 
 // String representation
 static PyObject* PyAnimation_str(PyAnimation *self) {
-    size_t channel_count = self->animation_ptr->get_channel_count();
+    size_t channel_count = self->animation_ptr->num_channels();
     std::vector<std::string> channel_names_vec = self->animation_ptr->get_channel_names(); // Renamed
 
     std::string names_str;

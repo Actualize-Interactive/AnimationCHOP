@@ -43,19 +43,19 @@ def onCellChange(dat, cells, prev):
 			value_val = float(dat[row, 2].val) if dat[row, 2].val else 0.0
 			
 			# Convert mode string to mode number with validation
-			mode_str = dat[row, 3].val if dat[row, 3].val else "smoothAuto"
+			mode_str = dat[row, 3].val if dat[row, 3].val else "smooth"
 			tangent_modes_reverse = {
 				"flat": 0, 
 				"linear": 1, 
-				"stepped": 2,
-				"smoothAuto": 3, 
-				"smoothManual": 4, 
+				"constant": 2,
+				"smooth": 3, 
+				"manual": 4, 
 				"broken": 5
 			}
 			
 			if mode_str not in tangent_modes_reverse:
-				print(f"WARNING: Invalid mode string '{mode_str}', defaulting to 'smoothAuto'")
-				mode_str = "smoothAuto"
+				print(f"WARNING: Invalid mode string '{mode_str}', defaulting to 'smooth'")
+				mode_str = "smooth"
 				# Update the cell with the corrected value
 				dat[row, 3] = mode_str
 			
@@ -175,17 +175,17 @@ def onSizeChange(dat):
 		tangent_modes_reverse = {
 			"flat": 0, 
 			"linear": 1, 
-			"stepped": 2,
-			"smoothAuto": 3, 
-			"smoothManual": 4, 
+			"constant": 2,
+			"smooth": 3, 
+			"manual": 4, 
 			"broken": 5
 		}
 		tangent_modes = {
 			0: "flat", 
 			1: "linear", 
-			2: "stepped",
-			3: "smoothAuto", 
-			4: "smoothManual", 
+			2: "constant",
+			3: "smooth", 
+			4: "manual", 
 			5: "broken"
 		}
 		
@@ -244,17 +244,17 @@ def onSizeChange(dat):
 					value_val = float(dat[row, 2].val) if dat[row, 2].val else 10.0 + 5.0 * (index_val % 4)
 					
 					# Convert mode string to mode number with validation
-					mode_str = dat[row, 3].val if dat[row, 3].val else "smoothAuto"
+					mode_str = dat[row, 3].val if dat[row, 3].val else "smooth"
 					
 					if mode_str not in tangent_modes_reverse:
-						print(f"WARNING: Invalid mode string '{mode_str}' in row {row}, defaulting to 'smoothAuto'")
-						mode_str = "smoothAuto"
+						print(f"WARNING: Invalid mode string '{mode_str}' in row {row}, defaulting to 'smooth'")
+						mode_str = "smooth"
 						mode_val = 3
 					else:
 						mode_val = tangent_modes_reverse[mode_str]
 					
 					# Ensure consistency between mode string and number
-					mode_name = tangent_modes.get(mode_val, "smoothAuto")
+					mode_name = tangent_modes.get(mode_val, "smooth")
 					if mode_name != mode_str:
 						print(f"WARNING: Mode mismatch in row {row}: '{mode_str}' != '{mode_name}', correcting to '{mode_name}'")
 						mode_str = mode_name
