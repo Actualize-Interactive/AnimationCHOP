@@ -217,6 +217,42 @@ static PyObject* PyKeyframe_str(PyKeyframe *self) {
     return PyUnicode_FromString(str.c_str());
 }
 
+// --- Equality and copy protocol ---
+static PyObject* PyKeyframe_richcompare(PyObject* a, PyObject* b, int op) {
+    if (!PyObject_TypeCheck(a, &PyKeyframeType) || !PyObject_TypeCheck(b, &PyKeyframeType)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    const anim::Keyframe& kfa = ((PyKeyframe*)a)->keyframe;
+    const anim::Keyframe& kfb = ((PyKeyframe*)b)->keyframe;
+    switch (op) {
+        case Py_EQ:
+            return PyBool_FromLong(kfa == kfb);
+        case Py_NE:
+            return PyBool_FromLong(kfa != kfb);
+        default:
+            Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyObject* PyKeyframe_copy(PyKeyframe* self, PyObject*) {
+    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+static PyObject* PyKeyframe_deepcopy(PyKeyframe* self, PyObject* args) {
+    // Ignore memo dict
+    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+
+// --- Methods table ---
+static PyMethodDef PyKeyframe_methods[] = {
+    {"__copy__", (PyCFunction)PyKeyframe_copy, METH_NOARGS, "Shallow copy of Keyframe"},
+    {"__deepcopy__", (PyCFunction)PyKeyframe_deepcopy, METH_VARARGS, "Deep copy of Keyframe"},
+    {NULL, NULL, 0, NULL}
+};
+
 // Type definition
 PyTypeObject PyKeyframeType = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -242,11 +278,11 @@ PyTypeObject PyKeyframeType = {
     "Keyframe object",        // tp_doc
     0,                         // tp_traverse
     0,                         // tp_clear
-    0,                         // tp_richcompare
+    PyKeyframe_richcompare,    // tp_richcompare
     0,                         // tp_weaklistoffset
     0,                         // tp_iter
     0,                         // tp_iternext
-    0,                         // tp_methods
+    PyKeyframe_methods,        // tp_methods
     0,                         // tp_members
     PyKeyframe_getset,         // tp_getset
     0,                         // tp_base

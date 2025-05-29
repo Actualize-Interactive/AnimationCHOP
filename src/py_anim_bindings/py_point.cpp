@@ -57,6 +57,42 @@ static int PyPoint_set_value(PyPoint *self, PyObject *value, void *closure) {
     return 0;
 }
 
+// --- Equality and copy protocol ---
+static PyObject* PyPoint_richcompare(PyObject* a, PyObject* b, int op) {
+    if (!PyObject_TypeCheck(a, &PyPointType) || !PyObject_TypeCheck(b, &PyPointType)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    const anim::Point& pa = ((PyPoint*)a)->point;
+    const anim::Point& pb = ((PyPoint*)b)->point;
+    switch (op) {
+        case Py_EQ:
+            return PyBool_FromLong(pa == pb);
+        case Py_NE:
+            return PyBool_FromLong(pa != pb);
+        default:
+            Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+// --- Copy protocol ---
+static PyObject* PyPoint_copy(PyPoint* self, PyObject*) {
+    PyPoint* result = PointToPyPoint(self->point);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+static PyObject* PyPoint_deepcopy(PyPoint* self, PyObject* args) {
+    // Ignore memo dict
+    PyPoint* result = PointToPyPoint(self->point);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+
+// --- Methods table ---
+static PyMethodDef PyPoint_methods[] = {
+    {"__copy__", (PyCFunction)PyPoint_copy, METH_NOARGS, "Shallow copy of Point"},
+    {"__deepcopy__", (PyCFunction)PyPoint_deepcopy, METH_VARARGS, "Deep copy of Point"},
+    {NULL, NULL, 0, NULL}
+};
 
 PyGetSetDef PyPoint_getset[] = {
     {"time", (getter)PyPoint_get_time, (setter)PyPoint_set_time, "Time of the Point", NULL},
@@ -91,22 +127,22 @@ PyTypeObject PyPointType = {
     0,                         // tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // tp_flags
     "Point objects",           // tp_doc 
-    0,		                   // tp_traverse 
-    0,		                   // tp_clear 
-    0,		                   // tp_richcompare 
-    0,		                   // tp_weaklistoffset 
-    0,		                   // tp_iter 
-    0,		                   // tp_iternext 
-    0,		                   // tp_methods 
-    0,		                   // tp_members 
+    0,                         // tp_traverse 
+    0,                         // tp_clear 
+    PyPoint_richcompare,       // tp_richcompare 
+    0,                         // tp_weaklistoffset 
+    0,                         // tp_iter 
+    0,                         // tp_iternext 
+    PyPoint_methods,           // tp_methods 
+    0,                         // tp_members 
     PyPoint_getset,            // tp_getset 
-    0,		                   // tp_base 
-    0,		                   // tp_dict 
-    0,		                   // tp_descr_get 
-    0,		                   // tp_descr_set 
-    0,		                   // tp_dictoffset 
+    0,                         // tp_base 
+    0,                         // tp_dict 
+    0,                         // tp_descr_get 
+    0,                         // tp_descr_set 
+    0,                         // tp_dictoffset 
     (initproc)PyPoint_init,    // tp_init 
-    0,		                   // tp_alloc 
+    0,                         // tp_alloc 
     PyPoint_new,               // tp_new 
 };
 
