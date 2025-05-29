@@ -101,8 +101,9 @@ PyGetSetDef PyPoint_getset[] = {
 };
 
 static PyObject* PyPoint_str(PyPoint *self) {
-    auto str = std::format("Point(time={}, value={})", self->point.time, self->point.value);
-    return PyUnicode_FromString(str.c_str());
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "Point(time=%.1f, value=%.1f)", self->point.time, self->point.value);
+    return PyUnicode_FromString(buffer);
 }
 
 PyTypeObject PyPointType = {

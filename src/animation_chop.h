@@ -1,6 +1,7 @@
 #pragma once
 #include "CHOP_CPlusPlusBase.h"
-#include <anim/animation.hpp>
+
+#include <anim.hpp>
 #include <string>
 #include <vector>
 #include <map>
@@ -41,22 +42,3 @@ private:
 };
 
 
-// static PyObject* py_chop_animationFromDict(PyObject* self, PyObject* args);
-static PyObject* py_chop_create_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_emplace_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_insert_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_remove_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_has_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_clear(PyObject* self, PyObject* args);
-
-static PyObject* py_chop_get_channels(PyObject* self, void* closure);
-static PyObject* py_chop_get_channel_names(PyObject* self, void* closure);
-static PyObject* py_chop_get_num_channels(PyObject* self, void* closure);
-static PyObject* py_chop_get_start_time(PyObject* self, void* closure);
-static int py_chop_set_start_time(PyObject* self, PyObject* args, void* closure);
-static PyObject* py_chop_get_end_time(PyObject* self, void* closure);
-static int py_chop_set_end_time(PyObject* self, PyObject* args, void* closure);
-static PyObject* py_chop_get_length(PyObject* self, void* closure);
-static int py_chop_set_length(PyObject* self, PyObject* args, void* closure);
-static PyObject* py_chop_num_samples(PyObject* self, void* closure);

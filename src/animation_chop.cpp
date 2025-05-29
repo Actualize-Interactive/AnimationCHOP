@@ -32,25 +32,15 @@
 	#include <Python/structmember.h>
 #endif
 
-// --- PyObject proxy property ---
-// static PyObject* py_chop_animation(PyObject* self, void*) {
-//     PY_Struct* me = (PY_Struct*)self;
-//     PY_GetInfo info;
-//     info.autoCook = false;
-//     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-//     if (!inst) {
-//         PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationCHOP instance");
-//         return nullptr;
-//     }
-//     auto& animation = inst->animation();
-//     PyObject* pyAnimation = AnimationToPyObject(&animation, self);
-//     if (!pyAnimation) {
-//         PyErr_SetString(PyExc_RuntimeError, "Failed to create Python animation object");
-//         return nullptr;
-//     }
-//     return pyAnimation;
-// }
-
+// static PyObject* py_chop_animationFromDict(PyObject* self, PyObject* args);
+static PyObject* py_chop_create_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_emplace_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_insert_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_remove_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_has_channel(PyObject* self, PyObject* args);
+static PyObject* py_chop_get_channel(PyObject *self, PyObject *key);
+static PyObject* py_chop_clear(PyObject* self, PyObject* args);
 
 
 // --- Python method table for AnimationCHOP ---
@@ -60,11 +50,23 @@ static PyMethodDef methods[] = {
     {"insert_channel", (PyCFunction)py_chop_insert_channel, METH_VARARGS, "Insert a channel at a given index."},
     {"remove_channel", (PyCFunction)py_chop_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
     {"has_channel", (PyCFunction)py_chop_has_channel, METH_VARARGS, "Check if a channel exists."},
+	{"get_channel", (PyCFunction)py_chop_get_channel, METH_VARARGS, "Get a channel by name or index."},
+
     {"clear", (PyCFunction)py_chop_clear, METH_NOARGS, "Clear all channels."},
     // ... add any additional custom or legacy methods here ...
     {nullptr, nullptr, 0, nullptr}
 };
 
+static PyObject* py_chop_get_channels(PyObject* self, void* closure);
+static PyObject* py_chop_get_channel_names(PyObject* self, void* closure);
+static PyObject* py_chop_get_num_channels(PyObject* self, void* closure);
+static PyObject* py_chop_get_start_time(PyObject* self, void* closure);
+static int py_chop_set_start_time(PyObject* self, PyObject* args, void* closure);
+static PyObject* py_chop_get_end_time(PyObject* self, void* closure);
+static int py_chop_set_end_time(PyObject* self, PyObject* args, void* closure);
+static PyObject* py_chop_get_length(PyObject* self, void* closure);
+static int py_chop_set_length(PyObject* self, PyObject* args, void* closure);
+static PyObject* py_chop_get_num_samples(PyObject* self, void* closure);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
@@ -74,13 +76,13 @@ static PyGetSetDef getSets[] =
     {"Function", get_function_enum, nullptr, "Function enum for keyframe interpolation type.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},
-    {"Animation", get_animation_type, nullptr, "Animation container for channels and keyframes.", nullptr},
     {"channels", py_chop_get_channels, nullptr, "Get all channels.", nullptr}, 
     {"channel_names", py_chop_get_channel_names, nullptr, "Get all channel names.", nullptr},
     {"num_channels",py_chop_get_num_channels, nullptr, "Get the number of channels.", nullptr},
 	{"start_time", py_chop_get_start_time, py_chop_set_start_time, "Get or set the start time of the animation.", nullptr},
 	{"end_time", py_chop_get_end_time, py_chop_set_end_time, "Get or set the end time of the animation.", nullptr},
 	{"length", py_chop_get_length, py_chop_set_length, "Get or set the length of the animation.", nullptr},
+	{"num_samples", py_chop_get_num_samples, nullptr, "Get the number of samples in the animation.", nullptr},
     // {"animation", (getter)py_chop_animation, nullptr, "The PyObject interface for this AnimationCHOP.", nullptr},
 	{0}
 };
@@ -353,40 +355,45 @@ AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 
 // --- Channel creation and insertion ---
 static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
-	PY_Struct* me = (PY_Struct*)self;
+    PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
     if (!inst) {
         return nullptr;
     }
-	auto animation = inst->animation();
+    auto animation = inst->animation();
     if (!animation) {
         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
         return NULL;
     }
 
-
     const char* name;
+    size_t index;
     Py_ssize_t nargs = PyTuple_Size(args);
+    
     if (nargs == 1) {
         if (!PyArg_ParseTuple(args, "s", &name))
             return NULL;
         try {
             anim::Channel& channel = animation->create_channel(std::string(name));
-			me->context->makeNodeDirty();
+            me->context->makeNodeDirty();
             return ChannelToPyObject(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
     } else if (nargs == 2) {
-        size_t index;
         if (!PyArg_ParseTuple(args, "sk", &name, &index))
             return NULL;
         try {
+            // Allow index up to and including num_channels (for append at end)
+            if (index > animation->num_channels()) {
+                PyErr_SetString(PyExc_IndexError, "Channel index out of range");
+                return NULL;
+            }
             anim::Channel& channel = animation->create_channel(std::string(name), index);
-			me->context->makeNodeDirty();
+            me->context->makeNodeDirty();
             return ChannelToPyObject(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -460,22 +467,31 @@ static PyObject* py_chop_insert_channel(PyObject *self, PyObject *args) {
 }
 
 // --- Channel access ---
-static PyObject* py_chop_channel(PyObject *self, PyObject *key) {
-	PY_Struct* me = (PY_Struct*)self;
+static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
+    PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
     if (!inst) {
         return nullptr;
     }
-	auto animation = inst->animation();
+    auto animation = inst->animation();
     if (!animation) {
         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
         return NULL;
     }
 
+    PyObject* key;
+    if (!PyArg_ParseTuple(args, "O", &key))
+        return NULL;
+
     if (PyLong_Check(key)) {
-        size_t index = (size_t)PyLong_AsSize_t(key);
+        long index_long = PyLong_AsLong(key);
+        if (index_long < 0) {
+            PyErr_SetString(PyExc_IndexError, "Channel index cannot be negative");
+            return NULL;
+        }
+        size_t index = (size_t)index_long;
         try {
             anim::Channel& channel = animation->channel(index);
             return ChannelToPyObject(&channel, (PyObject*)self);
@@ -497,44 +513,6 @@ static PyObject* py_chop_channel(PyObject *self, PyObject *key) {
         return NULL;
     }
 }
-
-// static Py_ssize_t py_chop_len(PyObject *self) {
-//     PY_Struct* me = (PY_Struct*)self;
-//     PY_GetInfo info;
-//     info.autoCook = false;
-//     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-//     if (!inst) {
-//         return -1;
-//     }
-//     auto animation = inst->animation();
-//     if (!animation) {
-//         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
-//         return -1;
-//     }
-
-//     return (Py_ssize_t)animation->num_channels();
-// }
-
-// static int py_chop_contains(PyObject *self, PyObject *key) {
-//     PY_Struct* me = (PY_Struct*)self;
-//     PY_GetInfo info;
-//     info.autoCook = false;
-//     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-//     if (!inst) {
-//         return -1;
-//     }
-//     auto animation = inst->animation();
-//     if (!animation) {
-//         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
-//         return -1;
-//     }
-//     if (PyUnicode_Check(key)) {
-//         std::string name = PyUnicode_AsUTF8(key);
-//         return animation->has_channel(name) ? 1 : 0;
-//     }
-//     return 0;
-// }
-
 
 static PyObject* py_chop_has_channel(PyObject *self, PyObject *args) {
 	PY_Struct* me = (PY_Struct*)self;
@@ -835,7 +813,7 @@ static int py_chop_set_length(PyObject *self, PyObject *args, void* closure) {
     }
 }
 
-static PyObject* py_chop_num_samples(PyObject *self, void* closure) {
+static PyObject* py_chop_get_num_samples(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;

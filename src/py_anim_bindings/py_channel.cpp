@@ -36,17 +36,23 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
 
-    // Overloads: (time, value, [function, handle_mode])
-    // (position: Point, [function, handle_mode])
-    // (time, value, in_handle: Point, out_handle: Point, [function, handle_mode])
-    static const char* kwlist1[] = {"time", "value", "function", "handle_mode", NULL};
-    static const char* kwlist2[] = {"position", "function", "handle_mode", NULL};
-    static const char* kwlist3[] = {"time", "value", "in_handle", "out_handle", "function", "handle_mode", NULL};
-    double time = 0, value = 0;
-    PyObject *position_obj = NULL, *in_handle_obj = NULL, *out_handle_obj = NULL;
-    int function = (int)anim::Function::bezier;
-    int handle_mode = (int)anim::HandleMode::smooth;
-    if (PyArg_ParseTupleAndKeywords(args, kwds, "dd|ii", (char**)kwlist1, &time, &value, &function, &handle_mode)) {
+    int argc = PyTuple_Size(args);
+    
+    // Overload 1: create_keyframe(time, value [, function, handle_mode])
+    if (argc >= 2 && (PyFloat_Check(PyTuple_GetItem(args, 0)) || PyLong_Check(PyTuple_GetItem(args, 0)))) {
+        double time, value;
+        int function = (int)anim::Function::bezier;
+        int handle_mode = (int)anim::HandleMode::smooth;
+        
+        if (argc == 2) {
+            if (!PyArg_ParseTuple(args, "dd", &time, &value)) return NULL;
+        } else if (argc == 4) {
+            if (!PyArg_ParseTuple(args, "ddii", &time, &value, &function, &handle_mode)) return NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "create_keyframe with time/value expects (time, value) or (time, value, function, handle_mode)");
+            return NULL;
+        }
+        
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(time, value, (anim::Function)function, (anim::HandleMode)handle_mode);
             if (node_struct) {
@@ -57,9 +63,25 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
-    } else if (PyArg_ParseTupleAndKeywords(args, kwds, "O|ii", (char**)kwlist2, &position_obj, &function, &handle_mode)) {
+    }
+    // Overload 2: create_keyframe(Point [, function, handle_mode])
+    else if (argc >= 1 && PyObject_TypeCheck(PyTuple_GetItem(args, 0), &PyPointType)) {
+        PyObject *position_obj = PyTuple_GetItem(args, 0);
+        int function = (int)anim::Function::bezier;
+        int handle_mode = (int)anim::HandleMode::smooth;
+        
+        if (argc == 1) {
+            // Just the Point
+        } else if (argc == 3) {
+            if (!PyArg_ParseTuple(args, "Oii", &position_obj, &function, &handle_mode)) return NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "create_keyframe with Point expects (Point) or (Point, function, handle_mode)");
+            return NULL;
+        }
+        
         anim::Point pos;
         if (!PyObjectToPoint(position_obj, pos)) return NULL;
+        
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(pos, (anim::Function)function, (anim::HandleMode)handle_mode);
             if (node_struct) {
@@ -70,9 +92,28 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
-    } else if (PyArg_ParseTupleAndKeywords(args, kwds, "ddOO|ii", (char**)kwlist3, &time, &value, &in_handle_obj, &out_handle_obj, &function, &handle_mode)) {
+    }
+    // Overload 3: create_keyframe(time, value, in_handle, out_handle [, function, handle_mode])
+    else if (argc >= 4 && (PyFloat_Check(PyTuple_GetItem(args, 0)) || PyLong_Check(PyTuple_GetItem(args, 0))) &&
+             PyObject_TypeCheck(PyTuple_GetItem(args, 2), &PyPointType) &&
+             PyObject_TypeCheck(PyTuple_GetItem(args, 3), &PyPointType)) {
+        double time, value;
+        PyObject *in_handle_obj, *out_handle_obj;
+        int function = (int)anim::Function::bezier;
+        int handle_mode = (int)anim::HandleMode::smooth;
+        
+        if (argc == 4) {
+            if (!PyArg_ParseTuple(args, "ddOO", &time, &value, &in_handle_obj, &out_handle_obj)) return NULL;
+        } else if (argc == 6) {
+            if (!PyArg_ParseTuple(args, "ddOOii", &time, &value, &in_handle_obj, &out_handle_obj, &function, &handle_mode)) return NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "create_keyframe with handles expects (time, value, in_handle, out_handle) or (time, value, in_handle, out_handle, function, handle_mode)");
+            return NULL;
+        }
+        
         anim::Point in_handle, out_handle;
         if (!PyObjectToPoint(in_handle_obj, in_handle) || !PyObjectToPoint(out_handle_obj, out_handle)) return NULL;
+        
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(time, value, in_handle, out_handle, (anim::Function)function, (anim::HandleMode)handle_mode);
             if (node_struct) {
@@ -84,7 +125,8 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
             return NULL;
         }
     }
-    PyErr_SetString(PyExc_TypeError, "Invalid arguments for create_keyframe");
+    
+    PyErr_SetString(PyExc_TypeError, "Invalid arguments for create_keyframe. Expected (time, value), (Point), or (time, value, in_handle, out_handle)");
     return NULL;
 }
 
