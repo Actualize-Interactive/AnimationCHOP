@@ -1,5 +1,6 @@
 #include "py_channel.h"
 #include "py_keyframe.h" // For KeyframeToPyObject, PyKeyframeType
+#include "utils.h" // For AnimationCHOP, AnimationToPyObject
 #include <vector>
 #include <optional>
 
@@ -30,6 +31,11 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+
     // Overloads: (time, value, [function, handle_mode])
     // (position: Point, [function, handle_mode])
     // (time, value, in_handle: Point, out_handle: Point, [function, handle_mode])
@@ -43,6 +49,9 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
     if (PyArg_ParseTupleAndKeywords(args, kwds, "dd|ii", (char**)kwlist1, &time, &value, &function, &handle_mode)) {
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(time, value, (anim::Function)function, (anim::HandleMode)handle_mode);
+            if (node_struct) {
+                node_struct->context->makeNodeDirty();
+            }
             return KeyframeToPyObject(kf);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -53,6 +62,9 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
         if (!PyObjectToPoint(position_obj, pos)) return NULL;
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(pos, (anim::Function)function, (anim::HandleMode)handle_mode);
+            if (node_struct) {
+                node_struct->context->makeNodeDirty();
+            }
             return KeyframeToPyObject(kf);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -63,6 +75,9 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
         if (!PyObjectToPoint(in_handle_obj, in_handle) || !PyObjectToPoint(out_handle_obj, out_handle)) return NULL;
         try {
             const anim::Keyframe& kf = self->channel->create_keyframe(time, value, in_handle, out_handle, (anim::Function)function, (anim::HandleMode)handle_mode);
+            if (node_struct) {
+                node_struct->context->makeNodeDirty();
+            }
             return KeyframeToPyObject(kf);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -78,6 +93,11 @@ static PyObject* PyChannel_emplace_keyframe(PyChannel *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+
     PyObject* py_keyframe;
     if (!PyArg_ParseTuple(args, "O", &py_keyframe))
         return NULL;
@@ -86,6 +106,9 @@ static PyObject* PyChannel_emplace_keyframe(PyChannel *self, PyObject *args) {
         return NULL;
     try {
         const anim::Keyframe& result = self->channel->emplace_keyframe(std::move(kf));
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
         return KeyframeToPyObject(result);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -179,45 +202,91 @@ static PyObject* PyChannel_closest_keyframe(PyChannel *self, PyObject *args) {
 // --- Keyframe update/setters ---
 static PyObject* PyChannel_update_keyframe(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; PyObject* value;
     if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
     anim::Keyframe kf;
     if (!PyObjectToKeyframe(value, kf)) return NULL;
-    try { self->channel->update_keyframe(index, kf); Py_RETURN_NONE; }
+    try { 
+        self->channel->update_keyframe(index, kf); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_time(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; double value;
     if (!PyArg_ParseTuple(args, "kd", &index, &value)) return NULL;
-    try { self->channel->set_keyframe_time(index, value); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_time(index, value); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_value(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; double value;
     if (!PyArg_ParseTuple(args, "kd", &index, &value)) return NULL;
-    try { self->channel->set_keyframe_value(index, value); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_value(index, value); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_position(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index;
     PyObject* value;
     if (PyArg_ParseTuple(args, "kO", &index, &value)) {
         // Try Point object
         anim::Point pt;
         if (!PyObjectToPoint(value, pt)) return NULL;
-        try { self->channel->set_keyframe_position(index, pt); Py_RETURN_NONE; }
+        try { 
+            self->channel->set_keyframe_position(index, pt); 
+            if (node_struct) {
+                node_struct->context->makeNodeDirty();
+            }
+            Py_RETURN_NONE; 
+        }
         catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
     } else {
         PyErr_Clear();
         double t, v;
         if (PyArg_ParseTuple(args, "kdd", &index, &t, &v)) {
-            try { self->channel->set_keyframe_position(index, t, v); Py_RETURN_NONE; }
+            try { 
+                self->channel->set_keyframe_position(index, t, v); 
+                if (node_struct) {
+                    node_struct->context->makeNodeDirty();
+                }
+                Py_RETURN_NONE; 
+            }
             catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
         } else {
             PyErr_SetString(PyExc_TypeError, "set_keyframe_position expects (index, Point) or (index, time, value)");
@@ -228,37 +297,77 @@ static PyObject* PyChannel_set_keyframe_position(PyChannel *self, PyObject *args
 
 static PyObject* PyChannel_set_keyframe_in_handle(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; PyObject* value;
     if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
     anim::Point pt;
     if (!PyObjectToPoint(value, pt)) return NULL;
-    try { self->channel->set_keyframe_in_handle(index, pt); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_in_handle(index, pt); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_out_handle(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; PyObject* value;
     if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
     anim::Point pt;
     if (!PyObjectToPoint(value, pt)) return NULL;
-    try { self->channel->set_keyframe_out_handle(index, pt); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_out_handle(index, pt); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_function(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; int value;
     if (!PyArg_ParseTuple(args, "ki", &index, &value)) return NULL;
-    try { self->channel->set_keyframe_function(index, (anim::Function)value); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_function(index, (anim::Function)value); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
 static PyObject* PyChannel_set_keyframe_handle_mode(PyChannel *self, PyObject *args) {
     if (!self->channel) { PyErr_SetString(PyExc_RuntimeError, "Channel is not valid"); return NULL; }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index; int value;
     if (!PyArg_ParseTuple(args, "ki", &index, &value)) return NULL;
-    try { self->channel->set_keyframe_handle_mode(index, (anim::HandleMode)value); Py_RETURN_NONE; }
+    try { 
+        self->channel->set_keyframe_handle_mode(index, (anim::HandleMode)value); 
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        Py_RETURN_NONE; 
+    }
     catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); return NULL; }
 }
 
@@ -268,11 +377,18 @@ static PyObject* PyChannel_remove_keyframe(PyChannel *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     size_t index;
     if (!PyArg_ParseTuple(args, "k", &index))
         return NULL;
     try {
         self->channel->delete_keyframe(index);
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
         Py_RETURN_NONE;
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -377,11 +493,18 @@ static int PyChannel_set_name(PyChannel *self, PyObject* value, void*) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return -1;
     }
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
     if (!PyUnicode_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "Name must be a string");
         return -1;
     }
     self->channel->set_name(PyUnicode_AsUTF8(value));
+    if (node_struct) {
+        node_struct->context->makeNodeDirty();
+    }
     return 0;
 }
 static PyObject* PyChannel_size(PyChannel *self, void*) {
