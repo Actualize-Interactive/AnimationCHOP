@@ -2,10 +2,9 @@
 
 #include <anim/channel.hpp>
 #include "py_keyframe.h"
-#include "py_bezier_handle.h"
-// py_tangent_mode.h is not strictly needed here if TangentMode is only used in .cpp
-// but keeping it for now in case anim::TangentMode is used directly in other headers that include this.
-#include "py_tangent_mode.h" 
+#include "py_point.h"
+#include "py_handle_mode.h"
+#include "py_function.h"
 
 #ifdef _WIN32
     #include <Python.h>
@@ -17,7 +16,8 @@
 
 typedef struct {
     PyObject_HEAD
-    anim::Channel channel;  // The actual C++ object
+    anim::Channel* channel;  // Pointer to the actual channel in AnimationCHOP
+    PyObject* parent;        // Reference to the parent AnimationCHOP to keep it alive
 } PyChannel;
 
 extern PyTypeObject PyChannelType;
@@ -26,5 +26,5 @@ extern PyTypeObject PyChannelType;
 PyObject* get_channel_type(PyObject* self, void* closure);
 
 // Helper functions for conversion between C++ and Python
-PyObject* ChannelToPyObject(const anim::Channel& channel);
-bool PyObjectToChannel(PyObject* obj, anim::Channel& channel);
+PyObject* ChannelToPyObject(anim::Channel* channel, PyObject* parent);
+bool PyObjectToChannel(PyObject* obj, anim::Channel*& channel);

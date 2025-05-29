@@ -9,99 +9,59 @@
 static PyObject* PyAnimation_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyAnimation *self = (PyAnimation *)type->tp_alloc(type, 0);
     if (self != NULL) {
-        self->animation_ptr = new anim::Animation();
-        if (!self->animation_ptr) {
-            Py_DECREF(self);
-            return PyErr_NoMemory();
-        }
-        self->is_owner = true; 
+        self->animation = nullptr;
+        self->parent = nullptr;
     }
     return (PyObject *)self;
 }
 
 static void PyAnimation_dealloc(PyAnimation *self) {
-    if (self->is_owner && self->animation_ptr) {
-        delete self->animation_ptr;
-    }
-    self->animation_ptr = nullptr;
+    Py_XDECREF(self->parent);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
-// Initialize the object
+// Initialize the object - NOTE: This should not be called directly, use AnimationToPyObject instead
 static int PyAnimation_init(PyAnimation *self, PyObject *args, PyObject *kwds) {
-    return 0;
+    PyErr_SetString(PyExc_RuntimeError, "Animation objects cannot be created directly. Use AnimationCHOP methods to access animation.");
+    return -1;
 }
 
-static PyObject* PyAnimation_append_channel(PyAnimation *self, PyObject *args) {
-    PyObject* py_channel_arg; 
-    
-    if (!PyArg_ParseTuple(args, "O", &py_channel_arg))
-        return NULL;
-    
-    anim::Channel channel_temp;
-    if (!PyObjectToChannel(py_channel_arg, channel_temp)) {
-         // PyObjectToChannel sets the error
+static PyObject* PyAnimation_create_channel(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
         return NULL;
     }
-        
+    
+    const char* name;
+    
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+    
     try {
-        self->animation_ptr->append_channel(channel_temp);
-        Py_RETURN_NONE;
+        anim::Channel& channel = self->animation->create_channel(std::string(name));
+        return ChannelToPyObject(&channel, (PyObject*)self);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
 }
-
-// Methods
-static PyObject* PyAnimation_insert_channel(PyAnimation *self, PyObject *args) {
-    PyObject* py_channel_arg; 
-    size_t index;
-
-    if (!PyArg_ParseTuple(args, "nO", &index, &py_channel_arg)) // Changed "kO" to "nO" for size_t
-        return NULL;
-
-    anim::Channel channel_temp;
-    if (!PyObjectToChannel(py_channel_arg, channel_temp)) {
-        // PyObjectToChannel sets the error
-        return NULL;
-    }
-
-    // Insert the channel into the animation
-    try {
-        self->animation_ptr->insert_channel(index, channel_temp);
-        Py_RETURN_NONE;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
 
 static PyObject* PyAnimation_get_channel_by_index(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     size_t index;
     
-    if (!PyArg_ParseTuple(args, "n", &index)) // Changed "k" to "n" for size_t
+    if (!PyArg_ParseTuple(args, "k", &index))
         return NULL;
     
     try {
-        // Assuming get_channel returns a pointer or optional<reference_wrapper<Channel>>
-        // If it returns a copy or reference, adjust accordingly.
-        // For this example, let's assume it returns a pointer to a channel managed by Animation.
-        anim::Channel* channel_ptr = self->animation_ptr->get_channel(index);
-        if (!channel_ptr) {
-            Py_RETURN_NONE; // Or raise an IndexError
-        }
-
-        // Convert C++ Channel to PyObject. This typically involves creating a new PyChannel.
-        // This means the Python side gets a *copy* or a new wrapper around the existing C++ object.
-        // If the C++ object's lifetime is tied to PyAnimation, care must be taken.
-        // ChannelToPyObject should handle creating a new PyChannel that wraps a *copy*
-        // or a reference if the lifetime management is clear.
-        // For simplicity, assume ChannelToPyObject creates a new PyChannel wrapping a copy.
-        return ChannelToPyObject(*channel_ptr);
-    } catch (const std::out_of_range& e) {
-        PyErr_SetString(PyExc_IndexError, e.what());
+        anim::Channel& channel = self->animation->channel(index);
+        return ChannelToPyObject(&channel, (PyObject*)self);
+    } catch (const std::out_of_range&) {
+        PyErr_SetString(PyExc_IndexError, "Channel with given index not found");
         return NULL;
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -110,18 +70,20 @@ static PyObject* PyAnimation_get_channel_by_index(PyAnimation *self, PyObject *a
 }
 
 static PyObject* PyAnimation_get_channel_by_name(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     const char* name;
     
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
     
     try {
-        anim::Channel* channel_ptr = self->animation_ptr->get_channel(std::string(name));
-        if (!channel_ptr) {
-            Py_RETURN_NONE; // Or raise KeyError
-        }
-        return ChannelToPyObject(*channel_ptr);
-    } catch (const std::out_of_range& e) { // Or other specific exception for not found
+        anim::Channel& channel = self->animation->channel(std::string(name));
+        return ChannelToPyObject(&channel, (PyObject*)self);
+    } catch (const std::out_of_range&) {
         PyErr_Format(PyExc_KeyError, "Channel with name '%s' not found", name);
         return NULL;
     } catch (const std::exception& e) {
@@ -131,32 +93,68 @@ static PyObject* PyAnimation_get_channel_by_name(PyAnimation *self, PyObject *ar
 }
 
 static PyObject* PyAnimation_remove_channel_by_index(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     size_t index;
     
-    if (!PyArg_ParseTuple(args, "n", &index)) // Changed "k" to "n"
+    if (!PyArg_ParseTuple(args, "k", &index))
         return NULL;
 
-    bool result = self->animation_ptr->remove_channel(index);
-    return PyBool_FromLong(result ? 1 : 0);
+    try {
+        self->animation->remove_channel(index);
+        Py_RETURN_NONE;
+    } catch (const std::out_of_range&) {
+        PyErr_SetString(PyExc_IndexError, "Channel with given index not found");
+        return NULL;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyAnimation_remove_channel_by_name(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     const char* name;
     
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
 
-    bool result = self->animation_ptr->remove_channel(std::string(name));
-    return PyBool_FromLong(result ? 1 : 0);
+    try {
+        self->animation->remove_channel(std::string(name));
+        Py_RETURN_NONE;
+    } catch (const std::out_of_range&) {
+        PyErr_Format(PyExc_KeyError, "Channel with name '%s' not found", name);
+        return NULL;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyAnimation_num_channels(PyAnimation *self, PyObject *args) {
-    size_t count = self->animation_ptr->num_channels();
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    size_t count = self->animation->num_channels();
     return PyLong_FromSize_t(count);
 }
 
 static PyObject* PyAnimation_get_channel_names(PyAnimation *self, PyObject *args) {
-    std::vector<std::string> names = self->animation_ptr->get_channel_names();
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    std::vector<std::string> names = self->animation->channel_names();
     
     PyObject* names_list = PyList_New(names.size());
     if (!names_list) {
@@ -175,233 +173,171 @@ static PyObject* PyAnimation_get_channel_names(PyAnimation *self, PyObject *args
     return names_list;
 }
 
-static PyObject* PyAnimation_find_channel_index(PyAnimation *self, PyObject *args) {
+static PyObject* PyAnimation_has_channel(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     const char* name;
     
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
     
-    try {
-        size_t index = self->animation_ptr->find_channel_index(std::string(name));
-        return PyLong_FromSize_t(index);
-    } catch (const std::out_of_range& e) { // Assuming find_channel_index throws if not found
-        PyErr_SetString(PyExc_ValueError, e.what()); // Or KeyError
-        return NULL;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyAnimation_evaluate_channels(PyAnimation *self, PyObject *args) {
-    double time;
-    
-    if (!PyArg_ParseTuple(args, "d", &time))
-        return NULL;
-    
-    try {
-        std::map<std::string, double> values = self->animation_ptr->evaluate_channels(time);
-
-        PyObject* values_dict = PyDict_New();
-        if (!values_dict) {
-            return NULL;
-        }
-        
-        for (const auto& pair : values) {
-            PyObject* py_name = PyUnicode_FromString(pair.first.c_str());
-            PyObject* py_value = PyFloat_FromDouble(pair.second);
-            
-            if (!py_name || !py_value) {
-                Py_XDECREF(py_name);
-                Py_XDECREF(py_value);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            if (PyDict_SetItem(values_dict, py_name, py_value) < 0) {
-                Py_DECREF(py_name);
-                Py_DECREF(py_value);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            Py_DECREF(py_name);
-            Py_DECREF(py_value);
-        }
-        
-        return values_dict;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyAnimation_evaluate_channels_range(PyAnimation *self, PyObject *args) {
-    double start_time, end_time;
-    int num_samples;
-    
-    if (!PyArg_ParseTuple(args, "ddi", &start_time, &end_time, &num_samples))
-        return NULL;
-    
-    try {
-        std::map<std::string, std::vector<double>> values = 
-            self->animation_ptr->evaluate_channels_range(start_time, end_time, num_samples);
-
-        PyObject* values_dict = PyDict_New();
-        if (!values_dict) {
-            return NULL;
-        }
-        
-        for (const auto& pair : values) {
-            PyObject* py_name = PyUnicode_FromString(pair.first.c_str());
-            if (!py_name) {
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-
-            PyObject* py_values_list = PyList_New(pair.second.size());
-            if (!py_values_list) {
-                Py_DECREF(py_name);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            for (size_t i = 0; i < pair.second.size(); ++i) {
-                PyObject* py_value = PyFloat_FromDouble(pair.second[i]);
-                if (!py_value) {
-                    Py_DECREF(py_name);
-                    Py_DECREF(py_values_list);
-                    Py_DECREF(values_dict);
-                    return NULL;
-                }
-                PyList_SET_ITEM(py_values_list, i, py_value);
-            }
-            
-            if (PyDict_SetItem(values_dict, py_name, py_values_list) < 0) {
-                Py_DECREF(py_name);
-                Py_DECREF(py_values_list);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            Py_DECREF(py_name);
-            Py_DECREF(py_values_list);
-        }
-        
-        return values_dict;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyAnimation_evaluate_channels_range_by_rate(PyAnimation *self, PyObject *args) {
-    double start_time, end_time, sample_rate;
-    
-    if (!PyArg_ParseTuple(args, "ddd", &start_time, &end_time, &sample_rate))
-        return NULL;
-    
-    try {
-        std::map<std::string, std::vector<double>> values = 
-            self->animation_ptr->evaluate_channels_range_by_rate(start_time, end_time, sample_rate);
-        
-        PyObject* values_dict = PyDict_New();
-        if (!values_dict) {
-            return NULL;
-        }
-        
-        for (const auto& pair : values) {
-            PyObject* py_name = PyUnicode_FromString(pair.first.c_str());
-            if (!py_name) {
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            PyObject* py_values_list = PyList_New(pair.second.size());
-            if (!py_values_list) {
-                Py_DECREF(py_name);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            for (size_t i = 0; i < pair.second.size(); ++i) {
-                PyObject* py_value = PyFloat_FromDouble(pair.second[i]);
-                if (!py_value) {
-                    Py_DECREF(py_name);
-                    Py_DECREF(py_values_list);
-                    Py_DECREF(values_dict);
-                    return NULL;
-                }
-                PyList_SET_ITEM(py_values_list, i, py_value);
-            }
-            
-            if (PyDict_SetItem(values_dict, py_name, py_values_list) < 0) {
-                Py_DECREF(py_name);
-                Py_DECREF(py_values_list);
-                Py_DECREF(values_dict);
-                return NULL;
-            }
-            
-            Py_DECREF(py_name);
-            Py_DECREF(py_values_list);
-        }
-        
-        return values_dict;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
+    bool has_ch = self->animation->has_channel(std::string(name));
+    return PyBool_FromLong(has_ch ? 1 : 0);
 }
 
 static PyObject* PyAnimation_get_start_time(PyAnimation *self, PyObject *args) {
-    std::optional<double> start_time = self->animation_ptr->get_start_time();
-    if (start_time) {
-        return PyFloat_FromDouble(*start_time);
-    } else {
-        Py_RETURN_NONE;
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
     }
+    
+    return PyFloat_FromDouble(self->animation->start_time());
+}
+
+static PyObject* PyAnimation_set_start_time(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    double start_time;
+    
+    if (!PyArg_ParseTuple(args, "d", &start_time))
+        return NULL;
+    
+    self->animation->set_start_time(start_time);
+    Py_RETURN_NONE;
 }
 
 static PyObject* PyAnimation_get_end_time(PyAnimation *self, PyObject *args) {
-    std::optional<double> end_time = self->animation_ptr->get_end_time();
-    if (end_time) {
-        return PyFloat_FromDouble(*end_time);
-    } else {
-        Py_RETURN_NONE;
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    return PyFloat_FromDouble(self->animation->end_time());
+}
+
+static PyObject* PyAnimation_set_end_time(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    double end_time;
+    
+    if (!PyArg_ParseTuple(args, "d", &end_time))
+        return NULL;
+    
+    self->animation->set_end_time(end_time);
+    Py_RETURN_NONE;
+}
+
+static PyObject* PyAnimation_get_length(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    try {
+        return PyFloat_FromDouble(self->animation->length());
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
     }
 }
 
-static PyObject* PyAnimation_length(PyAnimation *self, PyObject *args) {
-    double length = self->animation_ptr->length();
-    return PyFloat_FromDouble(length);
+static PyObject* PyAnimation_set_length(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    double length;
+    
+    if (!PyArg_ParseTuple(args, "d", &length))
+        return NULL;
+    
+    try {
+        self->animation->set_length(length);
+        Py_RETURN_NONE;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_ValueError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyAnimation_num_samples(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
     double sample_rate;
     
     if (!PyArg_ParseTuple(args, "d", &sample_rate))
         return NULL;
 
-    int num_samples_val = self->animation_ptr->num_samples(sample_rate); // Renamed to avoid conflict
-    return PyLong_FromLong(num_samples_val);
+    try {
+        int samples = self->animation->num_samples(sample_rate);
+        return PyLong_FromLong(samples);
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_ValueError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyAnimation_is_empty(PyAnimation *self, PyObject *args) {
-    bool is_empty = self->animation_ptr->is_empty();
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    bool is_empty = self->animation->empty();
     return PyBool_FromLong(is_empty ? 1 : 0);
 }
 
-static PyObject* PyAnimation_has_no_keyframes(PyAnimation *self, PyObject *args) {
-    bool has_no_keyframes = self->animation_ptr->has_no_keyframes();
-    return PyBool_FromLong(has_no_keyframes ? 1 : 0);
+static PyObject* PyAnimation_clear(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    self->animation->clear();
+    Py_RETURN_NONE;
 }
 
+static PyObject* PyAnimation_get_name(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    return PyUnicode_FromString(self->animation->name().c_str());
+}
+
+static PyObject* PyAnimation_set_name(PyAnimation *self, PyObject *args) {
+    if (!self->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+    
+    const char* name;
+    
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return NULL;
+    
+    self->animation->set_name(std::string(name));
+    Py_RETURN_NONE;
+}
+        
 // Method definitions
 static PyMethodDef PyAnimation_methods[] = {
-    {"insert_channel", (PyCFunction)PyAnimation_insert_channel, METH_VARARGS,
-     "Insert a channel at a specific position"},
-    {"append_channel", (PyCFunction)PyAnimation_append_channel, METH_VARARGS,
-     "Append a channel to the end of the animation"},
+    {"create_channel", (PyCFunction)PyAnimation_create_channel, METH_VARARGS,
+     "Create a new channel with the specified name"},
     {"get_channel_by_index", (PyCFunction)PyAnimation_get_channel_by_index, METH_VARARGS,
      "Get a channel by its index"},
     {"get_channel_by_name", (PyCFunction)PyAnimation_get_channel_by_name, METH_VARARGS,
@@ -414,33 +350,41 @@ static PyMethodDef PyAnimation_methods[] = {
      "Get the number of channels in the animation"},
     {"get_channel_names", (PyCFunction)PyAnimation_get_channel_names, METH_NOARGS,
      "Get a list of all channel names"},
-    {"find_channel_index", (PyCFunction)PyAnimation_find_channel_index, METH_VARARGS,
-     "Find the index of a channel by its name"},
-    {"evaluate_channels", (PyCFunction)PyAnimation_evaluate_channels, METH_VARARGS,
-     "Evaluate all channels at a specific time"},
-    {"evaluate_channels_range", (PyCFunction)PyAnimation_evaluate_channels_range, METH_VARARGS,
-     "Evaluate all channels over a time range with fixed sample count"},
-    {"evaluate_channels_range_by_rate", (PyCFunction)PyAnimation_evaluate_channels_range_by_rate, METH_VARARGS,
-     "Evaluate all channels over a time range with a specific sample rate"},
+    {"has_channel", (PyCFunction)PyAnimation_has_channel, METH_VARARGS,
+     "Check if a channel with the specified name exists"},
     {"get_start_time", (PyCFunction)PyAnimation_get_start_time, METH_NOARGS,
-     "Get the earliest keyframe time across all channels"},
+     "Get the animation start time"},
+    {"set_start_time", (PyCFunction)PyAnimation_set_start_time, METH_VARARGS,
+     "Set the animation start time"},
     {"get_end_time", (PyCFunction)PyAnimation_get_end_time, METH_NOARGS,
-     "Get the latest keyframe time across all channels"},
-    {"length", (PyCFunction)PyAnimation_length, METH_NOARGS,
+     "Get the animation end time"},
+    {"set_end_time", (PyCFunction)PyAnimation_set_end_time, METH_VARARGS,
+     "Set the animation end time"},
+    {"get_length", (PyCFunction)PyAnimation_get_length, METH_NOARGS,
      "Get the total duration of the animation"},
+    {"set_length", (PyCFunction)PyAnimation_set_length, METH_VARARGS,
+     "Set the total duration of the animation"},
     {"num_samples", (PyCFunction)PyAnimation_num_samples, METH_VARARGS,
      "Get the number of samples needed for a given sample rate"},
     {"is_empty", (PyCFunction)PyAnimation_is_empty, METH_NOARGS,
      "Check if the animation has no channels"},
-    {"has_no_keyframes", (PyCFunction)PyAnimation_has_no_keyframes, METH_NOARGS,
-     "Check if the animation has no keyframes"},
+    {"clear", (PyCFunction)PyAnimation_clear, METH_NOARGS,
+     "Remove all channels from the animation"},
+    {"get_name", (PyCFunction)PyAnimation_get_name, METH_NOARGS,
+     "Get the animation name"},
+    {"set_name", (PyCFunction)PyAnimation_set_name, METH_VARARGS,
+     "Set the animation name"},
     {NULL}  // Sentinel
 };
 
 // String representation
 static PyObject* PyAnimation_str(PyAnimation *self) {
-    size_t channel_count = self->animation_ptr->num_channels();
-    std::vector<std::string> channel_names_vec = self->animation_ptr->get_channel_names(); // Renamed
+    if (!self->animation) {
+        return PyUnicode_FromString("Animation (invalid)");
+    }
+    
+    size_t channel_count = self->animation->num_channels();
+    std::vector<std::string> channel_names_vec = self->animation->channel_names();
 
     std::string names_str;
     for (size_t i = 0; i < channel_names_vec.size(); ++i) {
@@ -449,7 +393,10 @@ static PyObject* PyAnimation_str(PyAnimation *self) {
         }
         names_str += channel_names_vec[i];
     }
-    return PyUnicode_FromFormat("Animation with %zu channels: %s", channel_count, names_str.c_str());
+    return PyUnicode_FromFormat("Animation('%s') with %zu channels: [%s]", 
+                                self->animation->name().c_str(), 
+                                channel_count, 
+                                names_str.c_str());
 }
 
 // Type definition
@@ -494,29 +441,6 @@ PyTypeObject PyAnimationType = {
     PyAnimation_new,           // tp_new
 };
 
-// Factory function to wrap an existing C++ anim::Animation instance
-// If owned_by_python_wrapper is true, it means existing_animation was 'new'ed elsewhere
-// and this PyAnimation instance is now taking ownership.
-PyObject* PyAnimation_WrapExisting(anim::Animation* existing_animation_ptr, bool owned_by_python_wrapper) {
-    if (!existing_animation_ptr) {
-        PyErr_SetString(PyExc_ValueError, "Cannot wrap a NULL anim::Animation pointer.");
-        return NULL;
-    }
-    if (PyType_Ready(&PyAnimationType) < 0) return NULL;
-
-    PyAnimation *self = (PyAnimation *)PyAnimationType.tp_alloc(&PyAnimationType, 0);
-    if (self != NULL) {
-        self->animation_ptr = existing_animation_ptr;
-        self->is_owner = owned_by_python_wrapper;
-    } else {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate PyAnimation object.");
-        return NULL;
-    }
-    return (PyObject *)self;
-}
-
-
-
 // Type getter for external use
 PyObject* get_animation_type(PyObject* self, void* closure) {
     if (PyType_Ready(&PyAnimationType) < 0) {
@@ -526,26 +450,34 @@ PyObject* get_animation_type(PyObject* self, void* closure) {
     return (PyObject*)&PyAnimationType;
 }
 
-PyObject* AnimationToPyObject(const anim::Animation& animation_to_copy) {
-    anim::Animation* new_cpp_anim_instance = new anim::Animation(animation_to_copy);
-    if (!new_cpp_anim_instance) {
-        return PyErr_NoMemory();
+// Helper functions for conversion between C++ and Python
+PyObject* AnimationToPyObject(anim::Animation* animation, PyObject* parent) {
+    // Ensure the type is initialized before creating an instance
+    if (PyType_Ready(&PyAnimationType) < 0) {
+        return NULL;
     }
-    PyObject* py_obj = PyAnimation_WrapExisting(new_cpp_anim_instance, true);
-    if (!py_obj) {
-        delete new_cpp_anim_instance;
-        return NULL; // PyAnimation_WrapExisting should have set an error
+    PyAnimation* py_animation = PyObject_New(PyAnimation, &PyAnimationType);
+    if (py_animation == NULL) {
+        return NULL;
     }
-    return py_obj;
+    py_animation->animation = animation;
+    py_animation->parent = parent;
+    Py_XINCREF(parent); // Keep parent alive
+    return (PyObject*)py_animation;
 }
 
-bool PyObjectToAnimation(PyObject* obj, anim::Animation& animation) {
+bool PyObjectToAnimation(PyObject* obj, anim::Animation*& animation) {
     if (!PyObject_TypeCheck(obj, &PyAnimationType)) {
         PyErr_SetString(PyExc_TypeError, "Expected an Animation object");
         return false;
     }
     
     PyAnimation* py_animation = (PyAnimation*)obj;
-    animation = *py_animation->animation_ptr; // Assumes anim::Animation is copy-assignable
+    if (!py_animation->animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return false;
+    }
+    
+    animation = py_animation->animation;
     return true;
 }

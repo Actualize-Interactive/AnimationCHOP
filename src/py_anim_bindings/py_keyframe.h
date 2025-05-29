@@ -1,8 +1,9 @@
 #pragma once
 
 #include <anim/keyframe.hpp>
-#include <anim/tangent_mode.hpp>
-#include "py_bezier_handle.h"
+#include <anim/handle_mode.hpp>
+#include <anim/function.hpp>
+#include "py_point.h"
 
 #ifdef _WIN32
     #include <Python.h>

@@ -9,5 +9,5 @@
 #endif
 
 
-// Getter function for the TangentMode enum
-PyObject* get_tangent_mode_enum(PyObject* self, void* closure);
+// Getter function for the HandleMode enum
+PyObject* get_handle_mode_enum(PyObject* self, void* closure);

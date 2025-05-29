@@ -1,5 +1,5 @@
 #include "py_channel.h"
-#include "py_keyframe.h" // For KeyframeToPyKeyframe, PyKeyframeType
+#include "py_keyframe.h" // For KeyframeToPyObject, PyKeyframeType
 #include <vector>
 #include <optional>
 
@@ -7,56 +7,76 @@
 static PyObject* PyChannel_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyChannel *self = (PyChannel *)type->tp_alloc(type, 0);
     if (self != NULL) {
-        new (&self->channel) anim::Channel();
+        self->channel = nullptr;
+        self->parent = nullptr;
     }
     return (PyObject *)self;
 }
 
 static void PyChannel_dealloc(PyChannel *self) {
-    self->channel.~Channel();
+    Py_XDECREF(self->parent);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
-// Initialize the object
+// Initialize the object - NOTE: This should not be called directly, use ChannelToPyObject instead
 static int PyChannel_init(PyChannel *self, PyObject *args, PyObject *kwds) {
-    const char* name = "";
-    static char *kwlist[] = {(char*)"name", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|s", kwlist, &name))
-        return -1;
-    
-    self->channel = anim::Channel(name);
-    return 0;
+    PyErr_SetString(PyExc_RuntimeError, "Channel objects cannot be created directly. Use AnimationCHOP methods to create channels.");
+    return -1;
 }
 
 static PyObject* PyChannel_remove_keyframe(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
     size_t index;
     
     if (!PyArg_ParseTuple(args, "k", &index))
         return NULL;
 
-    bool result = self->channel.remove_keyframe(index);
-    return PyBool_FromLong(result ? 1 : 0);
+    try {
+        self->channel->delete_keyframe(index);
+        Py_RETURN_TRUE;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyChannel_remove_keyframe_at_time(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
     double time;
     
     if (!PyArg_ParseTuple(args, "d", &time))
         return NULL;
 
-    bool result = self->channel.remove_keyframe_at_time(time);
-    return PyBool_FromLong(result ? 1 : 0);
+    try {
+        self->channel->delete_keyframe(time);
+        Py_RETURN_TRUE;
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 }
 
 static PyObject* PyChannel_get_keyframe(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
     size_t index;
     if (!PyArg_ParseTuple(args, "k", &index))
         return NULL;
     
     try {
-        const anim::Keyframe& keyframe = self->channel.get_keyframe(index);
-        return KeyframeToPyObject(keyframe); // Assuming KeyframeToPyObject converts Keyframe to PyObject
+        const anim::Keyframe& keyframe = self->channel->keyframe(index);
+        return KeyframeToPyObject(keyframe);
     } catch (const std::out_of_range& e) {
         PyErr_SetString(PyExc_IndexError, e.what());
         return NULL;
@@ -67,46 +87,69 @@ static PyObject* PyChannel_get_keyframe(PyChannel *self, PyObject *args) {
 }
 
 static PyObject* PyChannel_get_keyframe_at_time(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
     double time;
 
     if (!PyArg_ParseTuple(args, "d", &time))
         return NULL;
 
-    std::optional<anim::Keyframe> keyframe_opt = self->channel.get_keyframe_at_time(time);
-    if (!keyframe_opt) {
+    try {
+        const anim::Keyframe& keyframe = self->channel->keyframe(time);
+        return KeyframeToPyObject(keyframe);
+    } catch (const std::exception& e) {
+        // No keyframe at this time
         Py_RETURN_NONE;
     }
-
-    return KeyframeToPyObject(keyframe_opt.value());
 }
 
 static PyObject* PyChannel_get_all_keyframes(PyChannel *self, PyObject *args) {
-    const std::vector<anim::Keyframe>& keyframes = self->channel.get_all_keyframes();
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    size_t num_keyframes = self->channel->num_keyframes();
 
-    PyObject* keyframes_list = PyList_New(keyframes.size());
+    PyObject* keyframes_list = PyList_New(num_keyframes);
     if (!keyframes_list) {
         return NULL;
     }
     
-    for (size_t i = 0; i < keyframes.size(); ++i) {
-        PyObject* py_keyframe = KeyframeToPyObject(keyframes[i]);
-        if (!py_keyframe) {
+    for (size_t i = 0; i < num_keyframes; ++i) {
+        try {
+            const anim::Keyframe& keyframe = self->channel->keyframe(i);
+            PyObject* py_keyframe = KeyframeToPyObject(keyframe);
+            if (!py_keyframe) {
+                Py_DECREF(keyframes_list);
+                return NULL;
+            }
+            PyList_SET_ITEM(keyframes_list, i, py_keyframe); // Steals reference
+        } catch (const std::exception& e) {
             Py_DECREF(keyframes_list);
+            PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
-        PyList_SET_ITEM(keyframes_list, i, py_keyframe); // Steals reference
     }
     return keyframes_list;
 }
 
 static PyObject* PyChannel_evaluate(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
     double time;
     
     if (!PyArg_ParseTuple(args, "d", &time))
         return NULL;
     
     try {
-        double value = self->channel.evaluate(time);
+        double value = self->channel->evaluate(time);
         return PyFloat_FromDouble(value);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -114,88 +157,58 @@ static PyObject* PyChannel_evaluate(PyChannel *self, PyObject *args) {
     }
 }
 
-static PyObject* PyChannel_evaluate_range(PyChannel *self, PyObject *args) {
-    double start_time, end_time;
-    int num_samples;
-    
-    if (!PyArg_ParseTuple(args, "ddi", &start_time, &end_time, &num_samples))
-        return NULL;
-    
-    try {
-        std::vector<double> values = self->channel.evaluate_range(start_time, end_time, num_samples);
-
-        PyObject* values_list = PyList_New(values.size());
-        if (!values_list) {
-            return NULL;
-        }
-        
-        for (size_t i = 0; i < values.size(); ++i) {
-            PyObject* py_value = PyFloat_FromDouble(values[i]);
-            if (!py_value) {
-                Py_DECREF(values_list);
-                return NULL;
-            }
-            PyList_SET_ITEM(values_list, i, py_value);
-        }
-        
-        return values_list;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* PyChannel_evaluate_range_by_rate(PyChannel *self, PyObject *args) {
-    double start_time, end_time, sample_rate;
-    
-    if (!PyArg_ParseTuple(args, "ddd", &start_time, &end_time, &sample_rate))
-        return NULL;
-    
-    try {
-        std::vector<double> values = self->channel.evaluate_range_by_rate(start_time, end_time, sample_rate);
-
-        PyObject* values_list = PyList_New(values.size());
-        if (!values_list) {
-            return NULL;
-        }
-        
-        for (size_t i = 0; i < values.size(); ++i) {
-            PyObject* py_value = PyFloat_FromDouble(values[i]);
-            if (!py_value) {
-                Py_DECREF(values_list);
-                return NULL;
-            }
-            PyList_SET_ITEM(values_list, i, py_value);
-        }
-        
-        return values_list;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
 static PyObject* PyChannel_is_empty(PyChannel *self, PyObject *args) {
-    bool is_empty = self->channel.is_empty();
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    bool is_empty = (self->channel->num_keyframes() == 0);
     return PyBool_FromLong(is_empty ? 1 : 0);
 }
 
 static PyObject* PyChannel_get_start_time(PyChannel *self, PyObject *args) {
-    std::optional<double> start_time = self->channel.get_start_time();
-    if (start_time) {
-        return PyFloat_FromDouble(*start_time);
-    } else {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    if (self->channel->num_keyframes() == 0) {
         Py_RETURN_NONE;
     }
+    
+    return PyFloat_FromDouble(self->channel->start_time());
 }
 
 static PyObject* PyChannel_get_end_time(PyChannel *self, PyObject *args) {
-    std::optional<double> end_time = self->channel.get_end_time();
-    if (end_time) {
-        return PyFloat_FromDouble(*end_time);
-    } else {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    if (self->channel->num_keyframes() == 0) {
         Py_RETURN_NONE;
     }
+    
+    return PyFloat_FromDouble(self->channel->end_time());
+}
+
+static PyObject* PyChannel_get_name(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    return PyUnicode_FromString(self->channel->name().c_str());
+}
+
+static PyObject* PyChannel_get_num_keyframes(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    return PyLong_FromSize_t(self->channel->num_keyframes());
 }
 
 // Method definitions
@@ -212,23 +225,28 @@ static PyMethodDef PyChannel_methods[] = {
      "Get all keyframes in this channel"},
     {"evaluate", (PyCFunction)PyChannel_evaluate, METH_VARARGS,
      "Evaluate the channel at a specific time"},
-    {"evaluate_range", (PyCFunction)PyChannel_evaluate_range, METH_VARARGS,
-     "Evaluate the channel over a range with a fixed number of samples"},
-    {"evaluate_range_by_rate", (PyCFunction)PyChannel_evaluate_range_by_rate, METH_VARARGS,
-     "Evaluate the channel over a range with a specific sample rate"},
     {"is_empty", (PyCFunction)PyChannel_is_empty, METH_NOARGS,
      "Check if the channel has no keyframes"},
     {"get_start_time", (PyCFunction)PyChannel_get_start_time, METH_NOARGS,
      "Get the earliest keyframe time"},
     {"get_end_time", (PyCFunction)PyChannel_get_end_time, METH_NOARGS,
      "Get the latest keyframe time, or None if the channel is empty"},
+    {"get_name", (PyCFunction)PyChannel_get_name, METH_NOARGS,
+     "Get the channel name"},
+    {"get_num_keyframes", (PyCFunction)PyChannel_get_num_keyframes, METH_NOARGS,
+     "Get the number of keyframes in this channel"},
     {NULL}  // Sentinel
 };
 
 // String representation
 static PyObject* PyChannel_str(PyChannel *self) {
-    const std::vector<anim::Keyframe>& keyframes = self->channel.get_all_keyframes();
-    return PyUnicode_FromFormat("Channel with %zu keyframes", keyframes.size());
+    if (!self->channel) {
+        return PyUnicode_FromString("Channel (invalid)");
+    }
+    
+    size_t num_keyframes = self->channel->num_keyframes();
+    return PyUnicode_FromFormat("Channel('%s') with %zu keyframes", 
+                                self->channel->name().c_str(), num_keyframes);
 }
 
 // Type definition
@@ -283,7 +301,7 @@ PyObject* get_channel_type(PyObject* self, void* closure) {
 }
 
 // Helper functions for conversion between C++ and Python
-PyObject* ChannelToPyObject(const anim::Channel& channel) {
+PyObject* ChannelToPyObject(anim::Channel* channel, PyObject* parent) {
     // Ensure the type is initialized before creating an instance
     if (PyType_Ready(&PyChannelType) < 0) {
         return NULL;
@@ -292,17 +310,24 @@ PyObject* ChannelToPyObject(const anim::Channel& channel) {
     if (py_channel == NULL) {
         return NULL;
     }
-    new (&py_channel->channel) anim::Channel(channel); // Use copy constructor
+    py_channel->channel = channel;
+    py_channel->parent = parent;
+    Py_XINCREF(parent); // Keep parent alive
     return (PyObject*)py_channel;
 }
 
-bool PyObjectToChannel(PyObject* obj, anim::Channel& channel) {
+bool PyObjectToChannel(PyObject* obj, anim::Channel*& channel) {
     if (!PyObject_TypeCheck(obj, &PyChannelType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a Channel object");
         return false;
     }
     
     PyChannel* py_channel = (PyChannel*)obj;
-    channel = py_channel->channel; // Assumes anim::Channel is copy-assignable
+    if (!py_channel->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return false;
+    }
+    
+    channel = py_channel->channel;
     return true;
 }

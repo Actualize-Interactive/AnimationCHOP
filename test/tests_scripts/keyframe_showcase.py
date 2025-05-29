@@ -108,58 +108,51 @@ def create_keyframe_showcase():
                 try:
                     time = getattr(keyframe, 'time', 'N/A')
                     value = getattr(keyframe, 'value', 'N/A')
-                    mode_num = getattr(keyframe, 'mode', 'N/A')
+                    mode_num = getattr(keyframe, 'handle_mode', 'N/A')
                     mode_name = tangent_modes.get(mode_num, f"Unk({mode_num})") if isinstance(mode_num, int) else 'N/A'
-                    
-                    # Handle BezierHandle objects
+
+                    # Handle in_handle and out_handle (should be Point objects)
                     in_handle = getattr(keyframe, 'in_handle', None)
                     out_handle = getattr(keyframe, 'out_handle', None)
+                    in_time = getattr(in_handle, 'time', 'N/A') if in_handle else 'N/A'
+                    in_val = getattr(in_handle, 'value', 'N/A') if in_handle else 'N/A'
+                    out_time = getattr(out_handle, 'time', 'N/A') if out_handle else 'N/A'
+                    out_val = getattr(out_handle, 'value', 'N/A') if out_handle else 'N/A'
 
-                    if in_handle and hasattr(in_handle, 'time') and hasattr(in_handle, 'value'):
-                        in_time = f"{in_handle.time:.3f}"
-                        in_val = f"{in_handle.value:.3f}"
-                    else:
-                        in_time = "N/A"
-                        in_val = "N/A"
-                    
-                    if out_handle and hasattr(out_handle, 'time') and hasattr(out_handle, 'value'):
-                        out_time = f"{out_handle.time:.3f}"
-                        out_val = f"{out_handle.value:.3f}"
-                    else:
-                        out_time = "N/A"
-                        out_val = "N/A"
-                    
                     # Format the row for console
                     time_str = f"{time:.1f}" if isinstance(time, (int, float)) else str(time)
                     value_str = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
-                    
-                    console_row = f"{i:<3} {time_str:<6} {value_str:<6} {mode_name:<12} {in_time:<8} {in_val:<8} {out_time:<8} {out_val:<8}"
+                    in_time_str = f"{in_time:.2f}" if isinstance(in_time, (int, float)) else str(in_time)
+                    in_val_str = f"{in_val:.2f}" if isinstance(in_val, (int, float)) else str(in_val)
+                    out_time_str = f"{out_time:.2f}" if isinstance(out_time, (int, float)) else str(out_time)
+                    out_val_str = f"{out_val:.2f}" if isinstance(out_val, (int, float)) else str(out_val)
+
+                    console_row = f"{i:<3} {time_str:<6} {value_str:<6} {mode_name:<12} {in_time_str:<8} {in_val_str:<8} {out_time_str:<8} {out_val_str:<8}"
                     print(console_row)
-                    
+
                     # Format the row for TSV (using actual values, not formatted strings)
                     tsv_time = time if isinstance(time, (int, float)) else time_str
                     tsv_value = value if isinstance(value, (int, float)) else value_str
-                    
                     tsv_row = f"{i}\t{tsv_time}\t{tsv_value}\t{mode_name}\t{in_time}\t{in_val}\t{out_time}\t{out_val}"
                     table_lines.append(tsv_row)
-                    
+
                 except Exception as attr_e:
                     error_row_console = f"{i:<3} {'ERR':<6} {'ERR':<6} {'ERR':<12} {'ERR':<8} {'ERR':<8} {'ERR':<8} {'ERR':<8}  # Error: {attr_e}"
                     print(error_row_console)
-                    
+
                     error_row_tsv = f"{i}\tERR\tERR\tERR\tERR\tERR\tERR\tERR"
                     table_lines.append(error_row_tsv)
             else:
                 none_row_console = f"{i:<3} {'None':<6} {'None':<6} {'None':<12} {'None':<8} {'None':<8} {'None':<8} {'None':<8}"
                 print(none_row_console)
-                
+
                 none_row_tsv = f"{i}\tNone\tNone\tNone\tNone\tNone\tNone\tNone"
                 table_lines.append(none_row_tsv)
-                
+
         except Exception as e:
             fail_row_console = f"{i:<3} {'FAIL':<6} {'FAIL':<6} {'FAIL':<12} {'FAIL':<8} {'FAIL':<8} {'FAIL':<8} {'FAIL':<8}  # Error: {e}"
             print(fail_row_console)
-            
+
             fail_row_tsv = f"{i}\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL"
             table_lines.append(fail_row_tsv)
     

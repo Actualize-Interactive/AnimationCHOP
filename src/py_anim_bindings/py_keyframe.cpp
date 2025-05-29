@@ -5,7 +5,7 @@
 static PyObject* PyKeyframe_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     PyKeyframe *self = (PyKeyframe *)type->tp_alloc(type, 0);
     if (self != NULL) {
-        new (&self->keyframe) anim::Keyframe(0.0, 0.0, anim::BezierHandle(0, 0), anim::BezierHandle(0, 0), anim::TangentMode::linear);
+        new (&self->keyframe) anim::Keyframe(0.0, 0.0);
     }
     return (PyObject *)self;
 }
@@ -18,67 +18,86 @@ static void PyKeyframe_dealloc(PyKeyframe *self) {
 // Initialize the object
 static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
     double time = 0.0, value = 0.0;
-    PyObject* in_tangent_obj = NULL;
-    PyObject* out_tangent_obj = NULL;
-    PyObject* mode_obj = NULL;
+    PyObject* in_handle_obj = NULL;
+    PyObject* out_handle_obj = NULL;
+    PyObject* function_obj = NULL;
+    PyObject* handle_mode_obj = NULL;
     
     static char *kwlist[] = {
-        (char*)"time", (char*)"value", (char*)"in_tangent", 
-        (char*)"out_tangent", (char*)"mode", NULL
+        (char*)"time", (char*)"value", (char*)"in_handle", 
+        (char*)"out_handle", (char*)"function", (char*)"handle_mode", NULL
     };
     
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ddOOO", kwlist, 
-                                     &time, &value, &in_tangent_obj, 
-                                     &out_tangent_obj, &mode_obj))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ddOOOO", kwlist, 
+                                     &time, &value, &in_handle_obj, 
+                                     &out_handle_obj, &function_obj, &handle_mode_obj))
         return -1;
     
     // Default handles
-    anim::BezierHandle in_tangent(time - 1.0, value);
-    anim::BezierHandle out_tangent(time + 1.0, value);
-    anim::TangentMode mode = anim::TangentMode::linear;
-      // Parse in_tangent if provided
-    if (in_tangent_obj) {
-        if (!PyObjectToBezierHandle(in_tangent_obj, in_tangent)) {
-            // PyObjectToBezierHandle already sets the error
+    anim::Point in_handle(time - 1.0, value);
+    anim::Point out_handle(time + 1.0, value);
+    anim::Function function = anim::Function::bezier;
+    anim::HandleMode handle_mode = anim::HandleMode::smooth;
+    
+    // Parse in_handle if provided
+    if (in_handle_obj) {
+        if (!PyObjectToPoint(in_handle_obj, in_handle)) {
+            // PyObjectToPoint already sets the error
             return -1;
         }
     }
     
-    // Parse out_tangent if provided
-    if (out_tangent_obj) {
-        if (!PyObjectToBezierHandle(out_tangent_obj, out_tangent)) {
-            // PyObjectToBezierHandle already sets the error
+    // Parse out_handle if provided
+    if (out_handle_obj) {
+        if (!PyObjectToPoint(out_handle_obj, out_handle)) {
+            // PyObjectToPoint already sets the error
             return -1;
         }
     }
     
-    // Parse mode if provided
-    if (mode_obj) {
-        if (PyLong_Check(mode_obj)) {
-            long mode_val = PyLong_AsLong(mode_obj);
+    // Parse function if provided
+    if (function_obj) {
+        if (PyLong_Check(function_obj)) {
+            long function_val = PyLong_AsLong(function_obj);
             
-            // TODO: Add count to the TangentMode enum to properly validate
-            if (mode_val >= 0 && mode_val <= 5) { 
-                mode = static_cast<anim::TangentMode>(mode_val);
+            if (function_val >= 0 && function_val < static_cast<long>(anim::Function::count)) { 
+                function = static_cast<anim::Function>(function_val);
             } else {
-                PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
+                PyErr_SetString(PyExc_ValueError, "Invalid function value");
                 return -1;
             }
         } else {
-            PyErr_SetString(PyExc_TypeError, "Mode must be a TangentMode enum value");
+            PyErr_SetString(PyExc_TypeError, "Function must be a Function enum value");
+            return -1;
+        }
+    }
+    
+    // Parse handle_mode if provided
+    if (handle_mode_obj) {
+        if (PyLong_Check(handle_mode_obj)) {
+            long mode_val = PyLong_AsLong(handle_mode_obj);
+            
+            if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::count)) { 
+                handle_mode = static_cast<anim::HandleMode>(mode_val);
+            } else {
+                PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
+                return -1;
+            }
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Handle mode must be a HandleMode enum value");
             return -1;
         }
     }
 
-    // Create new keyframe
-    self->keyframe = anim::Keyframe(time, value, in_tangent, out_tangent, mode);
+    // Create new keyframe using the new API constructor
+    self->keyframe = anim::Keyframe(anim::Point(time, value), function, handle_mode, in_handle, out_handle);
     
     return 0;
 }
 
 // Getter/setter functions for properties
 static PyObject* PyKeyframe_get_time(PyKeyframe *self, void *closure) {
-    return PyFloat_FromDouble(self->keyframe.time());
+    return PyFloat_FromDouble(self->keyframe.position.time);
 }
 
 static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, void *closure) {
@@ -87,12 +106,12 @@ static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, void *closure)
         return -1;
     }
 
-    self->keyframe.set_time(PyFloat_AsDouble(value));
+    self->keyframe.position.time = PyFloat_AsDouble(value);
     return 0;
 }
 
 static PyObject* PyKeyframe_get_value(PyKeyframe *self, void *closure) {
-    return PyFloat_FromDouble(self->keyframe.value());
+    return PyFloat_FromDouble(self->keyframe.position.value);
 }
 
 static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, void *closure) {
@@ -101,80 +120,79 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, void *closure
         return -1;
     }
 
-    self->keyframe.set_value(PyFloat_AsDouble(value));
+    self->keyframe.position.value = PyFloat_AsDouble(value);
     return 0;
 }
 
-static PyObject* PyKeyframe_get_in_tangent(PyKeyframe *self, void *closure) {
-    const anim::BezierHandle& in_handle = self->keyframe.in_handle();
-    return BezierHandleToPyObject(in_handle);
+static PyObject* PyKeyframe_get_in_handle(PyKeyframe *self, void *closure) {
+    return PointToPyObject(self->keyframe.in_handle);
 }
 
-static int PyKeyframe_set_in_tangent(PyKeyframe *self, PyObject *value, void *closure) {
-    anim::BezierHandle handle;
-    if (!PyObjectToBezierHandle(value, handle)) {
-        // PyObjectToBezierHandle already sets the error
+static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, void *closure) {
+    anim::Point handle;
+    if (!PyObjectToPoint(value, handle)) {
+        // PyObjectToPoint already sets the error
         return -1;
     }
     
-    self->keyframe.set_in_handle(handle);
+    self->keyframe.in_handle = handle;
     
     return 0;
 }
 
-static PyObject* PyKeyframe_get_out_tangent(PyKeyframe *self, void *closure) {
-    const anim::BezierHandle& out_handle = self->keyframe.out_handle();
-    return BezierHandleToPyObject(out_handle);
+static PyObject* PyKeyframe_get_out_handle(PyKeyframe *self, void *closure) {
+    return PointToPyObject(self->keyframe.out_handle);
 }
 
-static int PyKeyframe_set_out_tangent(PyKeyframe *self, PyObject *value, void *closure) {
-    anim::BezierHandle handle;
-    if (!PyObjectToBezierHandle(value, handle)) {
-        // PyObjectToBezierHandle already sets the error
+static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, void *closure) {
+    anim::Point handle;
+    if (!PyObjectToPoint(value, handle)) {
+        // PyObjectToPoint already sets the error
         return -1;
     }
     
-    self->keyframe.set_out_handle(handle);
+    self->keyframe.out_handle = handle;
     
     return 0;
 }
 
-static PyObject* PyKeyframe_get_mode(PyKeyframe *self, void *closure) {
-    // Return a Python integer representing the enum value
-    return PyLong_FromLong(static_cast<long>(self->keyframe.mode()));
+static PyObject* PyKeyframe_get_function(PyKeyframe *self, void *closure) {
+    return PyLong_FromLong(static_cast<long>(self->keyframe.function));
 }
 
-static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, void *closure) {
+static int PyKeyframe_set_function(PyKeyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
-        long mode_val = PyLong_AsLong(value);
-        auto mode_count = static_cast<long>(anim::TangentMode::count);
-        if (mode_val >= 0 && mode_val < mode_count) {
-            self->keyframe.set_mode(static_cast<anim::TangentMode>(mode_val));
+        long function_val = PyLong_AsLong(value);
+        if (function_val >= 0 && function_val < static_cast<long>(anim::Function::count)) {
+            self->keyframe.function = static_cast<anim::Function>(function_val);
             return 0;
         } else {
-            PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
+            PyErr_SetString(PyExc_ValueError, "Invalid function value");
             return -1;
         }
     } else {
-        // Try to extract an int from a TangentMode enum object
-        PyObject* value_attr = PyObject_GetAttrString(value, "value");
-        if (value_attr && PyLong_Check(value_attr)) {
-            long mode_val = PyLong_AsLong(value_attr);
-            Py_DECREF(value_attr);
-            
-            // Validate mode value
-            if (mode_val >= 0 && mode_val <= 5) { // Assuming 6 modes from the enum class
-                self->keyframe.set_mode(static_cast<anim::TangentMode>(mode_val));
-                return 0;
-            } else {
-                PyErr_SetString(PyExc_ValueError, "Invalid tangent mode value");
-                return -1;
-            }
+        PyErr_SetString(PyExc_TypeError, "Function must be a Function enum value");
+        return -1;
+    }
+}
+
+static PyObject* PyKeyframe_get_handle_mode(PyKeyframe *self, void *closure) {
+    return PyLong_FromLong(static_cast<long>(self->keyframe.handle_mode));
+}
+
+static int PyKeyframe_set_handle_mode(PyKeyframe *self, PyObject *value, void *closure) {
+    if (PyLong_Check(value)) {
+        long mode_val = PyLong_AsLong(value);
+        if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::count)) {
+            self->keyframe.handle_mode = static_cast<anim::HandleMode>(mode_val);
+            return 0;
         } else {
-            Py_XDECREF(value_attr);
-            PyErr_SetString(PyExc_TypeError, "Mode must be a TangentMode enum value");
+            PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
             return -1;
         }
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Handle mode must be a HandleMode enum value");
+        return -1;
     }
 }
 
@@ -182,17 +200,20 @@ static int PyKeyframe_set_mode(PyKeyframe *self, PyObject *value, void *closure)
 static PyGetSetDef PyKeyframe_getset[] = {
     {"time", (getter)PyKeyframe_get_time, (setter)PyKeyframe_set_time, "Time of the keyframe", NULL},
     {"value", (getter)PyKeyframe_get_value, (setter)PyKeyframe_set_value, "Value of the keyframe", NULL},
-    {"in_handle", (getter)PyKeyframe_get_in_tangent, (setter)PyKeyframe_set_in_tangent, "Incoming tangent handle", NULL},
-    {"out_handle", (getter)PyKeyframe_get_out_tangent, (setter)PyKeyframe_set_out_tangent, "Outgoing tangent handle", NULL},
-    {"mode", (getter)PyKeyframe_get_mode, (setter)PyKeyframe_set_mode, "Tangent mode", NULL},
+    {"in_handle", (getter)PyKeyframe_get_in_handle, (setter)PyKeyframe_set_in_handle, "Incoming handle point", NULL},
+    {"out_handle", (getter)PyKeyframe_get_out_handle, (setter)PyKeyframe_set_out_handle, "Outgoing handle point", NULL},
+    {"function", (getter)PyKeyframe_get_function, (setter)PyKeyframe_set_function, "Interpolation function", NULL},
+    {"handle_mode", (getter)PyKeyframe_get_handle_mode, (setter)PyKeyframe_set_handle_mode, "Handle mode", NULL},
     {NULL}  // Sentinel
 };
 
 // String representation
 static PyObject* PyKeyframe_str(PyKeyframe *self) {
-    auto str = std::format("Keyframe(time={}, value={}, mode={})", 
-                            self->keyframe.time(), self->keyframe.value(), 
-                            static_cast<int>(self->keyframe.mode()));
+    auto str = std::format("Keyframe(time={}, value={}, function={}, handle_mode={})", 
+                            self->keyframe.position.time, 
+                            self->keyframe.position.value, 
+                            static_cast<int>(self->keyframe.function),
+                            static_cast<int>(self->keyframe.handle_mode));
     return PyUnicode_FromString(str.c_str());
 }
 

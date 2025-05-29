@@ -339,32 +339,17 @@ def test_error_conditions(anim_chop, result):
 def test_python_types_exposure(anim_chop, result):
     """Test that Python types are properly exposed"""
     print("\n--- Testing Python Types Exposure ---")
-    
-    # Test that the types are accessible
-    try:
-        bezier_handle_type = anim_chop.BezierHandle
-        result.assert_not_none(bezier_handle_type, "BezierHandle type is accessible")
-    except AttributeError:
-        result.assert_true(False, "BezierHandle type is accessible")
-    
-    try:
-        tangent_mode_type = anim_chop.TangentMode
-        result.assert_not_none(tangent_mode_type, "TangentMode type is accessible")
-    except AttributeError:
-        result.assert_true(False, "TangentMode type is accessible")
-    
+    # Only test types that are actually exposed by the API
     try:
         keyframe_type = anim_chop.Keyframe
         result.assert_not_none(keyframe_type, "Keyframe type is accessible")
     except AttributeError:
         result.assert_true(False, "Keyframe type is accessible")
-    
     try:
         channel_type = anim_chop.Channel
         result.assert_not_none(channel_type, "Channel type is accessible")
     except AttributeError:
         result.assert_true(False, "Channel type is accessible")
-    
     try:
         animation_type = anim_chop.Animation
         result.assert_not_none(animation_type, "Animation type is accessible")

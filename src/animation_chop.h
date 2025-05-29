@@ -1,5 +1,5 @@
 #include "CHOP_CPlusPlusBase.h"
-#include <anim.hpp>
+#include <anim/animation.hpp>
 #include <string>
 #include <vector>
 #include <map>
@@ -26,7 +26,9 @@ public:
 
 	anim::Animation& animation() { return m_animation; }
 
-	const anim::Channel* createChannel(const std::string& name, int32_t insertIndex = -1);
+	anim::Channel& createChannel(const std::string& name);
+	anim::Channel* getChannel(const std::string& name);
+	const anim::Channel* getChannel(const std::string& name) const;
 	bool removeChannel(const std::string& name);
 	bool removeChannel(size_t index);
 
@@ -34,7 +36,10 @@ public:
 	bool removeChannels(const std::vector<std::string>& channelNames);
 	void clearChannels();
 
-	bool setKeyframeAtTime(const std::string& channelName, double time, double value, anim::TangentMode mode, double in_tangent_time, double in_tangent_value, double out_tangent_time, double out_tangent_value);
+	bool setKeyframeAtTime(const std::string& channelName, double time, double value, 
+                         anim::Function in_function = anim::Function::bezier, 
+                         anim::Function out_function = anim::Function::bezier, 
+                         anim::HandleMode handle_mode = anim::HandleMode::smooth);
 	bool removeKeyframeAtTime(const std::string& channelName, double time);
 	bool removeKeyframes(const std::string& channelName, const std::vector<double>& times);
 
@@ -59,6 +64,7 @@ static PyObject* py_getChannel(PyObject* self, PyObject* args);
 static PyObject* py_removeChannel(PyObject* self, PyObject* args);
 static PyObject* py_getChannelNames(PyObject* self);
 static PyObject* py_clearChannels(PyObject* self);
+static PyObject* py_getAnimation(PyObject* self);
 
 static PyObject* py_setKeyframe(PyObject* self, PyObject* args);
 static PyObject* py_setKeyframeAtTime(PyObject* self, PyObject* args);

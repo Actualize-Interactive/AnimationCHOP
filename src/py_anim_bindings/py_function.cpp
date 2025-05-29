@@ -1,20 +1,20 @@
-#include "py_tangent_mode.h"
-#include <anim/tangent_mode.hpp>
+#include "py_function.h"
+#include <anim/function.hpp>
 
-static PyObject* tangent_mode_enum_singleton = NULL;
+static PyObject* function_enum_singleton = NULL;
 
-static PyObject* create_tangent_mode_enum() {
+static PyObject* create_function_enum() {
     // If we already have a singleton instance, return that
-    if (tangent_mode_enum_singleton) {
-        Py_INCREF(tangent_mode_enum_singleton);
-        return tangent_mode_enum_singleton;
+    if (function_enum_singleton) {
+        Py_INCREF(function_enum_singleton);
+        return function_enum_singleton;
     }
     
     PyObject* enum_module = NULL;
     PyObject* int_enum_class = NULL;
     PyObject* members_dict = NULL;
-    PyObject* tangent_mode_enum_name = NULL;
-    PyObject* tangent_mode_enum_type = NULL; // The created enum type
+    PyObject* function_enum_name = NULL;
+    PyObject* function_enum_type = NULL; // The created enum type
 
     enum_module = PyImport_ImportModule("enum");
     if (!enum_module) {
@@ -36,7 +36,7 @@ static PyObject* create_tangent_mode_enum() {
     }
 
     // Helper lambda to add members and check for errors
-    auto add_member = [&](const char* name, anim::TangentMode val) -> bool {
+    auto add_member = [&](const char* name, anim::Function val) -> bool {
         PyObject* py_val = PyLong_FromLong(static_cast<long>(val));
         if (!py_val) { // PyLong_FromLong failed, error is set
             return false;
@@ -49,29 +49,27 @@ static PyObject* create_tangent_mode_enum() {
         return true;
     };
 
-    if (!add_member("LINEAR", anim::TangentMode::linear) ||
-        !add_member("FLAT", anim::TangentMode::flat) ||
-        !add_member("SMOOTH_MANUAL", anim::TangentMode::manual) ||
-        !add_member("SMOOTH_AUTO", anim::TangentMode::smooth) ||
-        !add_member("STEPPED", anim::TangentMode::constant)) {
+    if (!add_member("CONSTANT", anim::Function::constant) ||
+        !add_member("LINEAR", anim::Function::linear) ||
+        !add_member("BEZIER", anim::Function::bezier)) {
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module); 
         return NULL; 
     }
 
-    tangent_mode_enum_name = PyUnicode_FromString("TangentMode");
-    if (!tangent_mode_enum_name) {
+    function_enum_name = PyUnicode_FromString("Function");
+    if (!function_enum_name) {
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module);
         return NULL; 
     }
 
-    // Create the IntEnum type: IntEnum("TangentMode", {"LINEAR": 0, ...})
-    tangent_mode_enum_type = PyObject_CallFunctionObjArgs(int_enum_class, tangent_mode_enum_name, members_dict, NULL);
-    if (!tangent_mode_enum_type) {
-        Py_DECREF(tangent_mode_enum_name);
+    // Create the IntEnum type: IntEnum("Function", {"CONSTANT": 0, ...})
+    function_enum_type = PyObject_CallFunctionObjArgs(int_enum_class, function_enum_name, members_dict, NULL);
+    if (!function_enum_type) {
+        Py_DECREF(function_enum_name);
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module);
@@ -79,17 +77,17 @@ static PyObject* create_tangent_mode_enum() {
     }    
 
     // Success path: Clean up intermediate objects
-    Py_DECREF(tangent_mode_enum_name);
+    Py_DECREF(function_enum_name);
     Py_DECREF(members_dict);
     Py_DECREF(int_enum_class);
     Py_DECREF(enum_module);
     
     // Store the created enum as our singleton
-    tangent_mode_enum_singleton = tangent_mode_enum_type;
-    return tangent_mode_enum_type; // Return new reference to the created enum type
+    function_enum_singleton = function_enum_type;
+    return function_enum_type; // Return new reference to the created enum type
 }
 
-// Getter function for the TangentMode enum
-PyObject* get_tangent_mode_enum(PyObject* self, void* closure) {
-    return create_tangent_mode_enum();
+// Getter function for the Function enum
+PyObject* get_function_enum(PyObject* self, void* closure) {
+    return create_function_enum();
 }
