@@ -52,23 +52,25 @@ private:
 
 };
 
-static PyObject* pyCreateChannel(PyObject* self, PyObject* args);
-static PyObject* pyGetChannel(PyObject* self, PyObject* args);
-static PyObject* pyRemoveChannel(PyObject* self, PyObject* args);
-static PyObject* pyGetChannelNames(PyObject* self);
-static PyObject* pyClearChannels(PyObject* self);
+static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
 
-static PyObject* pySetKeyframe(PyObject* self, PyObject* args);
-static PyObject* pySetKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* pyGetKeyframe(PyObject* self, PyObject* args);
-static PyObject* pyGetKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* pyHasKeyframe(PyObject* self, PyObject* args);
-static PyObject* pyHasKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* pyRemoveKeyframe(PyObject* self, PyObject* args);
-static PyObject* pyRemoveKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* py_createChannel(PyObject* self, PyObject* args);
+static PyObject* py_getChannel(PyObject* self, PyObject* args);
+static PyObject* py_removeChannel(PyObject* self, PyObject* args);
+static PyObject* py_getChannelNames(PyObject* self);
+static PyObject* py_clearChannels(PyObject* self);
 
-static PyObject* pySetKeyframes(PyObject* self, PyObject* args);
-static PyObject* pySetKeyframesAtTime(PyObject* self, PyObject* args);
-static PyObject* pyRemoveKeyframesAtTime(PyObject* self, PyObject* args);
+static PyObject* py_setKeyframe(PyObject* self, PyObject* args);
+static PyObject* py_setKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* py_getKeyframe(PyObject* self, PyObject* args);
+static PyObject* py_getKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* py_hasKeyframe(PyObject* self, PyObject* args);
+static PyObject* py_hasKeyframeAtTime(PyObject* self, PyObject* args);
+static PyObject* py_removeKeyframe(PyObject* self, PyObject* args);
+static PyObject* py_removeKeyframeAtTime(PyObject* self, PyObject* args);
 
-static PyObject* pyDebugChannel(PyObject* self, PyObject* args);
+static PyObject* py_setKeyframes(PyObject* self, PyObject* args);
+static PyObject* py_setKeyframesAtTime(PyObject* self, PyObject* args);
+static PyObject* py_removeKeyframesAtTime(PyObject* self, PyObject* args);
+
+static PyObject* py_debugChannel(PyObject* self, PyObject* args);

@@ -1,0 +1,23 @@
+- only ./src/animation_chop.cpp and ./src/animation_chop.h should be edited for task
+- remove the current OP_NumericParameter and OP_StringParameter definitions
+- create the following parameter definitions
+    - Createchannelname - string 
+    - Createchannel - pulse - creates a new channel with name in Createchannelname
+    - Selectchannel - dynamic menu - updated when a new channel
+    - Removechannel - removes the selected channels
+    - Clearchannels - clears all channels
+    - Selectkeyframe - dynamic menu - updated when a new channel is selected and a keyframe is created or removed
+    - Addkeyframe - pulse - creates a new keyframe (after the selected keyframe)
+    - Insertkeyrame - pulse - creates a new keyframe (before the selected keyframe)
+    - Keyframetime - double - sets currently selected keyframe on currently selected channel
+    - Keyframeevalue - double - sets currently selected keyframe on currently selected channel
+    - Handlemode - menu - sets currently selected keyframe on currently selected channel
+    - Handeintime - double - normalized double (where 1.0 is the distance to the previous key, first key  1.0 = 1.0) - sets currently selected keyframe on currently selected channel
+    - Handleinvalue - double - sets currently selected keyframe on currently selected channel
+    - Handloutmode - menu - sets currently selected keyframe on currently selected channel
+    - Handleouttime - normalized double (where 1.0 is the distance to the next key, last key 1.0 = 1.0) - sets currently selected keyframe on currently selected channel
+    - Handleoutvalue - double - sets currently selected keyframe on currently selected channel
+
+
+
+

@@ -33,25 +33,25 @@
 
 static PyMethodDef methods[] =
 {
-	{"create_channel", (PyCFunction)pyCreateChannel, METH_VARARGS, "Creates a new animation channel with the given name."},
-	{"get_channel", (PyCFunction)pyGetChannel, METH_VARARGS, "Gets an animation channel by name."},
-	{"remove_channel", (PyCFunction)pyRemoveChannel, METH_VARARGS, "Removes an animation channel by name."},
-	{"get_channel_names", (PyCFunction)pyGetChannelNames, METH_NOARGS, "Returns a list of all channel names."},
-	{"clear_channels", (PyCFunction)pyClearChannels, METH_NOARGS, "Clears all animation channels."},
+	{"create_channel", (PyCFunction)py_createChannel, METH_VARARGS, "Creates a new animation channel with the given name."},
+	{"get_channel", (PyCFunction)py_getChannel, METH_VARARGS, "Gets an animation channel by name."},
+	{"remove_channel", (PyCFunction)py_removeChannel, METH_VARARGS, "Removes an animation channel by name."},
+	{"get_channel_names", (PyCFunction)py_getChannelNames, METH_NOARGS, "Returns a list of all channel names."},
+	{"clear_channels", (PyCFunction)py_clearChannels, METH_NOARGS, "Clears all animation channels."},
 
-	{"set_keyframe", (PyCFunction)pySetKeyframe, METH_VARARGS, "Sets a keyframe in a channel."},
-	{"set_keyframe_at_time", (PyCFunction)pySetKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
-	{"get_keyframe", (PyCFunction)pyGetKeyframe, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
-	{"get_keyframe_at_time", (PyCFunction)pyGetKeyframeAtTime, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
-	{"has_keyframe", (PyCFunction)pyHasKeyframe, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
-	{"has_keyframe_at_time", (PyCFunction)pyHasKeyframeAtTime, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
-	{"remove_keyframe", (PyCFunction)pyRemoveKeyframe, METH_VARARGS, "Removes a keyframe from a channel."},
-	{"remove_keyframe_at_time", (PyCFunction)pyRemoveKeyframeAtTime, METH_VARARGS, "Removes a keyframe from a channel at the specified time."},
+	{"set_keyframe", (PyCFunction)py_setKeyframe, METH_VARARGS, "Sets a keyframe in a channel."},
+	{"set_keyframe_at_time", (PyCFunction)py_setKeyframeAtTime, METH_VARARGS, "Sets a keyframe in a channel with control over tangent handles."},
+	{"get_keyframe", (PyCFunction)py_getKeyframe, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
+	{"get_keyframe_at_time", (PyCFunction)py_getKeyframeAtTime, METH_VARARGS, "Gets a keyframe from a channel at the specified time."},
+	{"has_keyframe", (PyCFunction)py_hasKeyframe, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
+	{"has_keyframe_at_time", (PyCFunction)py_hasKeyframeAtTime, METH_VARARGS, "Checks if a keyframe exists at the specified time."},
+	{"remove_keyframe", (PyCFunction)py_removeKeyframe, METH_VARARGS, "Removes a keyframe from a channel."},
+	{"remove_keyframe_at_time", (PyCFunction)py_removeKeyframeAtTime, METH_VARARGS, "Removes a keyframe from a channel at the specified time."},
 
-	{"set_keyframes", (PyCFunction)pySetKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
-	{"set_keyframes_at_time", (PyCFunction)pySetKeyframesAtTime, METH_VARARGS, "Sets multiple keyframes in a channel."},
-	{"remove_keyframes_at_time", (PyCFunction)pyRemoveKeyframesAtTime, METH_VARARGS, "Removes multiple keyframes from a channel."},
-	{"debug_channel", (PyCFunction)pyDebugChannel, METH_VARARGS, "Debug function to inspect channel state."},
+	{"set_keyframes", (PyCFunction)py_setKeyframes, METH_VARARGS, "Sets multiple keyframes in a channel."},
+	{"set_keyframes_at_time", (PyCFunction)py_setKeyframesAtTime, METH_VARARGS, "Sets multiple keyframes in a channel."},
+	{"remove_keyframes_at_time", (PyCFunction)py_removeKeyframesAtTime, METH_VARARGS, "Removes multiple keyframes from a channel."},
+	{"debug_channel", (PyCFunction)py_debugChannel, METH_VARARGS, "Debug function to inspect channel state."},
 	{0}
 };
 
@@ -458,7 +458,7 @@ AnimationCHOP::getKeyframeCount(const std::string& channelName) const
 
 // Channel methods
 static PyObject*
-pyCreateChannel(PyObject* self, PyObject* args)
+py_createChannel(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -490,7 +490,7 @@ pyCreateChannel(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyGetChannel(PyObject* self, PyObject* args)
+py_getChannel(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     PyObject* identifier_obj;
@@ -529,7 +529,7 @@ pyGetChannel(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyRemoveChannel(PyObject* self, PyObject* args)
+py_removeChannel(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -551,7 +551,7 @@ pyRemoveChannel(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyGetChannelNames(PyObject* self)
+py_getChannelNames(PyObject* self)
 {
     PY_Struct* me = (PY_Struct*)self;
     
@@ -572,7 +572,7 @@ pyGetChannelNames(PyObject* self)
 }
 
 static PyObject*
-pyClearChannels(PyObject* self)
+py_clearChannels(PyObject* self)
 {
     PY_Struct* me = (PY_Struct*)self;
 
@@ -589,7 +589,7 @@ pyClearChannels(PyObject* self)
 }
 
 static PyObject*
-pySetKeyframe(PyObject* self, PyObject* args)
+py_setKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -639,7 +639,7 @@ pySetKeyframe(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pySetKeyframeAtTime(PyObject* self, PyObject* args)
+py_setKeyframeAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -673,7 +673,7 @@ pySetKeyframeAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject* 
-pyGetKeyframe(PyObject* self, PyObject* args)
+py_getKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -723,7 +723,7 @@ pyGetKeyframe(PyObject* self, PyObject* args)
 }
 
 static PyObject* 
-pyGetKeyframeAtTime(PyObject* self, PyObject* args)
+py_getKeyframeAtTime(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -759,7 +759,7 @@ pyGetKeyframeAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject* 
-pyHasKeyframe(PyObject* self, PyObject* args)
+py_hasKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -796,7 +796,7 @@ pyHasKeyframe(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyHasKeyframeAtTime(PyObject* self, PyObject* args)
+py_hasKeyframeAtTime(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -823,7 +823,7 @@ pyHasKeyframeAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject* 
-pyRemoveKeyframe(PyObject* self, PyObject* args)
+py_removeKeyframe(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -858,7 +858,7 @@ pyRemoveKeyframe(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyRemoveKeyframeAtTime(PyObject* self, PyObject* args)
+py_removeKeyframeAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -884,7 +884,7 @@ pyRemoveKeyframeAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pySetKeyframes(PyObject* self, PyObject* args)
+py_setKeyframes(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
@@ -983,7 +983,7 @@ pySetKeyframes(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pySetKeyframesAtTime(PyObject* self, PyObject* args)
+py_setKeyframesAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -1079,7 +1079,7 @@ pySetKeyframesAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyRemoveKeyframesAtTime(PyObject* self, PyObject* args)
+py_removeKeyframesAtTime(PyObject* self, PyObject* args)
 {
     PY_Struct* me = (PY_Struct*)self;
     const char* name;
@@ -1126,7 +1126,7 @@ pyRemoveKeyframesAtTime(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-pyDebugChannel(PyObject* self, PyObject* args)
+py_debugChannel(PyObject* self, PyObject* args)
 {
 	PY_Struct* me = (PY_Struct*)self;
 	const char* name;
