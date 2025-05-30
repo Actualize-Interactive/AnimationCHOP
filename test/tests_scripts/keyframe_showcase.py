@@ -1,11 +1,11 @@
 """
 Keyframe Showcase Script for AnimationCHOP
-This script demonstrates all tangent modes by creating a channel with 20 keyframes,
-each using different tangent modes and properties.
+This script demonstrates the new AnimationCHOP Python API by creating multiple channels
+with different keyframe configurations, handle modes, and functions.
 """
 
 def create_keyframe_showcase():
-    """Create a comprehensive showcase of keyframes with different tangent modes"""
+    """Create a comprehensive showcase using the new AnimationCHOP API"""
     
     # Get the AnimationCHOP node
     try:
@@ -17,210 +17,238 @@ def create_keyframe_showcase():
     
     # Clear all existing channels
     print("Clearing all existing channels...")
-    anim_chop.clear_channels()
+    anim_chop.clear()
     
-    # Create a new showcase channel
-    print("Creating showcase channel...")
-    channel = anim_chop.create_channel("keyframe_showcase")
-    if not channel:
-        print("ERROR: Failed to create showcase channel")
-        return
+    # Channel configurations
+    channels_config = [
+        {
+            'name': 'position_x',
+            'base_value': 0.0,
+            'range': 2.0,
+            'time_offset': 0.0,
+            'functions': [anim_chop.Function.LINEAR, anim_chop.Function.BEZIER, anim_chop.Function.LINEAR, anim_chop.Function.BEZIER, anim_chop.Function.LINEAR],
+            'handle_modes': [anim_chop.HandleMode.SMOOTH, anim_chop.HandleMode.FREE, anim_chop.HandleMode.ALIGNED, anim_chop.HandleMode.SMOOTH, anim_chop.HandleMode.FLAT]
+        },
+        {
+            'name': 'position_y', 
+            'base_value': 0.75,
+            'range': 2.0,
+            'time_offset': 0.2,
+            'functions': [anim_chop.Function.BEZIER, anim_chop.Function.LINEAR, anim_chop.Function.BEZIER, anim_chop.Function.CONSTANT, anim_chop.Function.BEZIER],
+            'handle_modes': [anim_chop.HandleMode.FREE, anim_chop.HandleMode.SMOOTH, anim_chop.HandleMode.ALIGN_STRICT, anim_chop.HandleMode.FLAT, anim_chop.HandleMode.FREE]
+        },
+        {
+            'name': 'rotation',
+            'base_value': 1.5,
+            'range': 2.0, 
+            'time_offset': 0.4,
+            'functions': [anim_chop.Function.CONSTANT, anim_chop.Function.BEZIER, anim_chop.Function.LINEAR, anim_chop.Function.BEZIER, anim_chop.Function.CONSTANT],
+            'handle_modes': [anim_chop.HandleMode.FLAT, anim_chop.HandleMode.ALIGNED, anim_chop.HandleMode.SMOOTH, anim_chop.HandleMode.ALIGN_FLEX, anim_chop.HandleMode.FLAT]
+        },
+        {
+            'name': 'scale',
+            'base_value': 2.25,
+            'range': 2.0,
+            'time_offset': 0.1,
+            'functions': [anim_chop.Function.BEZIER, anim_chop.Function.BEZIER, anim_chop.Function.LINEAR, anim_chop.Function.BEZIER, anim_chop.Function.BEZIER],
+            'handle_modes': [anim_chop.HandleMode.ALIGN_ADJUSTABLE, anim_chop.HandleMode.FREE, anim_chop.HandleMode.SMOOTH, anim_chop.HandleMode.FREE, anim_chop.HandleMode.SMOOTH]
+        }
+    ]
     
-    # Define tangent modes (matching the enum values from tangent_mode.hpp)
-    tangent_modes = {
-        0: "flat",
-        1: "linear", 
-        2: "constant",
-        3: "smooth",
-        4: "manual",
-        5: "broken"
-    }
-    
-    print(f"Creating 20 keyframes with varying tangent modes...")
+    print("Creating channels with new API...")
     print("=" * 80)
     
-    # Create 20 keyframes with different properties
-    for i in range(20):
-        time = i * 0.5  # Keyframes at 0.0, 0.5, 1.0, 1.5, etc.
-        value = 10.0 + 5.0 * (i % 4)  # Values cycling between 10, 15, 20, 25
-        
-        # Cycle through tangent modes
-        mode = i % len(tangent_modes)
-        
-        # Vary tangent handle positions based on keyframe index
-        in_tangent_time = time - 0.1 - (i % 3) * 0.05  # Varying in-handle time offset
-        in_tangent_value = value - 1.0 + (i % 2) * 2.0  # Varying in-handle value offset
-        out_tangent_time = time + 0.1 + (i % 3) * 0.05  # Varying out-handle time offset
-        out_tangent_value = value + 1.0 - (i % 2) * 2.0  # Varying out-handle value offset
-        
-        # Create the keyframe
-        success = anim_chop.set_keyframe_at_time(
-            "keyframe_showcase", 
-            time, 
-            value, 
-            mode,
-            in_tangent_time, 
-            in_tangent_value,
-            out_tangent_time, 
-            out_tangent_value
-        )
-        
-        if success:
-            print(f"✓ Created keyframe {i:2d}: time={time:4.1f}, value={value:4.1f}, mode={mode} ({tangent_modes[mode]})")
-        else:
-            print(f"✗ Failed to create keyframe {i}")
+    created_channels = []
     
-    print("=" * 80)
-    
-    # Get debug information about the channel
-    try:
-        debug_info = anim_chop.debug_channel("keyframe_showcase")
-        print(f"Channel Debug Info:")
-        print(f"  Name: {debug_info.get('name', 'Unknown')}")
-        print(f"  Keyframe Count: {debug_info.get('keyframe_count', 0)}")
-        print(f"  Is Empty: {debug_info.get('is_empty', True)}")
-        print(f"  Start Time: {debug_info.get('start_time', 'None')}")
-        print(f"  End Time: {debug_info.get('end_time', 'None')}")
-        print("=" * 80)
-    except Exception as e:
-        print(f"Could not get debug info: {e}")
-    
-    # Retrieve and display all keyframes
-    print("KEYFRAME DETAILS:")
-    print("=" * 80)
-    
-    keyframe_count = debug_info.get('keyframe_count', 0) if 'debug_info' in locals() else 20
-    
-    # Initialize TSV table string with header
-    table_lines = []
-    table_lines.append("index\ttime\tvalue\tmode\tin_time\tin_val\tout_time\tout_val")
-
-    # Print table header to console as well
-    print(f"{'idx':<3} {'time':<6} {'value':<6} {'mode':<12} {'in_time':<8} {'in_val':<8} {'out_time':<8} {'out_val':<8}")
-    print("-" * 80)
-    
-    for i in range(keyframe_count):
+    for config in channels_config:
         try:
-            # Get keyframe by index
-            keyframe = anim_chop.get_keyframe("keyframe_showcase", i)
-            if keyframe:
-                # Extract keyframe properties (with fallbacks)
-                try:
-                    time = getattr(keyframe, 'time', 'N/A')
-                    value = getattr(keyframe, 'value', 'N/A')
-                    mode_num = getattr(keyframe, 'handle_mode', 'N/A')
-                    mode_name = tangent_modes.get(mode_num, f"Unk({mode_num})") if isinstance(mode_num, int) else 'N/A'
-
-                    # Handle in_handle and out_handle (should be Point objects)
-                    in_handle = getattr(keyframe, 'in_handle', None)
-                    out_handle = getattr(keyframe, 'out_handle', None)
-                    in_time = getattr(in_handle, 'time', 'N/A') if in_handle else 'N/A'
-                    in_val = getattr(in_handle, 'value', 'N/A') if in_handle else 'N/A'
-                    out_time = getattr(out_handle, 'time', 'N/A') if out_handle else 'N/A'
-                    out_val = getattr(out_handle, 'value', 'N/A') if out_handle else 'N/A'
-
-                    # Format the row for console
-                    time_str = f"{time:.1f}" if isinstance(time, (int, float)) else str(time)
-                    value_str = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
-                    in_time_str = f"{in_time:.2f}" if isinstance(in_time, (int, float)) else str(in_time)
-                    in_val_str = f"{in_val:.2f}" if isinstance(in_val, (int, float)) else str(in_val)
-                    out_time_str = f"{out_time:.2f}" if isinstance(out_time, (int, float)) else str(out_time)
-                    out_val_str = f"{out_val:.2f}" if isinstance(out_val, (int, float)) else str(out_val)
-
-                    console_row = f"{i:<3} {time_str:<6} {value_str:<6} {mode_name:<12} {in_time_str:<8} {in_val_str:<8} {out_time_str:<8} {out_val_str:<8}"
-                    print(console_row)
-
-                    # Format the row for TSV (using actual values, not formatted strings)
-                    tsv_time = time if isinstance(time, (int, float)) else time_str
-                    tsv_value = value if isinstance(value, (int, float)) else value_str
-                    tsv_row = f"{i}\t{tsv_time}\t{tsv_value}\t{mode_name}\t{in_time}\t{in_val}\t{out_time}\t{out_val}"
-                    table_lines.append(tsv_row)
-
-                except Exception as attr_e:
-                    error_row_console = f"{i:<3} {'ERR':<6} {'ERR':<6} {'ERR':<12} {'ERR':<8} {'ERR':<8} {'ERR':<8} {'ERR':<8}  # Error: {attr_e}"
-                    print(error_row_console)
-
-                    error_row_tsv = f"{i}\tERR\tERR\tERR\tERR\tERR\tERR\tERR"
-                    table_lines.append(error_row_tsv)
-            else:
-                none_row_console = f"{i:<3} {'None':<6} {'None':<6} {'None':<12} {'None':<8} {'None':<8} {'None':<8} {'None':<8}"
-                print(none_row_console)
-
-                none_row_tsv = f"{i}\tNone\tNone\tNone\tNone\tNone\tNone\tNone"
-                table_lines.append(none_row_tsv)
-
-        except Exception as e:
-            fail_row_console = f"{i:<3} {'FAIL':<6} {'FAIL':<6} {'FAIL':<12} {'FAIL':<8} {'FAIL':<8} {'FAIL':<8} {'FAIL':<8}  # Error: {e}"
-            print(fail_row_console)
-
-            fail_row_tsv = f"{i}\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL\tFAIL"
-            table_lines.append(fail_row_tsv)
-    
-    # Create the complete TSV string
-    keyframes_tbl_str = "\n".join(table_lines)
-    
-    # Output to TableDAT
-    try:
-        keyframes_dat = op('keyframes')
-        
-        # Get the callback DAT and temporarily disable it
-        try:
-            on_keyframes_change_dat = op('on_keyframes_change')
-            original_active_state = on_keyframes_change_dat.par.active.eval()
-            on_keyframes_change_dat.par.active = False
-            print("✓ Temporarily disabled keyframes change callback")
-        except:
-            on_keyframes_change_dat = None
-            original_active_state = True
-            print("! Could not find 'on_keyframes_change' DAT - proceeding without disabling callbacks")
-        
-        # Set the table data
-        keyframes_dat.text = keyframes_tbl_str
-        print(f"✓ Keyframe data exported to TableDAT 'keyframes' ({len(table_lines)-1} rows)")
-        
-        # Re-enable the callback DAT
-        if on_keyframes_change_dat and original_active_state:
-            on_keyframes_change_dat.par.active = True
-            print("✓ Re-enabled keyframes change callback")
+            # Create channel using new API
+            channel = anim_chop.create_channel(config['name'])
+            created_channels.append(channel)
             
-    except Exception as e:
-        print(f"\n✗ Failed to export to TableDAT 'keyframes': {e}")
-        
-        # Make sure to re-enable callbacks even if there was an error
-        try:
-            if on_keyframes_change_dat and original_active_state:
-                on_keyframes_change_dat.par.active = True
-                print("✓ Re-enabled keyframes change callback after error")
-        except:
-            pass
-
-    print("=" * 80)
-    
-    # Also demonstrate getting keyframes by time
-    print("=" * 80)
-    print("TESTING KEYFRAME ACCESS BY TIME:")
-    print("=" * 80)
-    
-    test_times = [0.0, 1.0, 2.5, 5.0, 9.5]
-    for test_time in test_times:
-        try:
-            has_keyframe = anim_chop.has_keyframe_at_time("keyframe_showcase", test_time)
-            keyframe = anim_chop.get_keyframe_at_time("keyframe_showcase", test_time)
+            print(f"✓ Created channel: {config['name']}")
             
-            print(f"Time {test_time:4.1f}: has_keyframe={has_keyframe}, keyframe={keyframe is not None}")
-            if keyframe:
-                print(f"  {keyframe}")
+            # Create 5 keyframes for this channel
+            for i in range(5):
+                time = i * 1.0 + config['time_offset']  # Keyframes at offset intervals
+                
+                # Create a wave-like pattern within the range
+                import math
+                wave_factor = math.sin(i * math.pi / 2)  # Creates: 0, 1, 0, -1, 0 pattern
+                value = config['base_value'] + (wave_factor * config['range'] / 2)
+                
+                # Get function and handle mode for this keyframe
+                function = config['functions'][i]
+                handle_mode = config['handle_modes'][i]
+                
+                # Create handle points for bezier curves
+                if function == anim_chop.Function.BEZIER:
+                    # Create meaningful handle positions
+                    handle_offset = 0.3
+                    in_handle = anim_chop.Point(time - handle_offset, value - 0.2 + (i % 2) * 0.4)
+                    out_handle = anim_chop.Point(time + handle_offset, value + 0.2 - (i % 2) * 0.4)
+                    
+                    # Create keyframe with handles
+                    keyframe = channel.create_keyframe(time, value, in_handle, out_handle, function, handle_mode)
+                else:
+                    # Create keyframe without custom handles for linear/constant
+                    keyframe = channel.create_keyframe(time, value, function, handle_mode)
+                
+                print(f"    Keyframe {i}: time={time:.1f}, value={value:.2f}, function={function}, mode={handle_mode}")
+            
+            print(f"    Channel stats: {channel.num_keyframes} keyframes, start={channel.start_time:.1f}, end={channel.end_time:.1f}")
             print()
             
         except Exception as e:
-            print(f"Error checking time {test_time}: {e}")
+            print(f"✗ Failed to create channel {config['name']}: {e}")
+            import traceback
+            traceback.print_exc()
     
-    # Summary
+    print("=" * 80)
+    
+    # Display animation summary
+    print(f"ANIMATION SUMMARY:")
+    print(f"  Total channels: {anim_chop.num_channels}")
+    print(f"  Channel names: {anim_chop.channel_names}")
+    print(f"  Animation start time: {anim_chop.start_time:.2f}")
+    print(f"  Animation end time: {anim_chop.end_time:.2f}")
+    print(f"  Animation length: {anim_chop.length:.2f}")
+    print("=" * 80)
+    
+    # Test channel access methods
+    print("TESTING CHANNEL ACCESS:")
+    print("=" * 80)
+    
+    for i, channel in enumerate(created_channels):
+        try:
+            # Test different access methods
+            by_index = anim_chop.get_channel(i)
+            by_name = anim_chop.get_channel(channel.name)
+            has_channel = anim_chop.has_channel(channel.name)
+            
+            print(f"Channel {i} ({channel.name}):")
+            print(f"  Access by index: {by_index.name if by_index else 'None'}")
+            print(f"  Access by name: {by_name.name if by_name else 'None'}")
+            print(f"  Has channel: {has_channel}")
+            
+            # Test keyframe access
+            if len(channel) > 0:
+                first_kf = channel[0]
+                last_kf = channel[-1]
+                print(f"  First keyframe: time={first_kf.time:.1f}, value={first_kf.value:.2f}")
+                print(f"  Last keyframe: time={last_kf.time:.1f}, value={last_kf.value:.2f}")
+                
+                # Test evaluation
+                mid_time = (first_kf.time + last_kf.time) / 2
+                mid_value = channel.evaluate(mid_time)
+                print(f"  Mid evaluation (t={mid_time:.1f}): {mid_value:.2f}")
+            
+            print()
+            
+        except Exception as e:
+            print(f"Error testing channel {i}: {e}")
+    
+    # Create TSV output for TableDAT
+    print("EXPORTING TO TABLEDAT:")
+    print("=" * 80)
+    
+    table_lines = []
+    table_lines.append("channel\tindex\ttime\tvalue\tfunction\thandle_mode\tin_time\tin_value\tout_time\tout_value")
+    
+    for channel in created_channels:
+        try:
+            for i in range(len(channel)):
+                kf = channel[i]
+                
+                # Get function and handle mode names
+                function_names = {
+                    anim_chop.Function.CONSTANT: "CONSTANT",
+                    anim_chop.Function.LINEAR: "LINEAR", 
+                    anim_chop.Function.BEZIER: "BEZIER"
+                }
+                
+                handle_mode_names = {
+                    anim_chop.HandleMode.FLAT: "FLAT",
+                    anim_chop.HandleMode.SMOOTH: "SMOOTH",
+                    anim_chop.HandleMode.ALIGNED: "ALIGNED",
+                    anim_chop.HandleMode.FREE: "FREE",
+                    anim_chop.HandleMode.ALIGN_STRICT: "ALIGN_STRICT",
+                    anim_chop.HandleMode.ALIGN_FLEX: "ALIGN_FLEX",
+                    anim_chop.HandleMode.ALIGN_ADJUSTABLE: "ALIGN_ADJUSTABLE"
+                }
+                
+                func_name = function_names.get(kf.function, f"UNK_{kf.function}")
+                mode_name = handle_mode_names.get(kf.handle_mode, f"UNK_{kf.handle_mode}")
+                
+                row = f"{channel.name}\t{i}\t{kf.time:.2f}\t{kf.value:.3f}\t{func_name}\t{mode_name}\t{kf.in_handle.time:.2f}\t{kf.in_handle.value:.3f}\t{kf.out_handle.time:.2f}\t{kf.out_handle.value:.3f}"
+                table_lines.append(row)
+                
+        except Exception as e:
+            print(f"Error processing channel {channel.name}: {e}")
+    
+    # Output to TableDAT
+    keyframes_tbl_str = "\n".join(table_lines)
+    
+    try:
+        keyframes_dat = op('keyframes')
+        
+        # Temporarily disable callback if it exists
+        callback_dat = None
+        original_active = True
+        try:
+            callback_dat = op('on_keyframes_change')
+            original_active = callback_dat.par.active.eval()
+            callback_dat.par.active = False
+            print("✓ Temporarily disabled keyframes change callback")
+        except:
+            print("! No callback DAT found")
+        
+        # Set table data
+        keyframes_dat.text = keyframes_tbl_str
+        print(f"✓ Exported {len(table_lines)-1} keyframe rows to TableDAT 'keyframes'")
+        
+        # Re-enable callback
+        if callback_dat and original_active:
+            callback_dat.par.active = True
+            print("✓ Re-enabled keyframes change callback")
+            
+    except Exception as e:
+        print(f"✗ Failed to export to TableDAT: {e}")
+        
+        # Ensure callback is re-enabled
+        try:
+            if callback_dat and original_active:
+                callback_dat.par.active = True
+        except:
+            pass
+    
+    # Test evaluation ranges
+    print("\nTESTING EVALUATION RANGES:")
+    print("=" * 80)
+    
+    if created_channels:
+        test_channel = created_channels[0]
+        try:
+            # Test range evaluation
+            values = test_channel.evaluate_range(0.0, 4.0, 9)  # 9 samples from 0 to 4
+            print(f"Range evaluation (0-4s, 9 samples): {[f'{v:.2f}' for v in values]}")
+            
+            # Test by sample rate
+            values_rate = test_channel.evaluate_range_by_rate(0.0, 2.0, 2.0)  # 2Hz for 2 seconds
+            print(f"Rate evaluation (0-2s, 2Hz): {[f'{v:.2f}' for v in values_rate]}")
+            
+            # Test num_samples calculation
+            num_samples = test_channel.num_samples(30.0)  # 30Hz
+            print(f"Number of samples at 30Hz: {num_samples}")
+            
+        except Exception as e:
+            print(f"Error testing evaluation: {e}")
+    
     print("=" * 80)
     print("SHOWCASE COMPLETE!")
-    print(f"Created a channel '{debug_info.get('name', 'keyframe_showcase')}' with {keyframe_count} keyframes")
-    print("Each keyframe demonstrates different tangent modes and handle positions.")
-    print("You can now examine the channel in TouchDesigner's animation editor.")
+    print(f"Created {len(created_channels)} channels with 5 keyframes each")
+    print("Channels demonstrate different interpolation functions and handle modes")
+    print("Values are offset and overlapping to create interesting animation curves")
     print("=" * 80)
 
 # Run the showcase
