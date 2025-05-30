@@ -824,25 +824,21 @@ static PyObject* PyChannel_copy(PyChannel *self) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to create Channel object");
         return NULL;
     }
-    Py_INCREF(object); // Ensure we return a new reference
     return object;
 }
 
+// TODO update this it is a shallow copy, we need to either implement a deep copy
+// in the anim library or handle it here
 static PyObject* PyChannel_deep_copy(PyChannel *self, PyObject *args) {
     if (!self->channel) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
-    
-    // Create a new Channel object with the same properties
     PyObject* copy = ChannelToPyObject(self->channel, self->parent);
     if (!copy) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to create deep copy of Channel");
         return NULL;
     }
-    
-    // Ensure we return a new reference
-    Py_INCREF(copy);
     return copy;
 }
 

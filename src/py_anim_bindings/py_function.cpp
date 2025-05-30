@@ -84,6 +84,7 @@ static PyObject* create_function_enum() {
     
     // Store the created enum as our singleton
     function_enum_singleton = function_enum_type;
+    Py_INCREF(function_enum_singleton); // Add extra reference to keep it alive
     return function_enum_type; // Return new reference to the created enum type
 }
 
@@ -92,6 +93,13 @@ PyObject* get_function_enum(PyObject* self, void* closure) {
     return create_function_enum();
 }
 
+// Cleanup function for module shutdown
+void cleanup_function_enum() {
+    if (function_enum_singleton) {
+        Py_DECREF(function_enum_singleton);
+        function_enum_singleton = NULL;
+    }
+}
 
 // Function enum string representations
 static const char* function_names[] = {

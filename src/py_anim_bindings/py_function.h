@@ -13,6 +13,9 @@
 // Getter function for the Function enum
 PyObject* get_function_enum(PyObject* self, void* closure);
 
+// Cleanup function for module shutdown
+void cleanup_function_enum();
+
 // Helper functions
 bool PyObjectToFunction(PyObject* obj, anim::Function& function_enum);
 PyObject* FunctionToPyObject(anim::Function function_enum);

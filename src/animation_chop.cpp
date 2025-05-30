@@ -176,7 +176,8 @@ AnimationCHOP::AnimationCHOP(const OP_NodeInfo* info)
 
 AnimationCHOP::~AnimationCHOP()
 {
-	// std::unique_ptr cleans up automatically
+	cleanup_handle_mode_enum();
+    cleanup_function_enum();
 }
 
 
@@ -198,8 +199,16 @@ AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, 
 bool
 AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
-    info->sampleRate = m_sampleRate;
+    info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate"));
     info->numChannels = static_cast<int32_t>(m_animation->num_channels());
+
+    // auto output_mode = inputs->getParString("Outputmode");
+    // if (output_mode == "fullrange") {
+
+    // } else {
+
+    // }
+
 
     // Compute the maximum channel length (end_time - start_time) across all channels
     double max_length = 0.0;
@@ -288,61 +297,57 @@ AnimationCHOP::getErrorString(OP_String *error, void* reserved1)
 void
 AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 {
-	// speed
 	{
 		OP_NumericParameter	np;
-
-		np.name = "Speed";
-		np.label = "Speed";
-		np.defaultValues[0] = 1.0;
-		np.minSliders[0] = -10.0;
-		np.maxSliders[0] =  10.0;
+		np.name = "Samplerate";
+		np.label = "Sample Rate";
+		np.defaultValues[0] = 60.0;
+		np.minSliders[0] = 120.0;
+		np.maxSliders[0] =  30.0;
 		
 		OP_ParAppendResult res = manager->appendFloat(np);
 		assert(res == OP_ParAppendResult::Success);
-	}
-
-	// scale
-	{
+	} {
 		OP_NumericParameter	np;
-
-		np.name = "Scale";
-		np.label = "Scale";
-		np.defaultValues[0] = 1.0;
-		np.minSliders[0] = -10.0;
-		np.maxSliders[0] =  10.0;
+		np.name = "Range";
+		np.label = "Range";
+		np.defaultValues[0] = 0.0;
+        np.clampMins[0] = true;
+        np.defaultValues[1] = 30.0;
 		
-		OP_ParAppendResult res = manager->appendFloat(np);
+		OP_ParAppendResult res = manager->appendFloat(np, 2);
 		assert(res == OP_ParAppendResult::Success);
-	}
+	} {
+        OP_StringParameter	sp;
+		sp.name = "Rangeunit";
+        sp.label = "Range Unit";
+        sp.defaultValue = "seconds";
+        const char *names[] = { "seconds", "samples", "frames" };
+        const char *labels[] = { "Seconds", "Samples", "Frames" };
 
-	// shape
-	{
+        OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
+        assert(res == OP_ParAppendResult::Success);
+    } {
 		OP_StringParameter	sp;
+		sp.name = "Outputmode";
+		sp.label = "Output Mode";
+		sp.defaultValue = "fullrange";
+		const char *names[] = { "fullrange", "chop", "index"};
+		const char *labels[] = { "Full Range", "Chop Input", "Index Par" };
 
-		sp.name = "Shape";
-		sp.label = "Shape";
-
-		sp.defaultValue = "Sine";
-
-		const char *names[] = { "Sine", "Square", "Ramp" };
-		const char *labels[] = { "Sine", "Square", "Ramp" };
-
-		OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
+		OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
 		assert(res == OP_ParAppendResult::Success);
-	}
+	} {
+        OP_StringParameter	sp;
+		sp.name = "Indexunit";
+        sp.label = "Index Unit";
+        sp.defaultValue = "seconds";
+        const char *names[] = { "seconds", "samples", "frames" };
+        const char *labels[] = { "Seconds", "Samples", "Frames" };
 
-
-	// pulse
-	{
-		OP_NumericParameter	np;
-
-		np.name = "Reset";
-		np.label = "Reset";
-		
-		OP_ParAppendResult res = manager->appendPulse(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
+        OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
+        assert(res == OP_ParAppendResult::Success);
+    }
 
 }
 

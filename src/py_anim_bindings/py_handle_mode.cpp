@@ -88,12 +88,21 @@ static PyObject* create_handle_mode_enum() {
     
     // Store the created enum as our singleton
     handle_mode_enum_singleton = handle_mode_enum_type;
+    Py_INCREF(handle_mode_enum_singleton); // Add extra reference to keep it alive
     return handle_mode_enum_type; // Return new reference to the created enum type
 }
 
 // Getter function for the HandleMode enum
 PyObject* get_handle_mode_enum(PyObject* self, void* closure) {
     return create_handle_mode_enum();
+}
+
+// Cleanup function for module shutdown
+void cleanup_handle_mode_enum() {
+    if (handle_mode_enum_singleton) {
+        Py_DECREF(handle_mode_enum_singleton);
+        handle_mode_enum_singleton = NULL;
+    }
 }
 
 // HandleMode enum string representations
