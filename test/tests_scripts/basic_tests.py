@@ -271,7 +271,8 @@ def test_animation_chop_core_api(anim_chop, result):
         channel2 = anim_chop.create_channel("test_channel_2")
         result.assert_not_none(channel2, "create_channel without index")
         
-        # Now test create_channel with valid index (insert at beginning)
+        # Now test create_channel with valid index (insert at beginning)cd 
+        print(f"Createing channel at index 0, current num_channels: {anim_chop.num_channels}")
         channel3 = anim_chop.create_channel("test_channel_0", 0)
         result.assert_not_none(channel3, "create_channel with index 0")
         
@@ -365,12 +366,13 @@ def test_channel_api(anim_chop, result):
         result.assert_equal(3.0, kf2.value, "Create keyframe with Point")
         
         # Test keyframe creation with handles
-        in_handle = anim_chop.Point(1.5, 2.0)
-        out_handle = anim_chop.Point(2.5, 4.0)
-        kf3 = channel.create_keyframe(4.0, 5.0, in_handle, out_handle)
+        in_handle = anim_chop.Point(3.5, 2.0)
+        out_handle = anim_chop.Point(4.5, 4.0)
+        kf3 = channel.create_keyframe(4.0, 5.0, in_handle, out_handle, 
+                                       anim_chop.Function.BEZIER, anim_chop.HandleMode.FREE)
         result.assert_equal(4.0, kf3.time, "Create keyframe with handles")
-        result.assert_equal(1.5, kf3.in_handle.time, "Keyframe in_handle set correctly")
-        result.assert_equal(2.5, kf3.out_handle.time, "Keyframe out_handle set correctly")
+        result.assert_equal(3.5, kf3.in_handle.time, "Keyframe in_handle set correctly")
+        result.assert_equal(4.5, kf3.out_handle.time, "Keyframe out_handle set correctly")
         
         # Test keyframe access by index
         retrieved_kf = channel.keyframe(0)
@@ -396,7 +398,7 @@ def test_channel_api(anim_chop, result):
         result.assert_equal(2.0, closest_kf.time, "Channel.closest_keyframe method")
         
         # Test keyframe modification methods
-        new_kf = anim_chop.Keyframe(1.0, 10.0)
+        new_kf = anim_chop.Keyframe(time=1.0, value=10.0, handle_mode=anim_chop.HandleMode.FREE)
         channel.update_keyframe(1, new_kf)
         updated_kf = channel.keyframe(1)
         result.assert_equal(1.0, updated_kf.time, "Channel.update_keyframe method")

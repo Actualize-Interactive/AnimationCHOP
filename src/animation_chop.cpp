@@ -369,7 +369,7 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
     }
 
     const char* name;
-    size_t index;
+    Py_ssize_t index;
     Py_ssize_t nargs = PyTuple_Size(args);
     
     if (nargs == 1) {
@@ -384,15 +384,17 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
             return NULL;
         }
     } else if (nargs == 2) {
-        if (!PyArg_ParseTuple(args, "sk", &name, &index))
+        if (!PyArg_ParseTuple(args, "sn", &name, &index))
             return NULL;
         try {
             // Allow index up to and including num_channels (for append at end)
             if (index > animation->num_channels()) {
-                PyErr_SetString(PyExc_IndexError, "Channel index out of range");
-                return NULL;
+				PyErr_Format(PyExc_IndexError, "Channel index out of range: %zd (max %zd)", index, animation->num_channels());
+				return NULL;
+                // PyErr_SetString(PyExc_IndexError, "Channel index out of range");
+                // return NULL;
             }
-            anim::Channel& channel = animation->create_channel(std::string(name), index);
+            anim::Channel& channel = animation->create_channel(std::string(name), static_cast<size_t>(index));
             me->context->makeNodeDirty();
             return ChannelToPyObject(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
@@ -449,15 +451,15 @@ static PyObject* py_chop_insert_channel(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-    size_t index;
+    Py_ssize_t index;
     PyObject* py_chop_channel;
-    if (!PyArg_ParseTuple(args, "kO", &index, &py_chop_channel))
+    if (!PyArg_ParseTuple(args, "nO", &index, &py_chop_channel))
         return NULL;
     anim::Channel* channel_ptr = nullptr;
     if (!PyObjectToChannel(py_chop_channel, channel_ptr))
         return NULL;
     try {
-        anim::Channel& channel = animation->insert_channel(index, *channel_ptr);
+        anim::Channel& channel = animation->insert_channel(static_cast<size_t>(index), *channel_ptr);
 		me->context->makeNodeDirty();
         return ChannelToPyObject(&channel, (PyObject*)self);
     } catch (const std::exception& e) {
@@ -491,7 +493,7 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
             PyErr_SetString(PyExc_IndexError, "Channel index cannot be negative");
             return NULL;
         }
-        size_t index = (size_t)index_long;
+        auto index = static_cast<size_t>(index_long);
         try {
             anim::Channel& channel = animation->channel(index);
             return ChannelToPyObject(&channel, (PyObject*)self);
@@ -553,7 +555,7 @@ static PyObject* py_chop_remove_channel(PyObject *self, PyObject *args) {
     if (nargs == 1) {
         PyObject* arg = PyTuple_GetItem(args, 0);
         if (PyLong_Check(arg)) {
-            size_t index = (size_t)PyLong_AsSize_t(arg);
+            auto index = static_cast<size_t>(PyLong_AsSize_t(arg));
             try {
                 animation->remove_channel(index);
 				me->context->makeNodeDirty();
@@ -697,7 +699,7 @@ static PyObject* py_chop_get_start_time(PyObject *self, void* closure) {
     return PyFloat_FromDouble(animation->start_time());
 }
 
-static int py_chop_set_start_time(PyObject *self, PyObject *args, void* closure) {
+static int py_chop_set_start_time(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -711,10 +713,15 @@ static int py_chop_set_start_time(PyObject *self, PyObject *args, void* closure)
         return -1;
     }
 
-    double start_time;
-    
-    if (!PyArg_ParseTuple(args, "d", &start_time))
-        return -1;
+	PyObject* arg = PyNumber_Float(value);
+	if (!arg || !PyFloat_Check(arg)) {
+		PyErr_SetString(PyExc_TypeError, "start_time must be a float");
+		return -1;
+	}
+	auto start_time = PyFloat_AsDouble(arg);
+	if (start_time > animation->end_time()) {
+		animation->set_end_time(start_time);
+	}
 
     animation->set_start_time(start_time);
 	me->context->makeNodeDirty();
@@ -738,7 +745,7 @@ static PyObject* py_chop_get_end_time(PyObject *self, void* closure) {
     return PyFloat_FromDouble(animation->end_time());
 }
 
-static int py_chop_set_end_time(PyObject *self, PyObject *args, void* closure) {
+static int py_chop_set_end_time(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -752,10 +759,15 @@ static int py_chop_set_end_time(PyObject *self, PyObject *args, void* closure) {
         return -1;
     }
 
-    double end_time;
-    
-    if (!PyArg_ParseTuple(args, "d", &end_time))
-        return -1;
+	PyObject* arg = PyNumber_Float(value);
+	if (!arg || !PyFloat_Check(arg)) {
+		PyErr_SetString(PyExc_TypeError, "end_time must be a float");
+		return -1;
+	}
+	auto end_time = PyFloat_AsDouble(arg);
+	if (end_time < animation->start_time()) {
+		animation->set_start_time(end_time);
+	}
 
     animation->set_end_time(end_time);
 	me->context->makeNodeDirty();
@@ -784,7 +796,7 @@ static PyObject* py_chop_get_length(PyObject *self, void* closure) {
     }
 }
 
-static int py_chop_set_length(PyObject *self, PyObject *args, void* closure) {
+static int py_chop_set_length(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -798,19 +810,21 @@ static int py_chop_set_length(PyObject *self, PyObject *args, void* closure) {
         return -1;
     }
     
-    double length;
-    
-    if (!PyArg_ParseTuple(args, "d", &length))
-        return -1;
-    
-    try {
-        animation->set_length(length);
-		me->context->makeNodeDirty();
-        return 0;
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_ValueError, e.what());
-        return -1;
-    }
+	PyObject* arg = PyNumber_Float(value);
+	if (!arg || !PyFloat_Check(arg)) {
+		PyErr_SetString(PyExc_TypeError, "length must be a float");
+		return -1;
+	}
+	auto length = PyFloat_AsDouble(arg);
+	if (length < 0.0) {
+		PyErr_SetString(PyExc_ValueError, "length must be non-negative");
+		return -1;
+	}
+
+	animation->set_length(length);
+	me->context->makeNodeDirty();
+	return 0;
+
 }
 
 static PyObject* py_chop_get_num_samples(PyObject *self, void* closure) {

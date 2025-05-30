@@ -26,107 +26,153 @@ static int PyChannel_init(PyChannel *self, PyObject *args, PyObject *kwds) {
 }
 
 // --- Keyframe creation ---
+static PyObject* create_keyframe_time_value(PyChannel* self, PyObject* args) {
+    double time, value;
+    int function = (int)anim::Function::bezier;
+    int handle_mode = (int)anim::HandleMode::smooth;
+    
+    int argc = PyTuple_Size(args);
+    if (argc == 2) {
+        if (!PyArg_ParseTuple(args, "dd", &time, &value)) return NULL;
+    } else if (argc == 4) {
+        if (!PyArg_ParseTuple(args, "ddii", &time, &value, &function, &handle_mode)) return NULL;
+    } else {
+        return NULL; // Wrong arg count
+    }
+    
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+    
+    try {
+        const anim::Keyframe& kf = self->channel->create_keyframe(time, value, (anim::Function)function, (anim::HandleMode)handle_mode);
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        return KeyframeToPyObject(kf);
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
+static PyObject* create_keyframe_point(PyChannel* self, PyObject* args) {
+    PyObject *position_obj;
+    int function = (int)anim::Function::bezier;
+    int handle_mode = (int)anim::HandleMode::smooth;
+    
+    int argc = PyTuple_Size(args);
+    if (argc == 1) {
+        if (!PyArg_ParseTuple(args, "O", &position_obj)) return NULL;
+    } else if (argc == 3) {
+        if (!PyArg_ParseTuple(args, "Oii", &position_obj, &function, &handle_mode)) return NULL;
+    } else {
+        return NULL; // Wrong arg count
+    }
+    
+    anim::Point pos;
+    if (!PyObjectToPoint(position_obj, pos)) return NULL;
+    
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+    
+    try {
+        const anim::Keyframe& kf = self->channel->create_keyframe(pos, (anim::Function)function, (anim::HandleMode)handle_mode);
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        return KeyframeToPyObject(kf);
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
+static PyObject* create_keyframe_with_handles(PyChannel* self, PyObject* args) {
+    double time, value;
+    PyObject *in_handle_obj, *out_handle_obj;
+    int function = (int)anim::Function::bezier;
+    int handle_mode = (int)anim::HandleMode::smooth;
+    
+    int argc = PyTuple_Size(args);
+    if (argc == 4) {
+        if (!PyArg_ParseTuple(args, "ddOO", &time, &value, &in_handle_obj, &out_handle_obj)) return NULL;
+    } else if (argc == 6) {
+        if (!PyArg_ParseTuple(args, "ddOOii", &time, &value, &in_handle_obj, &out_handle_obj, &function, &handle_mode)) return NULL;
+    } else {
+        return NULL; // Wrong arg count
+    }
+    
+    anim::Point in_handle, out_handle;
+    if (!PyObjectToPoint(in_handle_obj, in_handle) || !PyObjectToPoint(out_handle_obj, out_handle)) return NULL;
+    
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+    
+    try {
+        const anim::Keyframe& kf = self->channel->create_keyframe(time, value, in_handle, out_handle, (anim::Function)function, (anim::HandleMode)handle_mode);
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        return KeyframeToPyObject(kf);
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
 static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyObject *kwds) {
     if (!self->channel) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
-    TD::PY_Struct* node_struct = nullptr;
-    if (self->parent) {
-        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
-    }
 
     int argc = PyTuple_Size(args);
-    
-    // Overload 1: create_keyframe(time, value [, function, handle_mode])
-    if (argc >= 2 && (PyFloat_Check(PyTuple_GetItem(args, 0)) || PyLong_Check(PyTuple_GetItem(args, 0)))) {
-        double time, value;
-        int function = (int)anim::Function::bezier;
-        int handle_mode = (int)anim::HandleMode::smooth;
-        
-        if (argc == 2) {
-            if (!PyArg_ParseTuple(args, "dd", &time, &value)) return NULL;
-        } else if (argc == 4) {
-            if (!PyArg_ParseTuple(args, "ddii", &time, &value, &function, &handle_mode)) return NULL;
-        } else {
-            PyErr_SetString(PyExc_TypeError, "create_keyframe with time/value expects (time, value) or (time, value, function, handle_mode)");
-            return NULL;
-        }
-        
-        try {
-            const anim::Keyframe& kf = self->channel->create_keyframe(time, value, (anim::Function)function, (anim::HandleMode)handle_mode);
-            if (node_struct) {
-                node_struct->context->makeNodeDirty();
-            }
-            return KeyframeToPyObject(kf);
-        } catch (const std::exception& e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
-        }
-    }
-    // Overload 2: create_keyframe(Point [, function, handle_mode])
-    else if (argc >= 1 && PyObject_TypeCheck(PyTuple_GetItem(args, 0), &PyPointType)) {
-        PyObject *position_obj = PyTuple_GetItem(args, 0);
-        int function = (int)anim::Function::bezier;
-        int handle_mode = (int)anim::HandleMode::smooth;
-        
-        if (argc == 1) {
-            // Just the Point
-        } else if (argc == 3) {
-            if (!PyArg_ParseTuple(args, "Oii", &position_obj, &function, &handle_mode)) return NULL;
-        } else {
-            PyErr_SetString(PyExc_TypeError, "create_keyframe with Point expects (Point) or (Point, function, handle_mode)");
-            return NULL;
-        }
-        
-        anim::Point pos;
-        if (!PyObjectToPoint(position_obj, pos)) return NULL;
-        
-        try {
-            const anim::Keyframe& kf = self->channel->create_keyframe(pos, (anim::Function)function, (anim::HandleMode)handle_mode);
-            if (node_struct) {
-                node_struct->context->makeNodeDirty();
-            }
-            return KeyframeToPyObject(kf);
-        } catch (const std::exception& e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
-        }
-    }
-    // Overload 3: create_keyframe(time, value, in_handle, out_handle [, function, handle_mode])
-    else if (argc >= 4 && (PyFloat_Check(PyTuple_GetItem(args, 0)) || PyLong_Check(PyTuple_GetItem(args, 0))) &&
-             PyObject_TypeCheck(PyTuple_GetItem(args, 2), &PyPointType) &&
-             PyObject_TypeCheck(PyTuple_GetItem(args, 3), &PyPointType)) {
-        double time, value;
-        PyObject *in_handle_obj, *out_handle_obj;
-        int function = (int)anim::Function::bezier;
-        int handle_mode = (int)anim::HandleMode::smooth;
-        
-        if (argc == 4) {
-            if (!PyArg_ParseTuple(args, "ddOO", &time, &value, &in_handle_obj, &out_handle_obj)) return NULL;
-        } else if (argc == 6) {
-            if (!PyArg_ParseTuple(args, "ddOOii", &time, &value, &in_handle_obj, &out_handle_obj, &function, &handle_mode)) return NULL;
-        } else {
-            PyErr_SetString(PyExc_TypeError, "create_keyframe with handles expects (time, value, in_handle, out_handle) or (time, value, in_handle, out_handle, function, handle_mode)");
-            return NULL;
-        }
-        
-        anim::Point in_handle, out_handle;
-        if (!PyObjectToPoint(in_handle_obj, in_handle) || !PyObjectToPoint(out_handle_obj, out_handle)) return NULL;
-        
-        try {
-            const anim::Keyframe& kf = self->channel->create_keyframe(time, value, in_handle, out_handle, (anim::Function)function, (anim::HandleMode)handle_mode);
-            if (node_struct) {
-                node_struct->context->makeNodeDirty();
-            }
-            return KeyframeToPyObject(kf);
-        } catch (const std::exception& e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
-        }
+    if (argc == 0) {
+        PyErr_SetString(PyExc_TypeError, "create_keyframe requires at least 1 argument");
+        return NULL;
     }
     
-    PyErr_SetString(PyExc_TypeError, "Invalid arguments for create_keyframe. Expected (time, value), (Point), or (time, value, in_handle, out_handle)");
+    PyObject* first_arg = PyTuple_GetItem(args, 0);
+    
+    // Check if first arg is a Point object
+    if (PyObject_TypeCheck(first_arg, &PyPointType)) {
+        // Overload 2: create_keyframe(Point [, function, handle_mode])
+        PyObject* result = create_keyframe_point(self, args);
+        if (result) return result;
+        PyErr_Clear(); // Clear any errors from failed attempt
+    }
+    
+    // Check if first arg is numeric (time/value overloads)
+    if (PyFloat_Check(first_arg) || PyLong_Check(first_arg)) {
+        if (argc >= 4) {
+            // Check if args 2 and 3 are Points (handle overload)
+            PyObject* third_arg = PyTuple_GetItem(args, 2);
+            PyObject* fourth_arg = PyTuple_GetItem(args, 3);
+            if (PyObject_TypeCheck(third_arg, &PyPointType) && PyObject_TypeCheck(fourth_arg, &PyPointType)) {
+                // Overload 3: create_keyframe(time, value, in_handle, out_handle [, function, handle_mode])
+                PyObject* result = create_keyframe_with_handles(self, args);
+                if (result) return result;
+                PyErr_Clear();
+            }
+        }
+        
+        // Overload 1: create_keyframe(time, value [, function, handle_mode])
+        PyObject* result = create_keyframe_time_value(self, args);
+        if (result) return result;
+        PyErr_Clear();
+    }
+    
+    PyErr_SetString(PyExc_TypeError, 
+        "Invalid arguments for create_keyframe. Expected:\n"
+        "  (time, value [, function, handle_mode])\n"
+        "  (Point [, function, handle_mode])\n"
+        "  (time, value, in_handle, out_handle [, function, handle_mode])");
     return NULL;
 }
 
@@ -165,7 +211,7 @@ static PyObject* PyChannel_getitem(PyChannel *self, Py_ssize_t index) {
         return NULL;
     }
     try {
-        const anim::Keyframe& kf = self->channel->keyframe((size_t)index);
+        const anim::Keyframe& kf = self->channel->keyframe(static_cast<size_t>(index));
         return KeyframeToPyObject(kf);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_IndexError, e.what());
@@ -248,12 +294,12 @@ static PyObject* PyChannel_update_keyframe(PyChannel *self, PyObject *args) {
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; PyObject* value;
-    if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
+    Py_ssize_t index; PyObject* value;
+    if (!PyArg_ParseTuple(args, "nO", &index, &value)) return NULL;
     anim::Keyframe kf;
     if (!PyObjectToKeyframe(value, kf)) return NULL;
-    try { 
-        self->channel->update_keyframe(index, kf); 
+    try {
+        self->channel->update_keyframe(static_cast<size_t>(index), kf);
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -268,10 +314,10 @@ static PyObject* PyChannel_set_keyframe_time(PyChannel *self, PyObject *args) {
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; double value;
-    if (!PyArg_ParseTuple(args, "kd", &index, &value)) return NULL;
+    Py_ssize_t index; double value;
+    if (!PyArg_ParseTuple(args, "nd", &index, &value)) return NULL;
     try { 
-        self->channel->set_keyframe_time(index, value); 
+        self->channel->set_keyframe_time(static_cast<size_t>(index), value); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -286,10 +332,10 @@ static PyObject* PyChannel_set_keyframe_value(PyChannel *self, PyObject *args) {
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; double value;
-    if (!PyArg_ParseTuple(args, "kd", &index, &value)) return NULL;
+    Py_ssize_t index; double value;
+    if (!PyArg_ParseTuple(args, "nd", &index, &value)) return NULL;
     try { 
-        self->channel->set_keyframe_value(index, value); 
+        self->channel->set_keyframe_value(static_cast<size_t>(index), value); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -304,14 +350,14 @@ static PyObject* PyChannel_set_keyframe_position(PyChannel *self, PyObject *args
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index;
+    Py_ssize_t index;
     PyObject* value;
-    if (PyArg_ParseTuple(args, "kO", &index, &value)) {
+    if (PyArg_ParseTuple(args, "nO", &index, &value)) {
         // Try Point object
         anim::Point pt;
         if (!PyObjectToPoint(value, pt)) return NULL;
         try { 
-            self->channel->set_keyframe_position(index, pt); 
+            self->channel->set_keyframe_position(static_cast<size_t>(index), pt); 
             if (node_struct) {
                 node_struct->context->makeNodeDirty();
             }
@@ -321,9 +367,9 @@ static PyObject* PyChannel_set_keyframe_position(PyChannel *self, PyObject *args
     } else {
         PyErr_Clear();
         double t, v;
-        if (PyArg_ParseTuple(args, "kdd", &index, &t, &v)) {
+        if (PyArg_ParseTuple(args, "ndd", &index, &t, &v)) {
             try { 
-                self->channel->set_keyframe_position(index, t, v); 
+                self->channel->set_keyframe_position(static_cast<size_t>(index), t, v); 
                 if (node_struct) {
                     node_struct->context->makeNodeDirty();
                 }
@@ -343,12 +389,12 @@ static PyObject* PyChannel_set_keyframe_in_handle(PyChannel *self, PyObject *arg
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; PyObject* value;
-    if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
+    Py_ssize_t index; PyObject* value;
+    if (!PyArg_ParseTuple(args, "nO", &index, &value)) return NULL;
     anim::Point pt;
     if (!PyObjectToPoint(value, pt)) return NULL;
     try { 
-        self->channel->set_keyframe_in_handle(index, pt); 
+        self->channel->set_keyframe_in_handle(static_cast<size_t>(index), pt); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -363,12 +409,12 @@ static PyObject* PyChannel_set_keyframe_out_handle(PyChannel *self, PyObject *ar
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; PyObject* value;
-    if (!PyArg_ParseTuple(args, "kO", &index, &value)) return NULL;
+    Py_ssize_t index; PyObject* value;
+    if (!PyArg_ParseTuple(args, "nO", &index, &value)) return NULL;
     anim::Point pt;
     if (!PyObjectToPoint(value, pt)) return NULL;
     try { 
-        self->channel->set_keyframe_out_handle(index, pt); 
+        self->channel->set_keyframe_out_handle(static_cast<size_t>(index), pt); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -383,10 +429,10 @@ static PyObject* PyChannel_set_keyframe_function(PyChannel *self, PyObject *args
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; int value;
-    if (!PyArg_ParseTuple(args, "ki", &index, &value)) return NULL;
+    Py_ssize_t index; int value;
+    if (!PyArg_ParseTuple(args, "ni", &index, &value)) return NULL;
     try { 
-        self->channel->set_keyframe_function(index, (anim::Function)value); 
+        self->channel->set_keyframe_function(static_cast<size_t>(index), (anim::Function)value); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -401,10 +447,10 @@ static PyObject* PyChannel_set_keyframe_handle_mode(PyChannel *self, PyObject *a
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index; int value;
-    if (!PyArg_ParseTuple(args, "ki", &index, &value)) return NULL;
+    Py_ssize_t index; int value;
+    if (!PyArg_ParseTuple(args, "ni", &index, &value)) return NULL;
     try { 
-        self->channel->set_keyframe_handle_mode(index, (anim::HandleMode)value); 
+        self->channel->set_keyframe_handle_mode(static_cast<size_t>(index), (anim::HandleMode)value); 
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -423,11 +469,11 @@ static PyObject* PyChannel_remove_keyframe(PyChannel *self, PyObject *args) {
     if (self->parent) {
         node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
     }
-    size_t index;
-    if (!PyArg_ParseTuple(args, "k", &index))
+    Py_ssize_t index;
+    if (!PyArg_ParseTuple(args, "n", &index))
         return NULL;
     try {
-        self->channel->delete_keyframe(index);
+        self->channel->delete_keyframe(static_cast<size_t>(index));
         if (node_struct) {
             node_struct->context->makeNodeDirty();
         }
@@ -444,11 +490,11 @@ static PyObject* PyChannel_get_keyframe(PyChannel *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
-    size_t index;
-    if (!PyArg_ParseTuple(args, "k", &index))
+    Py_ssize_t index;
+    if (!PyArg_ParseTuple(args, "n", &index))
         return NULL;
     try {
-        const anim::Keyframe& kf = self->channel->keyframe(index);
+        const anim::Keyframe& kf = self->channel->keyframe(static_cast<size_t>(index));
         return KeyframeToPyObject(kf);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_IndexError, e.what());
