@@ -231,7 +231,7 @@ def test_enum_apis(anim_chop, result):
         handle_mode = anim_chop.HandleMode
         result.assert_not_none(handle_mode, "HandleMode enum access")
         
-        # Test specific HandleMode enum values
+        # # Test specific HandleMode enum values
         result.assert_not_none(handle_mode.FLAT, "HandleMode.FLAT")
         result.assert_not_none(handle_mode.SMOOTH, "HandleMode.SMOOTH")
         result.assert_not_none(handle_mode.ALIGNED, "HandleMode.ALIGNED")
@@ -621,6 +621,510 @@ def test_error_handling(anim_chop, result):
         result.record_exception("Error handling test error", e)
 
 
+def test_state_apis(anim_chop, result):
+    """Test state getter/setter functionality for all types"""
+    print("\n--- Testing State APIs ---")
+    
+    try:
+        # Test Point state
+        print("Testing Point state...")
+        point1 = anim_chop.Point(1.5, 2.5)
+        
+        # Test Point get_state method
+        point_state = point1.get_state()
+        result.assert_not_none(point_state, "Point.get_state() returns value")
+        result.assert_true(isinstance(point_state, dict), "Point.get_state() returns dict")
+        result.assert_equal(1.5, point_state['time'], "Point state contains correct time")
+        result.assert_equal(2.5, point_state['value'], "Point state contains correct value")
+        
+        # Test Point state property getter
+        point_state_prop = point1.state
+        result.assert_equal(point_state, point_state_prop, "Point.state property equals get_state()")
+        
+        # Test Point set_state method
+        new_point_state = {'time': 3.0, 'value': 4.0}
+        point1.set_state(new_point_state)
+        result.assert_equal(3.0, point1.time, "Point.set_state() updates time")
+        result.assert_equal(4.0, point1.value, "Point.set_state() updates value")
+        
+        # Test Point state property setter
+        point2 = anim_chop.Point(0.0, 0.0)
+        point2.state = {'time': 5.0, 'value': 6.0}
+        result.assert_equal(5.0, point2.time, "Point.state setter updates time")
+        result.assert_equal(6.0, point2.value, "Point.state setter updates value")
+        
+        # Test Keyframe state
+        print("Testing Keyframe state...")
+        kf = anim_chop.Keyframe(2.0, 3.0)
+        kf.function = anim_chop.Function.BEZIER
+        kf.handle_mode = anim_chop.HandleMode.FREE
+        kf.in_handle = anim_chop.Point(1.5, 2.5)
+        kf.out_handle = anim_chop.Point(2.5, 3.5)
+        
+        # Test Keyframe get_state method
+        kf_state = kf.get_state()
+        result.assert_not_none(kf_state, "Keyframe.get_state() returns value")
+        result.assert_true(isinstance(kf_state, dict), "Keyframe.get_state() returns dict")
+        
+        # Verify keyframe state structure
+        result.assert_true('position' in kf_state, "Keyframe state has position")
+        result.assert_true('in_handle' in kf_state, "Keyframe state has in_handle")
+        result.assert_true('out_handle' in kf_state, "Keyframe state has out_handle")
+        result.assert_true('function' in kf_state, "Keyframe state has function")
+        result.assert_true('handle_mode' in kf_state, "Keyframe state has handle_mode")
+        
+        # Verify keyframe state values
+        result.assert_equal(2.0, kf_state['position']['time'], "Keyframe state position time")
+        result.assert_equal(3.0, kf_state['position']['value'], "Keyframe state position value")
+        result.assert_equal(1.5, kf_state['in_handle']['time'], "Keyframe state in_handle time")
+        result.assert_equal(2.5, kf_state['in_handle']['value'], "Keyframe state in_handle value")
+        result.assert_equal(2.5, kf_state['out_handle']['time'], "Keyframe state out_handle time")
+        result.assert_equal(3.5, kf_state['out_handle']['value'], "Keyframe state out_handle value")
+        result.assert_equal('Function.BEZIER', kf_state['function'], "Keyframe state function")
+        result.assert_equal('HandleMode.FREE', kf_state['handle_mode'], "Keyframe state handle_mode")
+        
+        # Test Keyframe state property getter
+        kf_state_prop = kf.state
+        result.assert_equal(kf_state, kf_state_prop, "Keyframe.state property equals get_state()")
+        
+        # Test Keyframe set_state method
+        new_kf_state = {
+            'position': {'time': 4.0, 'value': 5.0},
+            'in_handle': {'time': 3.5, 'value': 4.5},
+            'out_handle': {'time': 4.5, 'value': 5.5},
+            'function': 'Function.LINEAR',
+            'handle_mode': 'HandleMode.SMOOTH'
+        }
+        kf.set_state(new_kf_state)
+        result.assert_equal(4.0, kf.time, "Keyframe.set_state() updates time")
+        result.assert_equal(5.0, kf.value, "Keyframe.set_state() updates value")
+        result.assert_equal(3.5, kf.in_handle.time, "Keyframe.set_state() updates in_handle time")
+        result.assert_equal(4.5, kf.out_handle.time, "Keyframe.set_state() updates out_handle time")
+        result.assert_equal(anim_chop.Function.LINEAR, kf.function, "Keyframe.set_state() updates function")
+        result.assert_equal(anim_chop.HandleMode.SMOOTH, kf.handle_mode, "Keyframe.set_state() updates handle_mode")
+        
+        # Test Keyframe state property setter
+        kf2 = anim_chop.Keyframe(0.0, 0.0)
+        kf2.state = {
+            'position': {'time': 6.0, 'value': 7.0},
+            'in_handle': {'time': 5.5, 'value': 6.5},
+            'out_handle': {'time': 6.5, 'value': 7.5},
+            'function': 'Function.CONSTANT',
+            'handle_mode': 'HandleMode.FLAT'
+        }
+        result.assert_equal(6.0, kf2.time, "Keyframe.state setter updates time")
+        result.assert_equal(7.0, kf2.value, "Keyframe.state setter updates value")
+        result.assert_equal(anim_chop.Function.CONSTANT, kf2.function, "Keyframe.state setter updates function")
+        result.assert_equal(anim_chop.HandleMode.FLAT, kf2.handle_mode, "Keyframe.state setter updates handle_mode")
+        
+        # Test Channel state
+        print("Testing Channel state...")
+        anim_chop.clear()
+        channel = anim_chop.create_channel("test_channel")
+        
+        # Add some keyframes to the channel
+        kf1 = channel.create_keyframe(0.0, 1.0, anim_chop.Function.LINEAR, anim_chop.HandleMode.SMOOTH)
+        kf2 = channel.create_keyframe(1.0, 2.0, anim_chop.Function.BEZIER, anim_chop.HandleMode.FREE)
+        kf3 = channel.create_keyframe(2.0, 1.5, anim_chop.Function.CONSTANT, anim_chop.HandleMode.FLAT)
+        
+        # Test Channel get_state method
+        ch_state = channel.get_state()
+        result.assert_not_none(ch_state, "Channel.get_state() returns value")
+        result.assert_true(isinstance(ch_state, dict), "Channel.get_state() returns dict")
+        
+        # Verify channel state structure
+        result.assert_true('name' in ch_state, "Channel state has name")
+        result.assert_true('start_time' in ch_state, "Channel state has start_time")
+        result.assert_true('end_time' in ch_state, "Channel state has end_time")
+        result.assert_true('length' in ch_state, "Channel state has length")
+        result.assert_true('num_keyframes' in ch_state, "Channel state has num_keyframes")
+        result.assert_true('empty' in ch_state, "Channel state has empty")
+        result.assert_true('keyframes' in ch_state, "Channel state has keyframes")
+        
+        # Verify channel state values
+        result.assert_equal("test_channel", ch_state['name'], "Channel state name")
+        result.assert_equal(0.0, ch_state['start_time'], "Channel state start_time")
+        result.assert_equal(2.0, ch_state['end_time'], "Channel state end_time")
+        result.assert_equal(2.0, ch_state['length'], "Channel state length")
+        result.assert_equal(3, ch_state['num_keyframes'], "Channel state num_keyframes")
+        result.assert_equal(False, ch_state['empty'], "Channel state empty")
+        result.assert_equal(3, len(ch_state['keyframes']), "Channel state keyframes length")
+        
+        # Verify keyframes in channel state are dictionaries
+        for i, kf_state in enumerate(ch_state['keyframes']):
+            result.assert_true(isinstance(kf_state, dict), f"Channel state keyframe {i} is dict")
+            result.assert_true('position' in kf_state, f"Channel state keyframe {i} has position")
+            result.assert_true('function' in kf_state, f"Channel state keyframe {i} has function")
+            result.assert_true('handle_mode' in kf_state, f"Channel state keyframe {i} has handle_mode")
+        
+        # Test Channel state property getter
+        ch_state_prop = channel.state
+        result.assert_equal(ch_state, ch_state_prop, "Channel.state property equals get_state()")
+        
+        # Test Channel set_state method with a new channel
+        new_ch_state = {
+            'name': 'restored_channel',
+            'keyframes': [
+                {
+                    'position': {'time': 0.5, 'value': 10.0},
+                    'in_handle': {'time': 0.2, 'value': 9.5},
+                    'out_handle': {'time': 0.8, 'value': 10.5},
+                    'function': anim_chop.Function.BEZIER,
+                    'handle_mode': anim_chop.HandleMode.FREE
+                },
+                {
+                    'position': {'time': 1.5, 'value': 15.0},
+                    'in_handle': {'time': 1.2, 'value': 14.5},
+                    'out_handle': {'time': 1.8, 'value': 15.5},
+                    'function': anim_chop.Function.LINEAR,
+                    'handle_mode': anim_chop.HandleMode.SMOOTH
+                }
+            ]
+        }
+        
+        # Clear and set new state
+        channel.set_state(new_ch_state)
+        result.assert_equal("restored_channel", channel.name, "Channel.set_state() updates name")
+        result.assert_equal(2, channel.num_keyframes, "Channel.set_state() restores keyframes")
+        result.assert_equal(0.5, channel.keyframe(0).time, "Channel.set_state() restores keyframe time")
+        result.assert_equal(10.0, channel.keyframe(0).value, "Channel.set_state() restores keyframe value")
+        result.assert_equal(anim_chop.Function.BEZIER, channel.keyframe(0).function, "Channel.set_state() restores keyframe function")
+        
+        # Test Channel state property setter
+        channel2 = anim_chop.create_channel("temp_channel")
+        channel2.state = {
+            'name': 'state_setter_channel',
+            'keyframes': [
+                {
+                    'position': {'time': 3.0, 'value': 30.0},
+                    'function': anim_chop.Function.CONSTANT,
+                    'handle_mode': anim_chop.HandleMode.FLAT
+                }
+            ]
+        }
+        result.assert_equal("state_setter_channel", channel2.name, "Channel.state setter updates name")
+        result.assert_equal(1, channel2.num_keyframes, "Channel.state setter restores keyframes")
+        result.assert_equal(3.0, channel2.keyframe(0).time, "Channel.state setter restores keyframe time")
+        
+        # Test AnimationCHOP state
+        print("Testing AnimationCHOP state...")
+        anim_chop.clear()
+        
+        # Create a complex animation for state testing
+        ch1 = anim_chop.create_channel("pos_x")
+        ch1.create_keyframe(0.0, 0.0, anim_chop.Function.LINEAR, anim_chop.HandleMode.SMOOTH)
+        ch1.create_keyframe(2.0, 10.0, anim_chop.Function.BEZIER, anim_chop.HandleMode.FREE)
+        
+        ch2 = anim_chop.create_channel("pos_y")
+        ch2.create_keyframe(0.5, 5.0, anim_chop.Function.CONSTANT, anim_chop.HandleMode.FLAT)
+        ch2.create_keyframe(1.5, 15.0, anim_chop.Function.LINEAR, anim_chop.HandleMode.SMOOTH)
+        
+        anim_chop.start_time = 0.0
+        anim_chop.end_time = 3.0
+        
+        # Test AnimationCHOP get_state method
+        anim_state = anim_chop.get_state()
+        result.assert_not_none(anim_state, "AnimationCHOP.get_state() returns value")
+        result.assert_true(isinstance(anim_state, dict), "AnimationCHOP.get_state() returns dict")
+        
+        # Verify animation state structure
+        result.assert_true('start_time' in anim_state, "Animation state has start_time")
+        result.assert_true('end_time' in anim_state, "Animation state has end_time")
+        result.assert_true('length' in anim_state, "Animation state has length")
+        result.assert_true('num_channels' in anim_state, "Animation state has num_channels")
+        result.assert_true('channels' in anim_state, "Animation state has channels")
+        
+        # Verify animation state values
+        result.assert_equal(0.0, anim_state['start_time'], "Animation state start_time")
+        result.assert_equal(3.0, anim_state['end_time'], "Animation state end_time")
+        result.assert_equal(3.0, anim_state['length'], "Animation state length")
+        result.assert_equal(2, anim_state['num_channels'], "Animation state num_channels")
+        result.assert_equal(2, len(anim_state['channels']), "Animation state channels length")
+        
+        # Verify channels in animation state
+        ch1_state = anim_state['channels'][0]
+        ch2_state = anim_state['channels'][1]
+        result.assert_equal("pos_x", ch1_state['name'], "Animation state channel 1 name")
+        result.assert_equal("pos_y", ch2_state['name'], "Animation state channel 2 name")
+        result.assert_equal(2, len(ch1_state['keyframes']), "Animation state channel 1 keyframes")
+        result.assert_equal(2, len(ch2_state['keyframes']), "Animation state channel 2 keyframes")
+        
+        # Test AnimationCHOP state property getter
+        anim_state_prop = anim_chop.state
+        result.assert_equal(anim_state, anim_state_prop, "AnimationCHOP.state property equals get_state()")
+        
+        # Test AnimationCHOP set_state method
+        new_anim_state = {
+            'start_time': 1.0,
+            'end_time': 5.0,
+            'channels': [
+                {
+                    'name': 'restored_x',
+                    'keyframes': [
+                        {
+                            'position': {'time': 1.0, 'value': 100.0},
+                            'function': anim_chop.Function.LINEAR,
+                            'handle_mode': anim_chop.HandleMode.SMOOTH
+                        },
+                        {
+                            'position': {'time': 3.0, 'value': 200.0},
+                            'function': anim_chop.Function.BEZIER,
+                            'handle_mode': anim_chop.HandleMode.FREE
+                        }
+                    ]
+                },
+                {
+                    'name': 'restored_y',
+                    'keyframes': [
+                        {
+                            'position': {'time': 2.0, 'value': 150.0},
+                            'function': anim_chop.Function.CONSTANT,
+                            'handle_mode': anim_chop.HandleMode.FLAT
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        anim_chop.set_state(new_anim_state)
+        result.assert_equal(1.0, anim_chop.start_time, "AnimationCHOP.set_state() updates start_time")
+        result.assert_equal(5.0, anim_chop.end_time, "AnimationCHOP.set_state() updates end_time")
+        result.assert_equal(2, anim_chop.num_channels, "AnimationCHOP.set_state() restores channels")
+        result.assert_equal("restored_x", anim_chop.get_channel(0).name, "AnimationCHOP.set_state() restores channel names")
+        result.assert_equal("restored_y", anim_chop.get_channel(1).name, "AnimationCHOP.set_state() restores channel names")
+        result.assert_equal(2, anim_chop.get_channel(0).num_keyframes, "AnimationCHOP.set_state() restores keyframes")
+        result.assert_equal(1, anim_chop.get_channel(1).num_keyframes, "AnimationCHOP.set_state() restores keyframes")
+        
+        # Test AnimationCHOP state property setter
+        anim_chop.state = {
+            'start_time': 0.0,
+            'end_time': 2.0,
+            'channels': [
+                {
+                    'name': 'final_test',
+                    'keyframes': [
+                        {
+                            'position': {'time': 0.0, 'value': 50.0},
+                            'function': anim_chop.Function.LINEAR,
+                            'handle_mode': anim_chop.HandleMode.SMOOTH
+                        }
+                    ]
+                }
+            ]
+        }
+        result.assert_equal(0.0, anim_chop.start_time, "AnimationCHOP.state setter updates start_time")
+        result.assert_equal(2.0, anim_chop.end_time, "AnimationCHOP.state setter updates end_time")
+        result.assert_equal(1, anim_chop.num_channels, "AnimationCHOP.state setter restores channels")
+        result.assert_equal("final_test", anim_chop.get_channel(0).name, "AnimationCHOP.state setter restores channel name")
+        
+    except Exception as e:
+        result.record_exception("State APIs error", e)
+
+
+def test_state_error_handling(anim_chop, result):
+    """Test state error handling and edge cases"""
+    print("\n--- Testing State Error Handling ---")
+    
+    try:
+        # Test invalid Point state
+        point = anim_chop.Point(1.0, 2.0)
+        
+        # Test invalid state types
+        try:
+            point.set_state("invalid")
+            result.assert_true(False, "Point.set_state() with string should raise exception")
+        except:
+            result.assert_true(True, "Point.set_state() with invalid type raises exception")
+        
+        try:
+            point.state = ["invalid", "list"]
+            result.assert_true(False, "Point.state setter with list should raise exception")
+        except:
+            result.assert_true(True, "Point.state setter with invalid type raises exception")
+        
+        # Test missing required fields
+        try:
+            point.set_state({'time': 1.0})  # Missing value
+            result.assert_true(False, "Point.set_state() with missing value should raise exception")
+        except:
+            result.assert_true(True, "Point.set_state() with missing field raises exception")
+        
+        try:
+            point.set_state({'value': 2.0})  # Missing time
+            result.assert_true(False, "Point.set_state() with missing time should raise exception")
+        except:
+            result.assert_true(True, "Point.set_state() with missing field raises exception")
+        
+        # Test invalid field types in Point state
+        try:
+            point.set_state({'time': "invalid", 'value': 2.0})
+            result.assert_true(False, "Point.set_state() with invalid time type should raise exception")
+        except:
+            result.assert_true(True, "Point.set_state() with invalid field type raises exception")
+        
+        # Test invalid Keyframe state
+        kf = anim_chop.Keyframe(1.0, 2.0)
+        
+        try:
+            kf.set_state(123)  # Not a dict
+            result.assert_true(False, "Keyframe.set_state() with number should raise exception")
+        except:
+            result.assert_true(True, "Keyframe.set_state() with invalid type raises exception")
+        
+        try:
+            kf.set_state({'position': 'invalid'})  # Position not a dict
+            result.assert_true(False, "Keyframe.set_state() with invalid position should raise exception")
+        except:
+            result.assert_true(True, "Keyframe.set_state() with invalid position raises exception")
+        
+        try:
+            kf.set_state({'position': {'time': 1.0}})  # Missing value in position
+            result.assert_true(False, "Keyframe.set_state() with incomplete position should raise exception")
+        except:
+            result.assert_true(True, "Keyframe.set_state() with incomplete position raises exception")
+        
+        # Test invalid Channel state
+        anim_chop.clear()
+        channel = anim_chop.create_channel("test_channel")
+        
+        try:
+            channel.set_state(None)
+            result.assert_true(False, "Channel.set_state() with None should raise exception")
+        except:
+            result.assert_true(True, "Channel.set_state() with None raises exception")
+        
+        try:
+            channel.set_state({'keyframes': 'invalid'})  # Keyframes not a list
+            result.assert_true(False, "Channel.set_state() with invalid keyframes should raise exception")
+        except:
+            result.assert_true(True, "Channel.set_state() with invalid keyframes raises exception")
+        
+        # Test invalid AnimationCHOP state
+        try:
+            anim_chop.set_state({'channels': 'invalid'})  # Channels not a list
+            result.assert_true(False, "AnimationCHOP.set_state() with invalid channels should raise exception")
+        except:
+            result.assert_true(True, "AnimationCHOP.set_state() with invalid channels raises exception")
+        
+        try:
+            anim_chop.set_state({'channels': []})  # Missing name in channel
+            result.assert_true(True, "AnimationCHOP.set_state() with empty channels succeeds")
+        except Exception as e:
+            result.record_exception("Unexpected error with empty channels", e)
+        
+        try:
+            anim_chop.set_state({'channels': [{'keyframes': []}]})  # Missing name in channel
+            result.assert_true(False, "AnimationCHOP.set_state() with nameless channel should raise exception")
+        except:
+            result.assert_true(True, "AnimationCHOP.set_state() with nameless channel raises exception")
+        
+    except Exception as e:
+        result.record_exception("State error handling test error", e)
+
+
+def test_state_roundtrip(anim_chop, result):
+    """Test state roundtrip - save and restore should be identical"""
+    print("\n--- Testing State Roundtrip ---")
+    
+    try:
+        anim_chop.clear()
+        
+        # Create a complex animation
+        ch1 = anim_chop.create_channel("roundtrip_x")
+        ch1.create_keyframe(0.0, 10.0, anim_chop.Function.BEZIER, anim_chop.HandleMode.FREE)
+        ch1.create_keyframe(1.5, 25.0, anim_chop.Function.LINEAR, anim_chop.HandleMode.SMOOTH)
+        ch1.create_keyframe(3.0, 5.0, anim_chop.Function.CONSTANT, anim_chop.HandleMode.FLAT)
+        
+        ch2 = anim_chop.create_channel("roundtrip_y")
+        ch2.create_keyframe(0.5, 15.0, anim_chop.Function.BEZIER, anim_chop.HandleMode.ALIGNED)
+        ch2.create_keyframe(2.5, 35.0, anim_chop.Function.LINEAR, anim_chop.HandleMode.FREE)
+        
+        # Set specific handle positions for bezier keyframes
+        kf0 = ch1.keyframe(0)
+        kf0.in_handle = anim_chop.Point(-0.3, 8.0)
+        kf0.out_handle = anim_chop.Point(0.3, 12.0)
+        ch1.update_keyframe(0, kf0)
+        
+        kf0_ch2 = ch2.keyframe(0)
+        kf0_ch2.in_handle = anim_chop.Point(0.2, 13.0)
+        kf0_ch2.out_handle = anim_chop.Point(0.8, 17.0)
+        ch2.update_keyframe(0, kf0_ch2)
+        
+        anim_chop.start_time = 0.0
+        anim_chop.end_time = 4.0
+        
+        # Save original state
+        original_state = anim_chop.get_state()
+        
+        # Save original values for comparison
+        orig_ch1_kf0_time = ch1.keyframe(0).time
+        orig_ch1_kf0_value = ch1.keyframe(0).value
+        orig_ch1_kf0_function = ch1.keyframe(0).function
+        orig_ch1_kf0_handle_mode = ch1.keyframe(0).handle_mode
+        orig_ch1_kf0_in_handle_time = ch1.keyframe(0).in_handle.time
+        orig_ch1_kf0_out_handle_time = ch1.keyframe(0).out_handle.time
+        
+        orig_ch2_kf0_time = ch2.keyframe(0).time
+        orig_ch2_kf0_value = ch2.keyframe(0).value
+        
+        orig_start_time = anim_chop.start_time
+        orig_end_time = anim_chop.end_time
+        orig_num_channels = anim_chop.num_channels
+        orig_channel_names = anim_chop.channel_names[:]
+        
+        # Clear and restore from state
+        anim_chop.clear()
+        result.assert_equal(0, anim_chop.num_channels, "Animation cleared before restore")
+        
+        anim_chop.set_state(original_state)
+        
+        # Verify restoration
+        result.assert_equal(orig_start_time, anim_chop.start_time, "Roundtrip: start_time restored")
+        result.assert_equal(orig_end_time, anim_chop.end_time, "Roundtrip: end_time restored")
+        result.assert_equal(orig_num_channels, anim_chop.num_channels, "Roundtrip: num_channels restored")
+        result.assert_equal(orig_channel_names, anim_chop.channel_names, "Roundtrip: channel_names restored")
+        
+        # Verify channel 1 restoration
+        restored_ch1 = anim_chop.get_channel("roundtrip_x")
+        result.assert_not_none(restored_ch1, "Roundtrip: channel 1 exists")
+        result.assert_equal(3, restored_ch1.num_keyframes, "Roundtrip: channel 1 keyframe count")
+        
+        restored_kf0 = restored_ch1.keyframe(0)
+        result.assert_equal(orig_ch1_kf0_time, restored_kf0.time, "Roundtrip: keyframe time")
+        result.assert_equal(orig_ch1_kf0_value, restored_kf0.value, "Roundtrip: keyframe value")
+        result.assert_equal(orig_ch1_kf0_function, restored_kf0.function, "Roundtrip: keyframe function")
+        result.assert_equal(orig_ch1_kf0_handle_mode, restored_kf0.handle_mode, "Roundtrip: keyframe handle_mode")
+        result.assert_near(orig_ch1_kf0_in_handle_time, restored_kf0.in_handle.time, 0.001, "Roundtrip: keyframe in_handle time")
+        result.assert_near(orig_ch1_kf0_out_handle_time, restored_kf0.out_handle.time, 0.001, "Roundtrip: keyframe out_handle time")
+        
+        # Verify channel 2 restoration
+        restored_ch2 = anim_chop.get_channel("roundtrip_y")
+        result.assert_not_none(restored_ch2, "Roundtrip: channel 2 exists")
+        result.assert_equal(2, restored_ch2.num_keyframes, "Roundtrip: channel 2 keyframe count")
+        
+        restored_kf0_ch2 = restored_ch2.keyframe(0)
+        result.assert_equal(orig_ch2_kf0_time, restored_kf0_ch2.time, "Roundtrip: channel 2 keyframe time")
+        result.assert_equal(orig_ch2_kf0_value, restored_kf0_ch2.value, "Roundtrip: channel 2 keyframe value")
+        
+        # Verify state is identical after roundtrip
+        restored_state = anim_chop.get_state()
+        result.assert_equal(original_state, restored_state, "Roundtrip: state is identical after restore")
+        
+        # Test evaluation consistency
+        test_times = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+        for t in test_times:
+            try:
+                val_ch1 = restored_ch1.evaluate(t)
+                val_ch2 = restored_ch2.evaluate(t)
+                result.assert_true(isinstance(val_ch1, float), f"Roundtrip: evaluation at t={t} returns float")
+                result.assert_true(isinstance(val_ch2, float), f"Roundtrip: evaluation at t={t} returns float")
+            except Exception as e:
+                result.record_exception(f"Roundtrip evaluation error at t={t}", e)
+        
+    except Exception as e:
+        result.record_exception("State roundtrip test error", e)
+
+
 def run_tests(cleanup=False):
     # Get the current operator (this should be called from the AnimationCHOP node)
     try:
@@ -656,6 +1160,9 @@ def run_tests(cleanup=False):
         test_channel_api(anim_chop, result)
         test_advanced_features(anim_chop, result)
         test_error_handling(anim_chop, result)
+        test_state_apis(anim_chop, result)
+        test_state_error_handling(anim_chop, result)
+        test_state_roundtrip(anim_chop, result)
 
     except Exception as e:
         print(f"\nUNEXPECTED ERROR: {e}")

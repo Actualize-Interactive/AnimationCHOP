@@ -41,7 +41,8 @@ static PyObject* py_chop_remove_channel(PyObject* self, PyObject* args);
 static PyObject* py_chop_has_channel(PyObject* self, PyObject* args);
 static PyObject* py_chop_get_channel(PyObject *self, PyObject *key);
 static PyObject* py_chop_clear(PyObject* self, PyObject* args);
-
+static PyObject* py_chop_get_state_method(PyObject* self, PyObject* args);
+static PyObject* py_chop_set_state_method(PyObject* self, PyObject* args);
 
 // --- Python method table for AnimationCHOP ---
 static PyMethodDef methods[] = {
@@ -51,9 +52,10 @@ static PyMethodDef methods[] = {
     {"remove_channel", (PyCFunction)py_chop_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
     {"has_channel", (PyCFunction)py_chop_has_channel, METH_VARARGS, "Check if a channel exists."},
 	{"get_channel", (PyCFunction)py_chop_get_channel, METH_VARARGS, "Get a channel by name or index."},
-
     {"clear", (PyCFunction)py_chop_clear, METH_NOARGS, "Clear all channels."},
-    // ... add any additional custom or legacy methods here ...
+    {"get_state", (PyCFunction)py_chop_get_state_method, METH_VARARGS, "Get the state of the AnimationCHOP."},
+    {"set_state", (PyCFunction)py_chop_set_state_method, METH_VARARGS | METH_KEYWORDS, "Set the state of the AnimationCHOP."},
+    
     {nullptr, nullptr, 0, nullptr}
 };
 
@@ -61,12 +63,14 @@ static PyObject* py_chop_get_channels(PyObject* self, void* closure);
 static PyObject* py_chop_get_channel_names(PyObject* self, void* closure);
 static PyObject* py_chop_get_num_channels(PyObject* self, void* closure);
 static PyObject* py_chop_get_start_time(PyObject* self, void* closure);
-static int py_chop_set_start_time(PyObject* self, PyObject* args, void* closure);
+static int py_chop_set_start_time(PyObject* self, PyObject* value, void* closure);
 static PyObject* py_chop_get_end_time(PyObject* self, void* closure);
-static int py_chop_set_end_time(PyObject* self, PyObject* args, void* closure);
+static int py_chop_set_end_time(PyObject* self, PyObject* value, void* closure);
 static PyObject* py_chop_get_length(PyObject* self, void* closure);
-static int py_chop_set_length(PyObject* self, PyObject* args, void* closure);
+static int py_chop_set_length(PyObject* self, PyObject* value, void* closure);
 static PyObject* py_chop_get_num_samples(PyObject* self, void* closure);
+static PyObject* py_chop_get_state(PyObject* self, void* closure);
+static int py_chop_set_state(PyObject* self, PyObject* value, void* closure);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
@@ -83,6 +87,7 @@ static PyGetSetDef getSets[] =
 	{"end_time", py_chop_get_end_time, py_chop_set_end_time, "Get or set the end time of the animation.", nullptr},
 	{"length", py_chop_get_length, py_chop_set_length, "Get or set the length of the animation.", nullptr},
 	{"num_samples", py_chop_get_num_samples, nullptr, "Get the number of samples in the animation.", nullptr},
+    {"state", py_chop_get_state, py_chop_set_state, "Get or set the serializable state of the animation.", nullptr},
     // {"animation", (getter)py_chop_animation, nullptr, "The PyObject interface for this AnimationCHOP.", nullptr},
 	{0}
 };
@@ -388,7 +393,7 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
             return NULL;
         try {
             // Allow index up to and including num_channels (for append at end)
-            if (index > animation->num_channels()) {
+            if (static_cast<size_t>(index) > animation->num_channels()) {
 				PyErr_Format(PyExc_IndexError, "Channel index out of range: %zd (max %zd)", index, animation->num_channels());
 				return NULL;
                 // PyErr_SetString(PyExc_IndexError, "Channel index out of range");
@@ -848,4 +853,179 @@ static PyObject* py_chop_get_num_samples(PyObject *self, void* closure) {
         PyErr_SetString(PyExc_ValueError, e.what());
         return NULL;
     }
+}
+
+static PyObject* py_chop_get_state(PyObject *self, void* closure) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        return nullptr;
+    }
+    auto animation = inst->animation();
+    if (!animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return NULL;
+    }
+
+    // Create main animation dict
+    PyObject* anim_dict = PyDict_New();
+    if (!anim_dict) return NULL;
+    
+    try {
+        // Add animation-level properties
+        PyDict_SetItemString(anim_dict, "start_time", PyFloat_FromDouble(animation->start_time()));
+        PyDict_SetItemString(anim_dict, "end_time", PyFloat_FromDouble(animation->end_time()));
+        PyDict_SetItemString(anim_dict, "length", PyFloat_FromDouble(animation->length()));
+        PyDict_SetItemString(anim_dict, "num_channels", PyLong_FromSize_t(animation->num_channels()));
+        
+        // Create channels list using channel state
+        PyObject* channels_list = PyList_New(animation->num_channels());
+        if (!channels_list) {
+            Py_DECREF(anim_dict);
+            return NULL;
+        }
+        
+        // Process each channel using their state methods
+        for (size_t ch_idx = 0; ch_idx < animation->num_channels(); ++ch_idx) {
+            try {
+                anim::Channel& channel = animation->channel(ch_idx);
+                PyChannel* py_channel = (PyChannel*)ChannelToPyObject(&channel, (PyObject*)self);
+                if (!py_channel) {
+                    Py_DECREF(channels_list);
+                    Py_DECREF(anim_dict);
+                    return NULL;
+                }
+                
+                PyObject* channel_state = PyChannel_get_state(py_channel, NULL);
+                Py_DECREF(py_channel); // We only needed it for the state
+                
+                if (!channel_state) {
+                    Py_DECREF(channels_list);
+                    Py_DECREF(anim_dict);
+                    return NULL;
+                }
+                
+                PyList_SET_ITEM(channels_list, ch_idx, channel_state);
+                
+            } catch (const std::exception& e) {
+                PyErr_Format(PyExc_RuntimeError, "Error processing channel %zu: %s", ch_idx, e.what());
+                Py_DECREF(channels_list);
+                Py_DECREF(anim_dict);
+                return NULL;
+            }
+        }
+        
+        // Add channels list to animation dict
+        PyDict_SetItemString(anim_dict, "channels", channels_list);
+        
+        return anim_dict;
+        
+    } catch (const std::exception& e) {
+        PyErr_Format(PyExc_RuntimeError, "Error serializing animation state: %s", e.what());
+        Py_DECREF(anim_dict);
+        return NULL;
+    }
+}
+
+static PyObject* py_chop_get_state_method(PyObject *self, PyObject* args) {
+    return py_chop_get_state(self, NULL);
+}
+
+static int py_chop_set_state(PyObject *self, PyObject *value, void* closure) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        return -1;
+    }
+    auto animation = inst->animation();
+    if (!animation) {
+        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
+        return -1;
+    }
+    
+    if (!PyDict_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "Animation state must be a dictionary");
+        return -1;
+    }
+    
+    try {
+        // Clear existing animation
+        animation->clear();
+        
+        // Get animation properties
+        PyObject* start_time_obj = PyDict_GetItemString(value, "start_time");
+        PyObject* end_time_obj = PyDict_GetItemString(value, "end_time");
+        PyObject* channels_obj = PyDict_GetItemString(value, "channels");
+        
+        if (!channels_obj || !PyList_Check(channels_obj)) {
+            PyErr_SetString(PyExc_ValueError, "Animation state must contain a 'channels' list");
+            return -1;
+        }
+        
+        // Set animation timing if provided
+        if (start_time_obj && PyFloat_Check(start_time_obj)) {
+            animation->set_start_time(PyFloat_AsDouble(start_time_obj));
+        }
+        if (end_time_obj && PyFloat_Check(end_time_obj)) {
+            animation->set_end_time(PyFloat_AsDouble(end_time_obj));
+        }
+        
+        // Process channels using their state methods
+        Py_ssize_t num_channels = PyList_Size(channels_obj);
+        for (Py_ssize_t ch_idx = 0; ch_idx < num_channels; ++ch_idx) {
+            PyObject* channel_state = PyList_GetItem(channels_obj, ch_idx);
+            if (!PyDict_Check(channel_state)) {
+                PyErr_Format(PyExc_ValueError, "Channel %zd state must be a dictionary", ch_idx);
+                return -1;
+            }
+            
+            // Get channel name
+            PyObject* name_obj = PyDict_GetItemString(channel_state, "name");
+            if (!name_obj || !PyUnicode_Check(name_obj)) {
+                PyErr_Format(PyExc_ValueError, "Channel %zd must have a 'name' string", ch_idx);
+                return -1;
+            }
+            
+            // Create channel
+            std::string channel_name = PyUnicode_AsUTF8(name_obj);
+            anim::Channel& channel = animation->create_channel(channel_name);
+            
+            // Create PyChannel wrapper and set its state
+            PyChannel* py_channel = (PyChannel*)ChannelToPyObject(&channel, (PyObject*)self);
+            if (!py_channel) {
+                return -1;
+            }
+            
+            if (PyChannel_set_state(py_channel, channel_state, NULL) < 0) {
+                Py_DECREF(py_channel);
+                return -1;
+            }
+            
+            Py_DECREF(py_channel);
+        }
+        
+        me->context->makeNodeDirty();
+        return 0;
+        
+    } catch (const std::exception& e) {
+        PyErr_Format(PyExc_RuntimeError, "Error deserializing animation state: %s", e.what());
+        return -1;
+    }
+}
+
+static PyObject* py_chop_set_state_method(PyObject *self, PyObject *args) {
+    PyObject* value;
+    if (!PyArg_ParseTuple(args, "O", &value)) {
+        return NULL;
+    }
+    
+    if (py_chop_set_state(self, value, NULL) < 0) {
+        return NULL;
+    }
+    
+    Py_RETURN_NONE;
 }

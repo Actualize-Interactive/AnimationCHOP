@@ -22,9 +22,12 @@ typedef struct {
 
 extern PyTypeObject PyChannelType;
 
-// Type getter for external use
-PyObject* get_channel_type(PyObject* self, void* closure);
-
 // Helper functions for conversion between C++ and Python
 PyObject* ChannelToPyObject(anim::Channel* channel, PyObject* parent);
 bool PyObjectToChannel(PyObject* obj, anim::Channel*& channel);
+
+// Type getter for external use
+PyObject* get_channel_type(PyObject* self, void* closure);
+
+PyObject* PyChannel_get_state(PyChannel *self, void *closure);
+int PyChannel_set_state(PyChannel *self, PyObject *value, void *closure);

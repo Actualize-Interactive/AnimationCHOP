@@ -31,7 +31,7 @@ static PyObject* create_keyframe_time_value(PyChannel* self, PyObject* args) {
     int function = (int)anim::Function::bezier;
     int handle_mode = (int)anim::HandleMode::smooth;
     
-    int argc = PyTuple_Size(args);
+    auto argc = PyTuple_Size(args);
     if (argc == 2) {
         if (!PyArg_ParseTuple(args, "dd", &time, &value)) return NULL;
     } else if (argc == 4) {
@@ -62,7 +62,7 @@ static PyObject* create_keyframe_point(PyChannel* self, PyObject* args) {
     int function = (int)anim::Function::bezier;
     int handle_mode = (int)anim::HandleMode::smooth;
     
-    int argc = PyTuple_Size(args);
+    auto argc = PyTuple_Size(args);
     if (argc == 1) {
         if (!PyArg_ParseTuple(args, "O", &position_obj)) return NULL;
     } else if (argc == 3) {
@@ -97,7 +97,7 @@ static PyObject* create_keyframe_with_handles(PyChannel* self, PyObject* args) {
     int function = (int)anim::Function::bezier;
     int handle_mode = (int)anim::HandleMode::smooth;
     
-    int argc = PyTuple_Size(args);
+    auto argc = PyTuple_Size(args);
     if (argc == 4) {
         if (!PyArg_ParseTuple(args, "ddOO", &time, &value, &in_handle_obj, &out_handle_obj)) return NULL;
     } else if (argc == 6) {
@@ -132,7 +132,7 @@ static PyObject* PyChannel_create_keyframe(PyChannel *self, PyObject *args, PyOb
         return NULL;
     }
 
-    int argc = PyTuple_Size(args);
+    auto argc = PyTuple_Size(args);
     if (argc == 0) {
         PyErr_SetString(PyExc_TypeError, "create_keyframe requires at least 1 argument");
         return NULL;
@@ -654,8 +654,202 @@ static PyObject* PyChannel_num_samples(PyChannel *self, PyObject* args) {
     }
 }
 
+// --- State methods ---
+PyObject* PyChannel_get_state(PyChannel *self, void *closure) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    PyObject* state_dict = PyDict_New();
+    if (!state_dict) return NULL;
+    
+    try {
+        // Add channel properties
+        PyDict_SetItemString(state_dict, "name", PyUnicode_FromString(self->channel->name().c_str()));
+        PyDict_SetItemString(state_dict, "start_time", PyFloat_FromDouble(self->channel->start_time()));
+        PyDict_SetItemString(state_dict, "end_time", PyFloat_FromDouble(self->channel->end_time()));
+        PyDict_SetItemString(state_dict, "length", PyFloat_FromDouble(self->channel->length()));
+        PyDict_SetItemString(state_dict, "num_keyframes", PyLong_FromSize_t(self->channel->num_keyframes()));
+        PyDict_SetItemString(state_dict, "empty", PyBool_FromLong(self->channel->empty() ? 1 : 0));
+        
+        // Create keyframes list using keyframe state
+        PyObject* keyframes_list = PyList_New(self->channel->num_keyframes());
+        if (!keyframes_list) {
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        for (size_t i = 0; i < self->channel->num_keyframes(); ++i) {
+            try {
+                const auto& keyframe = self->channel->keyframe(i);
+                PyKeyframe* py_keyframe = KeyframeToPyKeyframe(keyframe);
+                if (!py_keyframe) {
+                    Py_DECREF(keyframes_list);
+                    Py_DECREF(state_dict);
+                    return NULL;
+                }
+                
+                PyObject* kf_state = PyKeyframe_get_state(py_keyframe, NULL);
+                Py_DECREF(py_keyframe); // We only needed it for the state
+                
+                if (!kf_state) {
+                    Py_DECREF(keyframes_list);
+                    Py_DECREF(state_dict);
+                    return NULL;
+                }
+                
+                PyList_SET_ITEM(keyframes_list, i, kf_state);
+                
+            } catch (const std::exception& e) {
+                Py_DECREF(keyframes_list);
+                Py_DECREF(state_dict);
+                PyErr_Format(PyExc_RuntimeError, "Error processing keyframe %zu: %s", i, e.what());
+                return NULL;
+            }
+        }
+        
+        PyDict_SetItemString(state_dict, "keyframes", keyframes_list);
+        return state_dict;
+        
+    } catch (const std::exception& e) {
+        Py_DECREF(state_dict);
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
+int PyChannel_set_state(PyChannel *self, PyObject *value, void *closure) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return -1;
+    }
+    
+    if (!PyDict_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "Channel state must be a dictionary");
+        return -1;
+    }
+    
+    TD::PY_Struct* node_struct = nullptr;
+    if (self->parent) {
+        node_struct = get_td_node_struct((PyObject*)self->parent, nullptr);
+    }
+    
+    try {
+        // Clear existing keyframes
+        while (self->channel->num_keyframes() > 0) {
+            self->channel->delete_keyframe(0);
+        }
+        
+        // Set channel name if provided
+        PyObject* name_obj = PyDict_GetItemString(value, "name");
+        if (name_obj && PyUnicode_Check(name_obj)) {
+            self->channel->set_name(PyUnicode_AsUTF8(name_obj));
+        }
+        
+        // Process keyframes
+        PyObject* keyframes_obj = PyDict_GetItemString(value, "keyframes");
+        if (keyframes_obj) {
+            if (!PyList_Check(keyframes_obj)) {
+                PyErr_SetString(PyExc_TypeError, "Channel state 'keyframes' must be a list");
+                return -1;
+            }
+            
+            Py_ssize_t num_keyframes = PyList_Size(keyframes_obj);
+            
+            for (Py_ssize_t i = 0; i < num_keyframes; ++i) {
+                PyObject* kf_state = PyList_GetItem(keyframes_obj, i);
+                if (!PyDict_Check(kf_state)) {
+                    PyErr_Format(PyExc_ValueError, "Keyframe %zd state must be a dictionary", i);
+                    return -1;
+                }
+                
+                // Create temporary keyframe and set its state
+                PyKeyframe* temp_kf = KeyframeToPyKeyframe(anim::Keyframe(0.0, 0.0));
+                if (!temp_kf) return -1;
+                
+                if (PyKeyframe_set_state(temp_kf, kf_state, NULL) < 0) {
+                    Py_DECREF(temp_kf);
+                    return -1;
+                }
+                
+                // Create keyframe in channel
+                self->channel->create_keyframe(
+                    temp_kf->keyframe.position.time,
+                    temp_kf->keyframe.position.value,
+                    temp_kf->keyframe.in_handle,
+                    temp_kf->keyframe.out_handle,
+                    temp_kf->keyframe.function,
+                    temp_kf->keyframe.handle_mode
+                );
+                
+                Py_DECREF(temp_kf);
+            }
+        }
+        
+        if (node_struct) {
+            node_struct->context->makeNodeDirty();
+        }
+        return 0;
+        
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return -1;
+    }
+}
+
+static PyObject* PyChannel_get_state_method(PyChannel *self, PyObject *args) {
+    return PyChannel_get_state(self, NULL);
+}
+
+static PyObject* PyChannel_set_state_method(PyChannel *self, PyObject *args) {
+    PyObject* state;
+    if (!PyArg_ParseTuple(args, "O", &state))
+        return NULL;
+    
+    if (PyChannel_set_state(self, state, NULL) < 0)
+        return NULL;
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* PyChannel_copy(PyChannel *self) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    PyObject* object = ChannelToPyObject(self->channel, self->parent);
+    if (!object) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create Channel object");
+        return NULL;
+    }
+    Py_INCREF(object); // Ensure we return a new reference
+    return object;
+}
+
+static PyObject* PyChannel_deep_copy(PyChannel *self, PyObject *args) {
+    if (!self->channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    // Create a new Channel object with the same properties
+    PyObject* copy = ChannelToPyObject(self->channel, self->parent);
+    if (!copy) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create deep copy of Channel");
+        return NULL;
+    }
+    
+    // Ensure we return a new reference
+    Py_INCREF(copy);
+    return copy;
+}
+
 // --- Method definitions ---
 static PyMethodDef PyChannel_methods[] = {
+    {"__copy__", (PyCFunction)PyChannel_copy, METH_NOARGS, "Create a shallow copy of the channel"},
+    {"__deepcopy__", (PyCFunction)PyChannel_deep_copy, METH_VARARGS, "Create a deep copy of the channel"},
     {"create_keyframe", (PyCFunction)PyChannel_create_keyframe, METH_VARARGS | METH_KEYWORDS, "Create a keyframe (overloads supported)"},
     {"emplace_keyframe", (PyCFunction)PyChannel_emplace_keyframe, METH_VARARGS, "Emplace a keyframe (move) into the channel"},
     {"delete_keyframe", (PyCFunction)PyChannel_remove_keyframe, METH_VARARGS, "Delete a keyframe by index"},
@@ -675,6 +869,8 @@ static PyMethodDef PyChannel_methods[] = {
     {"evaluate_range", (PyCFunction)PyChannel_evaluate_range, METH_VARARGS, "Evaluate the channel over a range (start_time, end_time, num_samples)"},
     {"evaluate_range_by_rate", (PyCFunction)PyChannel_evaluate_range_by_rate, METH_VARARGS, "Evaluate the channel over a range by sample rate (start_time, end_time, sample_rate)"},
     {"num_samples", (PyCFunction)PyChannel_num_samples, METH_VARARGS, "Get the number of samples for a given sample rate"},
+    {"get_state", (PyCFunction)PyChannel_get_state_method, METH_NOARGS, "Get Channel state as dictionary"},
+    {"set_state", (PyCFunction)PyChannel_set_state_method, METH_VARARGS, "Set Channel state from dictionary"},
     {NULL}  // Sentinel
 };
 
@@ -701,6 +897,7 @@ static PyGetSetDef PyChannel_getset[] = {
     {"start_time", (getter)PyChannel_start_time, NULL, "Start time", NULL},
     {"end_time", (getter)PyChannel_end_time, NULL, "End time", NULL},
     {"length", (getter)PyChannel_length, NULL, "Length", NULL},
+    {"state", (getter)PyChannel_get_state, (setter)PyChannel_set_state, "Channel state as dictionary", NULL},
     {NULL}
 };
 

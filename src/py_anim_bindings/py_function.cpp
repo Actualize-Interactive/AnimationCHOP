@@ -91,3 +91,36 @@ static PyObject* create_function_enum() {
 PyObject* get_function_enum(PyObject* self, void* closure) {
     return create_function_enum();
 }
+
+
+// Function enum string representations
+static const char* function_names[] = {
+    "CONSTANT",
+    "LINEAR", 
+    "BEZIER"
+};
+
+static const char* function_full_names[] = {
+    "Function.CONSTANT",
+    "Function.LINEAR",
+    "Function.BEZIER"
+};
+
+// Helper functions for state serialization
+const char* function_to_string(anim::Function func) {
+    int idx = static_cast<int>(func);
+    if (idx >= 0 && idx < static_cast<int>(anim::Function::count)) {
+        return function_full_names[idx];
+    }
+    return "Function.UNKNOWN";
+}
+
+anim::Function string_to_function(const char* str) {
+    for (int i = 0; i < static_cast<int>(anim::Function::count); ++i) {
+        if (strcmp(str, function_full_names[i]) == 0 || strcmp(str, function_names[i]) == 0) {
+            return static_cast<anim::Function>(i);
+        }
+    }
+    return anim::Function::bezier; // Default fallback
+}
+

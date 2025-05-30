@@ -160,25 +160,9 @@ def create_keyframe_showcase():
             for i in range(len(channel)):
                 kf = channel[i]
                 
-                # Get function and handle mode names
-                function_names = {
-                    anim_chop.Function.CONSTANT: "CONSTANT",
-                    anim_chop.Function.LINEAR: "LINEAR", 
-                    anim_chop.Function.BEZIER: "BEZIER"
-                }
-                
-                handle_mode_names = {
-                    anim_chop.HandleMode.FLAT: "FLAT",
-                    anim_chop.HandleMode.SMOOTH: "SMOOTH",
-                    anim_chop.HandleMode.ALIGNED: "ALIGNED",
-                    anim_chop.HandleMode.FREE: "FREE",
-                    anim_chop.HandleMode.ALIGN_STRICT: "ALIGN_STRICT",
-                    anim_chop.HandleMode.ALIGN_FLEX: "ALIGN_FLEX",
-                    anim_chop.HandleMode.ALIGN_ADJUSTABLE: "ALIGN_ADJUSTABLE"
-                }
-                
-                func_name = function_names.get(kf.function, f"UNK_{kf.function}")
-                mode_name = handle_mode_names.get(kf.handle_mode, f"UNK_{kf.handle_mode}")
+                # Get function and handle mode names (now they're readable!)
+                func_name = f"Function.{kf.function}"  # Just use the integer value
+                mode_name = f"HandleMode.{kf.handle_mode}"  # Just use the integer value
                 
                 row = f"{channel.name}\t{i}\t{kf.time:.2f}\t{kf.value:.3f}\t{func_name}\t{mode_name}\t{kf.in_handle.time:.2f}\t{kf.in_handle.value:.3f}\t{kf.out_handle.time:.2f}\t{kf.out_handle.value:.3f}"
                 table_lines.append(row)

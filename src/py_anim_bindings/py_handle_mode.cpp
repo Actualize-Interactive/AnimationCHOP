@@ -95,3 +95,42 @@ static PyObject* create_handle_mode_enum() {
 PyObject* get_handle_mode_enum(PyObject* self, void* closure) {
     return create_handle_mode_enum();
 }
+
+// HandleMode enum string representations
+static const char* handle_mode_names[] = {
+    "FLAT",
+    "SMOOTH",
+    "ALIGNED",
+    "FREE",
+    "ALIGN_STRICT",
+    "ALIGN_FLEX",
+    "ALIGN_ADJUSTABLE"
+};
+
+static const char* handle_mode_full_names[] = {
+    "HandleMode.FLAT",
+    "HandleMode.SMOOTH",
+    "HandleMode.ALIGNED",
+    "HandleMode.FREE",
+    "HandleMode.ALIGN_STRICT",
+    "HandleMode.ALIGN_FLEX",
+    "HandleMode.ALIGN_ADJUSTABLE"
+};
+
+// Helper functions for state serialization
+const char* handle_mode_to_string(anim::HandleMode mode) {
+    int idx = static_cast<int>(mode);
+    if (idx >= 0 && idx < static_cast<int>(anim::HandleMode::count)) {
+        return handle_mode_full_names[idx];
+    }
+    return "HandleMode.UNKNOWN";
+}
+
+anim::HandleMode string_to_handle_mode(const char* str) {
+    for (int i = 0; i < static_cast<int>(anim::HandleMode::count); ++i) {
+        if (strcmp(str, handle_mode_full_names[i]) == 0 || strcmp(str, handle_mode_names[i]) == 0) {
+            return static_cast<anim::HandleMode>(i);
+        }
+    }
+    return anim::HandleMode::smooth; // Default fallback
+}

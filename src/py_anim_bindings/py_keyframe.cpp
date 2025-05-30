@@ -1,4 +1,6 @@
 #include "py_keyframe.h"
+#include "py_function.h"
+#include "py_handle_mode.h"
 #include <format>
 
 // Allocation/deallocation functions
@@ -196,6 +198,268 @@ static int PyKeyframe_set_handle_mode(PyKeyframe *self, PyObject *value, void *c
     }
 }
 
+// --- State methods ---
+PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
+    if (!self) {
+        PyErr_SetString(PyExc_RuntimeError, "Keyframe object is invalid");
+        return NULL;
+    }
+    
+    PyObject* state_dict = PyDict_New();
+    if (!state_dict) return NULL;
+    
+    try {
+        // Use PyPoint state functions for position and handles
+        PyPoint* position_point = PointToPyPoint(self->keyframe.position);
+        if (!position_point) {
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        PyObject* position_state = PyPoint_get_state(position_point, NULL);
+        Py_DECREF(position_point);
+        if (!position_state) {
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        PyPoint* in_handle_point = PointToPyPoint(self->keyframe.in_handle);
+        if (!in_handle_point) {
+            Py_DECREF(position_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        PyObject* in_handle_state = PyPoint_get_state(in_handle_point, NULL);
+        Py_DECREF(in_handle_point);
+        if (!in_handle_state) {
+            Py_DECREF(position_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        PyPoint* out_handle_point = PointToPyPoint(self->keyframe.out_handle);
+        if (!out_handle_point) {
+            Py_DECREF(position_state);
+            Py_DECREF(in_handle_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        PyObject* out_handle_state = PyPoint_get_state(out_handle_point, NULL);
+        Py_DECREF(out_handle_point);
+        if (!out_handle_state) {
+            Py_DECREF(position_state);
+            Py_DECREF(in_handle_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        // Add function and handle_mode as strings for better readability
+        PyObject* function_str = PyUnicode_FromString(function_to_string(self->keyframe.function));
+        PyObject* handle_mode_str = PyUnicode_FromString(handle_mode_to_string(self->keyframe.handle_mode));
+        
+        if (!function_str || !handle_mode_str) {
+            Py_XDECREF(function_str);
+            Py_XDECREF(handle_mode_str);
+            Py_DECREF(position_state);
+            Py_DECREF(in_handle_state);
+            Py_DECREF(out_handle_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        // Set all items in state dict
+        if (PyDict_SetItemString(state_dict, "position", position_state) < 0 ||
+            PyDict_SetItemString(state_dict, "in_handle", in_handle_state) < 0 ||
+            PyDict_SetItemString(state_dict, "out_handle", out_handle_state) < 0 ||
+            PyDict_SetItemString(state_dict, "function", function_str) < 0 ||
+            PyDict_SetItemString(state_dict, "handle_mode", handle_mode_str) < 0) {
+            
+            Py_DECREF(function_str);
+            Py_DECREF(handle_mode_str);
+            Py_DECREF(position_state);
+            Py_DECREF(in_handle_state);
+            Py_DECREF(out_handle_state);
+            Py_DECREF(state_dict);
+            return NULL;
+        }
+        
+        Py_DECREF(function_str);
+        Py_DECREF(handle_mode_str);
+        Py_DECREF(position_state);
+        Py_DECREF(in_handle_state);
+        Py_DECREF(out_handle_state);
+        
+        return state_dict;
+        
+    } catch (const std::exception& e) {
+        Py_DECREF(state_dict);
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+}
+
+int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
+    if (!self) {
+        PyErr_SetString(PyExc_RuntimeError, "Keyframe object is invalid");
+        return -1;
+    }
+    
+    if (!PyDict_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "Keyframe state must be a dictionary");
+        return -1;
+    }
+    
+    try {
+        // Get position using PyPoint state functions
+        PyObject* position_obj = PyDict_GetItemString(value, "position");
+        if (!position_obj) {
+            PyErr_SetString(PyExc_ValueError, "Keyframe state must have 'position' field");
+            return -1;
+        }
+        
+        PyPoint* position_point = PointToPyPoint(anim::Point(0.0, 0.0));
+        if (!position_point) {
+            return -1;
+        }
+        
+        if (PyPoint_set_state(position_point, position_obj, NULL) < 0) {
+            Py_DECREF(position_point);
+            return -1;
+        }
+        
+        anim::Point position = position_point->point;
+        Py_DECREF(position_point);
+        
+        // Get handles (with defaults based on position) using PyPoint state functions
+        anim::Point in_handle(position.time - 0.3, position.value);
+        anim::Point out_handle(position.time + 0.3, position.value);
+        
+        PyObject* in_handle_obj = PyDict_GetItemString(value, "in_handle");
+        if (in_handle_obj) {
+            PyPoint* in_handle_point = PointToPyPoint(in_handle);
+            if (!in_handle_point) {
+                return -1;
+            }
+            
+            if (PyPoint_set_state(in_handle_point, in_handle_obj, NULL) < 0) {
+                Py_DECREF(in_handle_point);
+                return -1;
+            }
+            
+            in_handle = in_handle_point->point;
+            Py_DECREF(in_handle_point);
+        }
+        
+        PyObject* out_handle_obj = PyDict_GetItemString(value, "out_handle");
+        if (out_handle_obj) {
+            PyPoint* out_handle_point = PointToPyPoint(out_handle);
+            if (!out_handle_point) {
+                return -1;
+            }
+            
+            if (PyPoint_set_state(out_handle_point, out_handle_obj, NULL) < 0) {
+                Py_DECREF(out_handle_point);
+                return -1;
+            }
+            
+            out_handle = out_handle_point->point;
+            Py_DECREF(out_handle_point);
+        }
+        
+        // Get function and handle mode (with defaults)
+        anim::Function function = anim::Function::bezier;
+        anim::HandleMode handle_mode = anim::HandleMode::smooth;
+        
+        PyObject* function_obj = PyDict_GetItemString(value, "function");
+        if (function_obj) {
+            if (PyLong_Check(function_obj)) {
+                // Accept integer values for backward compatibility
+                long func_val = PyLong_AsLong(function_obj);
+                if (func_val < 0 || func_val >= static_cast<long>(anim::Function::count)) {
+                    PyErr_SetString(PyExc_ValueError, "Invalid function value in keyframe state");
+                    return -1;
+                }
+                function = static_cast<anim::Function>(func_val);
+            } else if (PyUnicode_Check(function_obj)) {
+                // Accept string values
+                const char* func_str = PyUnicode_AsUTF8(function_obj);
+                function = string_to_function(func_str);
+            } else {
+                PyErr_SetString(PyExc_TypeError, "Keyframe state 'function' must be an integer or string");
+                return -1;
+            }
+        }
+        
+        PyObject* handle_mode_obj = PyDict_GetItemString(value, "handle_mode");
+        if (handle_mode_obj) {
+            if (PyLong_Check(handle_mode_obj)) {
+                // Accept integer values for backward compatibility
+                long mode_val = PyLong_AsLong(handle_mode_obj);
+                if (mode_val < 0 || mode_val >= static_cast<long>(anim::HandleMode::count)) {
+                    PyErr_SetString(PyExc_ValueError, "Invalid handle_mode value in keyframe state");
+                    return -1;
+                }
+                handle_mode = static_cast<anim::HandleMode>(mode_val);
+            } else if (PyUnicode_Check(handle_mode_obj)) {
+                // Accept string values
+                const char* mode_str = PyUnicode_AsUTF8(handle_mode_obj);
+                handle_mode = string_to_handle_mode(mode_str);
+            } else {
+                PyErr_SetString(PyExc_TypeError, "Keyframe state 'handle_mode' must be an integer or string");
+                return -1;
+            }
+        }
+        
+        // Update keyframe
+        self->keyframe = anim::Keyframe(position, function, handle_mode, in_handle, out_handle);
+        
+        return 0;
+        
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return -1;
+    }
+}
+
+static PyObject* PyKeyframe_get_state_method(PyKeyframe *self, PyObject *args) {
+    return PyKeyframe_get_state(self, NULL);
+}
+
+static PyObject* PyKeyframe_set_state_method(PyKeyframe *self, PyObject *args) {
+    PyObject* state;
+    if (!PyArg_ParseTuple(args, "O", &state))
+        return NULL;
+    
+    if (PyKeyframe_set_state(self, state, NULL) < 0)
+        return NULL;
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* PyKeyframe_copy(PyKeyframe* self, PyObject*) {
+    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+static PyObject* PyKeyframe_deepcopy(PyKeyframe* self, PyObject* args) {
+    // Ignore memo dict
+    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+    if (!result) return NULL;
+    return (PyObject*)result;
+}
+
+
+// --- Methods table ---
+static PyMethodDef PyKeyframe_methods[] = {
+    {"__copy__", (PyCFunction)PyKeyframe_copy, METH_NOARGS, "Shallow copy of Keyframe"},
+    {"__deepcopy__", (PyCFunction)PyKeyframe_deepcopy, METH_VARARGS, "Deep copy of Keyframe"},
+    {"get_state", (PyCFunction)PyKeyframe_get_state_method, METH_NOARGS, "Get Keyframe state as dictionary"},
+    {"set_state", (PyCFunction)PyKeyframe_set_state_method, METH_VARARGS, "Set Keyframe state from dictionary"},
+    {NULL, NULL, 0, NULL}
+};
+
 // Property definitions
 static PyGetSetDef PyKeyframe_getset[] = {
     {"time", (getter)PyKeyframe_get_time, (setter)PyKeyframe_set_time, "Time of the keyframe", NULL},
@@ -204,6 +468,7 @@ static PyGetSetDef PyKeyframe_getset[] = {
     {"out_handle", (getter)PyKeyframe_get_out_handle, (setter)PyKeyframe_set_out_handle, "Outgoing handle point", NULL},
     {"function", (getter)PyKeyframe_get_function, (setter)PyKeyframe_set_function, "Interpolation function", NULL},
     {"handle_mode", (getter)PyKeyframe_get_handle_mode, (setter)PyKeyframe_set_handle_mode, "Handle mode", NULL},
+    {"state", (getter)PyKeyframe_get_state, (setter)PyKeyframe_set_state, "Keyframe state as dictionary", NULL},
     {NULL}  // Sentinel
 };
 
@@ -233,25 +498,6 @@ static PyObject* PyKeyframe_richcompare(PyObject* a, PyObject* b, int op) {
             Py_RETURN_NOTIMPLEMENTED;
     }
 }
-
-static PyObject* PyKeyframe_copy(PyKeyframe* self, PyObject*) {
-    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
-    if (!result) return NULL;
-    return (PyObject*)result;
-}
-static PyObject* PyKeyframe_deepcopy(PyKeyframe* self, PyObject* args) {
-    // Ignore memo dict
-    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
-    if (!result) return NULL;
-    return (PyObject*)result;
-}
-
-// --- Methods table ---
-static PyMethodDef PyKeyframe_methods[] = {
-    {"__copy__", (PyCFunction)PyKeyframe_copy, METH_NOARGS, "Shallow copy of Keyframe"},
-    {"__deepcopy__", (PyCFunction)PyKeyframe_deepcopy, METH_VARARGS, "Deep copy of Keyframe"},
-    {NULL, NULL, 0, NULL}
-};
 
 // Type definition
 PyTypeObject PyKeyframeType = {
@@ -345,4 +591,8 @@ bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe) {
     keyframe = py_keyframe->keyframe; // Direct assignment if Keyframe is copyable
     return true;
 }
+
+// Forward declarations for state functions (make them accessible to other files)
+extern PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure);
+extern int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure);
 
