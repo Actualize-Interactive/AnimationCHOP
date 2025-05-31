@@ -1,4 +1,4 @@
-"""
+﻿"""
 Keyframe Showcase Script for AnimationCHOP
 This script demonstrates the new AnimationCHOP Python API by creating multiple channels
 with different keyframe configurations, handle modes, and functions.
@@ -9,7 +9,7 @@ def create_keyframe_showcase():
     
     # Get the AnimationCHOP node
     try:
-        anim_chop = op('Animationchop1')
+        anim_chop = op('Animation1')
         print(f"Using AnimationCHOP node: {anim_chop}")
     except NameError:
         print("ERROR: This script must be run from within TouchDesigner")
@@ -126,114 +126,114 @@ def create_keyframe_showcase():
             by_name = anim_chop.get_channel(channel.name)
             has_channel = anim_chop.has_channel(channel.name)
             
-            # print(f"Channel {i} ({channel.name}):")
-            # print(f"  Access by index: {by_index.name if by_index else 'None'}")
-            # print(f"  Access by name: {by_name.name if by_name else 'None'}")
-            # print(f"  Has channel: {has_channel}")
+            print(f"Channel {i} ({channel.name}):")
+            print(f"  Access by index: {by_index.name if by_index else 'None'}")
+            print(f"  Access by name: {by_name.name if by_name else 'None'}")
+            print(f"  Has channel: {has_channel}")
             
-            # # Test keyframe access
-            # if len(channel) > 0:
-            #     first_kf = channel[0]
-            #     last_kf = channel[-1]
-            #     print(f"  First keyframe: time={first_kf.time:.1f}, value={first_kf.value:.2f}")
-            #     print(f"  Last keyframe: time={last_kf.time:.1f}, value={last_kf.value:.2f}")
+            # Test keyframe access
+            if len(channel) > 0:
+                first_kf = channel[0]
+                last_kf = channel[-1]
+                print(f"  First keyframe: time={first_kf.time:.1f}, value={first_kf.value:.2f}")
+                print(f"  Last keyframe: time={last_kf.time:.1f}, value={last_kf.value:.2f}")
                 
-            #     # Test evaluation
-            #     mid_time = (first_kf.time + last_kf.time) / 2
-            #     mid_value = channel.evaluate(mid_time)
-            #     print(f"  Mid evaluation (t={mid_time:.1f}): {mid_value:.2f}")
+                # Test evaluation
+                mid_time = (first_kf.time + last_kf.time) / 2
+                mid_value = channel.evaluate(mid_time)
+                print(f"  Mid evaluation (t={mid_time:.1f}): {mid_value:.2f}")
             
-            # print()
+            print()
             
         except Exception as e:
             print(f"Error testing channel {i}: {e}")
     
-    # # Create TSV output for TableDAT
-    # print("EXPORTING TO TABLEDAT:")
-    # print("=" * 80)
+    # Create TSV output for TableDAT
+    print("EXPORTING TO TABLEDAT:")
+    print("=" * 80)
     
-    # table_lines = []
-    # table_lines.append("channel\tindex\ttime\tvalue\tfunction\thandle_mode\tin_time\tin_value\tout_time\tout_value")
+    table_lines = []
+    table_lines.append("channel\tindex\ttime\tvalue\tfunction\thandle_mode\tin_time\tin_value\tout_time\tout_value")
     
-    # for channel in created_channels:
-    #     try:
-    #         for i in range(len(channel)):
-    #             kf = channel[i]
+    for channel in created_channels:
+        try:
+            for i in range(len(channel)):
+                kf = channel[i]
                 
-    #             # Get function and handle mode names (now they're readable!)
-    #             func_name = f"Function.{kf.function}"  # Just use the integer value
-    #             mode_name = f"HandleMode.{kf.handle_mode}"  # Just use the integer value
+                # Get function and handle mode names (now they're readable!)
+                func_name = f"Function.{kf.function}"  # Just use the integer value
+                mode_name = f"HandleMode.{kf.handle_mode}"  # Just use the integer value
                 
-    #             row = f"{channel.name}\t{i}\t{kf.time:.2f}\t{kf.value:.3f}\t{func_name}\t{mode_name}\t{kf.in_handle.time:.2f}\t{kf.in_handle.value:.3f}\t{kf.out_handle.time:.2f}\t{kf.out_handle.value:.3f}"
-    #             table_lines.append(row)
+                row = f"{channel.name}\t{i}\t{kf.time:.2f}\t{kf.value:.3f}\t{func_name}\t{mode_name}\t{kf.in_handle.time:.2f}\t{kf.in_handle.value:.3f}\t{kf.out_handle.time:.2f}\t{kf.out_handle.value:.3f}"
+                table_lines.append(row)
                 
-    #     except Exception as e:
-    #         print(f"Error processing channel {channel.name}: {e}")
+        except Exception as e:
+            print(f"Error processing channel {channel.name}: {e}")
     
-    # # Output to TableDAT
-    # keyframes_tbl_str = "\n".join(table_lines)
+    # Output to TableDAT
+    keyframes_tbl_str = "\n".join(table_lines)
     
-    # try:
-    #     keyframes_dat = op('keyframes')
+    try:
+        keyframes_dat = op('keyframes')
         
-    #     # Temporarily disable callback if it exists
-    #     callback_dat = None
-    #     original_active = True
-    #     try:
-    #         callback_dat = op('on_keyframes_change')
-    #         original_active = callback_dat.par.active.eval()
-    #         callback_dat.par.active = False
-    #         print("✓ Temporarily disabled keyframes change callback")
-    #     except:
-    #         print("! No callback DAT found")
+        # Temporarily disable callback if it exists
+        callback_dat = None
+        original_active = True
+        try:
+            callback_dat = op('on_keyframes_change')
+            original_active = callback_dat.par.active.eval()
+            callback_dat.par.active = False
+            print("✓ Temporarily disabled keyframes change callback")
+        except:
+            print("! No callback DAT found")
         
-    #     # Set table data
-    #     keyframes_dat.text = keyframes_tbl_str
-    #     print(f"✓ Exported {len(table_lines)-1} keyframe rows to TableDAT 'keyframes'")
+        # Set table data
+        keyframes_dat.text = keyframes_tbl_str
+        print(f"✓ Exported {len(table_lines)-1} keyframe rows to TableDAT 'keyframes'")
         
-    #     # Re-enable callback
-    #     if callback_dat and original_active:
-    #         callback_dat.par.active = True
-    #         print("✓ Re-enabled keyframes change callback")
+        # Re-enable callback
+        if callback_dat and original_active:
+            callback_dat.par.active = True
+            print("✓ Re-enabled keyframes change callback")
             
-    # except Exception as e:
-    #     print(f"✗ Failed to export to TableDAT: {e}")
+    except Exception as e:
+        print(f"✗ Failed to export to TableDAT: {e}")
         
-    #     # Ensure callback is re-enabled
-    #     try:
-    #         if callback_dat and original_active:
-    #             callback_dat.par.active = True
-    #     except:
-    #         pass
+        # Ensure callback is re-enabled
+        try:
+            if callback_dat and original_active:
+                callback_dat.par.active = True
+        except:
+            pass
     
-    # # Test evaluation ranges
-    # print("\nTESTING EVALUATION RANGES:")
-    # print("=" * 80)
+    # Test evaluation ranges
+    print("\nTESTING EVALUATION RANGES:")
+    print("=" * 80)
     
-    # if created_channels:
-    #     test_channel = created_channels[0]
-    #     try:
-    #         # Test range evaluation
-    #         values = test_channel.evaluate_range(0.0, 4.0, 9)  # 9 samples from 0 to 4
-    #         print(f"Range evaluation (0-4s, 9 samples): {[f'{v:.2f}' for v in values]}")
+    if created_channels:
+        test_channel = created_channels[0]
+        try:
+            # Test range evaluation
+            values = test_channel.evaluate_range(0.0, 4.0, 9)  # 9 samples from 0 to 4
+            print(f"Range evaluation (0-4s, 9 samples): {[f'{v:.2f}' for v in values]}")
             
-    #         # Test by sample rate
-    #         values_rate = test_channel.evaluate_range_by_rate(0.0, 2.0, 2.0)  # 2Hz for 2 seconds
-    #         print(f"Rate evaluation (0-2s, 2Hz): {[f'{v:.2f}' for v in values_rate]}")
+            # Test by sample rate
+            values_rate = test_channel.evaluate_range_by_rate(0.0, 2.0, 2.0)  # 2Hz for 2 seconds
+            print(f"Rate evaluation (0-2s, 2Hz): {[f'{v:.2f}' for v in values_rate]}")
             
-    #         # Test num_samples calculation
-    #         num_samples = test_channel.num_samples(30.0)  # 30Hz
-    #         print(f"Number of samples at 30Hz: {num_samples}")
+            # Test num_samples calculation
+            num_samples = test_channel.num_samples(30.0)  # 30Hz
+            print(f"Number of samples at 30Hz: {num_samples}")
             
-    #     except Exception as e:
-    #         print(f"Error testing evaluation: {e}")
+        except Exception as e:
+            print(f"Error testing evaluation: {e}")
     
-    # print("=" * 80)
-    # print("SHOWCASE COMPLETE!")
-    # print(f"Created {len(created_channels)} channels with 5 keyframes each")
-    # print("Channels demonstrate different interpolation functions and handle modes")
-    # print("Values are offset and overlapping to create interesting animation curves")
-    # print("=" * 80)
+    print("=" * 80)
+    print("SHOWCASE COMPLETE!")
+    print(f"Created {len(created_channels)} channels with 5 keyframes each")
+    print("Channels demonstrate different interpolation functions and handle modes")
+    print("Values are offset and overlapping to create interesting animation curves")
+    print("=" * 80)
 
 # Run the showcase
 if __name__ == "__main__":

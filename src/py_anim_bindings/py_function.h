@@ -17,8 +17,8 @@ PyObject* get_function_enum(PyObject* self, void* closure);
 void cleanup_function_enum();
 
 // Helper functions
-bool PyObjectToFunction(PyObject* obj, anim::Function& function_enum);
-PyObject* FunctionToPyObject(anim::Function function_enum);
+bool PY_ObjectToFunction(PyObject* obj, anim::Function& function_enum);
+PyObject* FunctionToPY_Object(anim::Function function_enum);
 
 
 const char* function_to_string(anim::Function func);

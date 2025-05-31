@@ -21,7 +21,8 @@
 #include <cmath>
 #include <assert.h>
 
-#include <iostream>
+// #include <iostream>
+#include <chrono>
 
 
 #ifdef _WIN32
@@ -34,45 +35,43 @@
 	#include <Python/structmember.h>
 #endif
 
-// static PyObject* py_chop_animationFromDict(PyObject* self, PyObject* args);
-static PyObject* py_chop_create_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_emplace_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_insert_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_remove_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_has_channel(PyObject* self, PyObject* args);
-static PyObject* py_chop_get_channel(PyObject *self, PyObject *key);
-static PyObject* py_chop_clear(PyObject* self, PyObject* args);
-static PyObject* py_chop_get_state_method(PyObject* self, PyObject* args);
-static PyObject* py_chop_set_state_method(PyObject* self, PyObject* args);
+// static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
+static PyObject* py_create_channel(PyObject* self, PyObject* args);
+static PyObject* py_emplace_channel(PyObject* self, PyObject* args);
+static PyObject* py_insert_channel(PyObject* self, PyObject* args);
+static PyObject* py_channel(PyObject* self, PyObject* args);
+static PyObject* py_remove_channel(PyObject* self, PyObject* args);
+static PyObject* py_has_channel(PyObject* self, PyObject* args);
+static PyObject* py_get_channel(PyObject *self, PyObject *key);
+static PyObject* py_clear(PyObject* self, PyObject* args);
+static PyObject* py_get_state_method(PyObject* self, PyObject* args);
+static PyObject* py_set_state_method(PyObject* self, PyObject* args);
 
 // --- Python method table for AnimationCHOP ---
 static PyMethodDef methods[] = {
-    {"create_channel", (PyCFunction)py_chop_create_channel, METH_VARARGS, "Create a new channel."},
-    {"emplace_channel", (PyCFunction)py_chop_emplace_channel, METH_VARARGS, "Emplace a new channel."},
-    {"insert_channel", (PyCFunction)py_chop_insert_channel, METH_VARARGS, "Insert a channel at a given index."},
-    {"remove_channel", (PyCFunction)py_chop_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
-    {"has_channel", (PyCFunction)py_chop_has_channel, METH_VARARGS, "Check if a channel exists."},
-	{"get_channel", (PyCFunction)py_chop_get_channel, METH_VARARGS, "Get a channel by name or index."},
-    {"clear", (PyCFunction)py_chop_clear, METH_NOARGS, "Clear all channels."},
-    {"get_state", (PyCFunction)py_chop_get_state_method, METH_VARARGS, "Get the state of the AnimationCHOP."},
-    {"set_state", (PyCFunction)py_chop_set_state_method, METH_VARARGS | METH_KEYWORDS, "Set the state of the AnimationCHOP."},
+    {"create_channel", (PyCFunction)py_create_channel, METH_VARARGS, "Create a new channel."},
+    {"remove_channel", (PyCFunction)py_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
+    {"has_channel", (PyCFunction)py_has_channel, METH_VARARGS, "Check if a channel exists."},
+	{"get_channel", (PyCFunction)py_get_channel, METH_VARARGS, "Get a channel by name or index."},
+    {"clear", (PyCFunction)py_clear, METH_NOARGS, "Clear all channels."},
+    {"get_state", (PyCFunction)py_get_state_method, METH_VARARGS, "Get the state of the AnimationCHOP."},
+    {"set_state", (PyCFunction)py_set_state_method, METH_VARARGS | METH_KEYWORDS, "Set the state of the AnimationCHOP."},
     
     {nullptr, nullptr, 0, nullptr}
 };
 
-static PyObject* py_chop_get_channels(PyObject* self, void* closure);
-static PyObject* py_chop_get_channel_names(PyObject* self, void* closure);
-static PyObject* py_chop_get_num_channels(PyObject* self, void* closure);
-static PyObject* py_chop_get_start_time(PyObject* self, void* closure);
-static int py_chop_set_start_time(PyObject* self, PyObject* value, void* closure);
-static PyObject* py_chop_get_end_time(PyObject* self, void* closure);
-static int py_chop_set_end_time(PyObject* self, PyObject* value, void* closure);
-static PyObject* py_chop_get_length(PyObject* self, void* closure);
-static int py_chop_set_length(PyObject* self, PyObject* value, void* closure);
-static PyObject* py_chop_get_num_samples(PyObject* self, void* closure);
-static PyObject* py_chop_get_state(PyObject* self, void* closure);
-static int py_chop_set_state(PyObject* self, PyObject* value, void* closure);
+static PyObject* py_get_channels(PyObject* self, void* closure);
+static PyObject* py_get_channel_names(PyObject* self, void* closure);
+static PyObject* py_get_num_channels(PyObject* self, void* closure);
+static PyObject* py_get_start_time(PyObject* self, void* closure);
+static int py_set_start_time(PyObject* self, PyObject* value, void* closure);
+static PyObject* py_get_end_time(PyObject* self, void* closure);
+static int py_set_end_time(PyObject* self, PyObject* value, void* closure);
+static PyObject* py_get_length(PyObject* self, void* closure);
+static int py_set_length(PyObject* self, PyObject* value, void* closure);
+static PyObject* py_get_num_samples(PyObject* self, void* closure);
+static PyObject* py_get_state(PyObject* self, void* closure);
+static int py_set_state(PyObject* self, PyObject* value, void* closure);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
 static PyGetSetDef getSets[] =
@@ -81,16 +80,15 @@ static PyGetSetDef getSets[] =
     {"HandleMode", get_handle_mode_enum, nullptr, "HandleMode enum for keyframe handle behavior.", nullptr},
     {"Function", get_function_enum, nullptr, "Function enum for keyframe interpolation type.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
-    {"Channel", get_channel_type, nullptr, "Channel type for animation data.", nullptr},
-    {"channels", py_chop_get_channels, nullptr, "Get all channels.", nullptr}, 
-    {"channel_names", py_chop_get_channel_names, nullptr, "Get all channel names.", nullptr},
-    {"num_channels",py_chop_get_num_channels, nullptr, "Get the number of channels.", nullptr},
-	{"start_time", py_chop_get_start_time, py_chop_set_start_time, "Get or set the start time of the animation.", nullptr},
-	{"end_time", py_chop_get_end_time, py_chop_set_end_time, "Get or set the end time of the animation.", nullptr},
-	{"length", py_chop_get_length, py_chop_set_length, "Get or set the length of the animation.", nullptr},
-	{"num_samples", py_chop_get_num_samples, nullptr, "Get the number of samples in the animation.", nullptr},
-    {"state", py_chop_get_state, py_chop_set_state, "Get or set the serializable state of the animation.", nullptr},
-    // {"animation", (getter)py_chop_animation, nullptr, "The PyObject interface for this AnimationCHOP.", nullptr},
+    {"channels", py_get_channels, nullptr, "Get all channels.", nullptr}, 
+    {"channel_names", py_get_channel_names, nullptr, "Get all channel names.", nullptr},
+    {"num_channels",py_get_num_channels, nullptr, "Get the number of channels.", nullptr},
+	{"start_time", py_get_start_time, py_set_start_time, "Get or set the start time of the animation.", nullptr},
+	{"end_time", py_get_end_time, py_set_end_time, "Get or set the end time of the animation.", nullptr},
+	{"length", py_get_length, py_set_length, "Get or set the length of the animation.", nullptr},
+	{"num_samples", py_get_num_samples, nullptr, "Get the number of samples in the animation.", nullptr},
+    {"state", py_get_state, py_set_state, "Get or set the serializable state of the animation.", nullptr},
+    // {"animation", (getter)py_animation, nullptr, "The PyObject interface for this AnimationCHOP.", nullptr},
 	{0}
 };
 
@@ -122,10 +120,10 @@ FillCHOPPluginInfo(CHOP_PluginInfo *info)
 	// The opType is the unique name for this BasicCHOP. It must start with a 
 	// capital A-Z character, and all the following characters must lower case
 	// or numbers (a-z, 0-9)
-	info->customOPInfo.opType->setString("Animationchop");
+	info->customOPInfo.opType->setString("Animation");
 
 	// The opLabel is the text that will show up in the OP Create Dialog
-	info->customOPInfo.opLabel->setString("Animation CHOP");
+	info->customOPInfo.opLabel->setString("Animation");
 
 	// Will be turned into a 3 letter icon on the nodes
 	info->customOPInfo.opIcon->setString("ANM");
@@ -174,6 +172,7 @@ AnimationCHOP::AnimationCHOP(const OP_NodeInfo* info)
 	, m_error(nullptr)
 	, m_animation(std::make_unique<anim::Animation>())
 {
+
 }
 
 AnimationCHOP::~AnimationCHOP()
@@ -206,54 +205,57 @@ bool
 AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
     info->numChannels = static_cast<int32_t>(m_animation->num_channels());
-    std::cout << "AnimationCHOP::getOutputInfo: numChannels = " << info->numChannels << std::endl;
+    // std::cout << "AnimationCHOP::getOutputInfo: numChannels = " << info->numChannels << std::endl;
     info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate"));
     applyOutputMode(inputs);
 
 
-    // switch(m_outputMode) {
-    // case OutputMode::input: {
-    //     const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
-    //     if (input_chop) {
-    //         info->startIndex = input_chop->startIndex;
-    //         info->numSamples = input_chop->numSamples;
-    //         info->sampleRate = input_chop->sampleRate;
-            
-    //     } else {
-    //         info->startIndex = 0;
-    //         info->numSamples = 1;
-    //         m_error = "An CHOP with at least one channel must be connected when using 'Input' mode.";
-    //     }
-    //     break;
-    // } case OutputMode::sequence: {
-    //     info->startIndex = static_cast<uint32_t>(inputs->getParDouble("Sequence"));
+    switch(m_outputMode) {
+    case OutputMode::input: {
+        const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
+        if (input_chop) {
+            info->sampleRate = static_cast<float>(input_chop->sampleRate);
 
-    //     // overridden if CHOP_GeneralInfo::timeslice == true
-    //     info->numSamples = 1;
-    //     break;
-    // } case OutputMode::range: {
-    //     auto start_time = inputs->getParDouble("Range", 0);
-    //     auto end_time = inputs->getParDouble("Range", 1);
-    //     m_animation->set_start_time(start_time);
-    //     m_animation->set_end_time(end_time);
-    //     info->startIndex = static_cast<uint32_t>(start_time * info->sampleRate);
-    //     info->numSamples = static_cast<int32_t>(end_time * info->sampleRate) - info->startIndex;
-    //     if (info->numSamples < 1) {
-    //         info->numSamples = 1;
-    //     }
-    //     break;
-    // } case OutputMode::autoRange: default: {
-    //     double max_length = 0.0;
-    //     for (size_t i = 0; i < m_animation->num_channels(); ++i) {
-    //         const auto& channel = m_animation->channel(i);
-    //         max_length = std::max(max_length, channel.length());
-    //     }
-    //     info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
-    //     m_animation->set_start_time(0.0);
-    //     m_animation->set_end_time(max_length);
-    //     break;
-    // }
-    // }
+            auto timeslice = inputs->getParInt("Timeslice");
+            if (timeslice == 1) {
+                info->startIndex = input_chop->startIndex;
+            } else {
+                info->numSamples = 1;
+            }
+        } else {
+            info->startIndex = 0;
+            info->numSamples = 1;
+            m_warning = "A CHOP with at least one channel must be connected when using 'Input' mode.";
+        }
+        break;
+    } case OutputMode::sequence: {
+        auto timeslice = inputs->getParInt("Timeslice");
+        if (timeslice != 1) {
+            info->numSamples = 1;
+        }
+        break;
+    } case OutputMode::range: {
+        auto start_time = inputs->getParDouble("Range", 0);
+        auto end_time = inputs->getParDouble("Range", 1);
+        m_animation->set_start_time(start_time);
+        m_animation->set_end_time(end_time);
+        info->numSamples = static_cast<int32_t>(end_time * info->sampleRate);
+        if (info->numSamples < 1) {
+            info->numSamples = 1;
+        }
+        break;
+    } case OutputMode::autoRange: default: {
+        double max_length = 0.0;
+        for (size_t i = 0; i < m_animation->num_channels(); ++i) {
+            const auto& channel = m_animation->channel(i);
+            max_length = std::max(max_length, channel.length());
+        }
+        info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
+        m_animation->set_start_time(0.0);
+        m_animation->set_end_time(max_length);
+        break;
+    }
+    }
     return true;
 }
 
@@ -282,77 +284,133 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 	m_error = nullptr;
 	m_warning = nullptr;
 
-    // switch(m_outputMode) {
-    // case OutputMode::input: {
-    //     const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
-    //     if (!input_chop) {
-    //         m_error = "No input CHOP connected.";
-    //         return;
-    //     } else if (input_chop->numChannels < 1) {
-    //         m_error = "Input CHOP has no channels.";
-    //         return;
-    //     } else if (input_chop->numSamples != output->numSamples) {
-    //         m_error = "Input CHOP and output CHOP have different number of samples.";
-    //         return;
-    //     } else if (input_chop->sampleRate != output->sampleRate) {
-    //         m_error = "Input CHOP and output CHOP have different sample rates.";
-    //         return;
-    //     }
+    switch(m_outputMode) {
+    case OutputMode::input: {
+        const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
+        if (!input_chop) {
+            m_error = "No input CHOP connected.";
+            return;
+        } else if (input_chop->numChannels < 1) {
+            m_error = "Input CHOP has no channels.";
+            return;
+        } else if (input_chop->numSamples != output->numSamples) {
+            m_error = "Input CHOP and output CHOP have different number of samples.";
+            return;
+        } else if (input_chop->sampleRate != output->sampleRate) {
+            m_error = "Input CHOP and output CHOP have different sample rates.";
+            return;
+        }
 
-    //     auto index_unit = inputs->getParString("Indexunit");
-    //     std::vector<double> eval_times;
-    //     eval_times.reserve(input_chop->numSamples);
-    //     if (strcmp(index_unit, "seconds") == 0) {
-    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
-    //             eval_times.push_back(input_chop->getChannelData(0)[i]);
-    //         }
-    //     } else if (strcmp(index_unit, "samples") == 0) {
-    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
-    //             eval_times.push_back(i / input_chop->sampleRate);
-    //         }
-    //     } else if (strcmp(index_unit, "frames") == 0) {
-    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
-    //             eval_times.push_back((i + 1.0f) / input_chop->sampleRate);
-    //         }
-    //     } 
-    //     for (size_t i = 0; i < output->numChannels; ++i) {
-    //         if (i < static_cast<int32_t>(input_chop->numChannels) && i < m_animation->num_channels()) {
-    //             for (int j = 0; j < output->numSamples; ++j) {
-    //                 output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_times[j]));
-    //             }
-    //         } 
-    //     }
-    //     return;
-    // } case OutputMode::sequence: {
-    //     auto index_unit = inputs->getParString("Indexunit");
-    //     auto eval_time = inputs->getParDouble("Sequence");
-    //     if (strcmp(index_unit, "samples") == 0) {
-    //         eval_time /= output->sampleRate; // Convert samples to seconds
-    //     } else if (strcmp(index_unit, "frames") == 0) {
-    //         eval_time = (eval_time - 1.0f) / output->sampleRate; // Convert frames to seconds
-    //     }
+        auto index_unit = inputs->getParString("Indexunit");
+        std::vector<double> eval_times;
+        eval_times.reserve(input_chop->numSamples);
+
+        if (strcmp(index_unit, "seconds") == 0) {
+            for (size_t i = 0; i < input_chop->numSamples; ++i) {
+                eval_times.push_back(input_chop->getChannelData(0)[i]);
+            }
+        } else if (strcmp(index_unit, "samples") == 0) {
+            for (size_t i = 0; i < input_chop->numSamples; ++i) {
+                eval_times.push_back(input_chop->getChannelData(0)[i] / input_chop->sampleRate);
+            }
+        } else if (strcmp(index_unit, "frames") == 0) {
+            for (size_t i = 0; i < input_chop->numSamples; ++i) {
+                eval_times.push_back((input_chop->getChannelData(0)[i] - 1.0f) / input_chop->sampleRate);
+            }
+        } 
+        for (size_t i = 0; i < output->numChannels; ++i) {
+            if (i < static_cast<int32_t>(input_chop->numChannels) && i < m_animation->num_channels()) {
+                for (int j = 0; j < output->numSamples; ++j) {
+                    output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_times[j]));
+                }
+            } 
+        }
+        return;
+    } case OutputMode::sequence: {
+        auto index_unit = inputs->getParString("Indexunit");
+        auto eval_time = inputs->getParDouble("Sequence");
+
+        
+        auto timeslice = inputs->getParInt("Timeslice");
+        auto last_sample_index = 0;
+        if (timeslice == 1) {
+            last_sample_index = output->numSamples - 1;
             
-    //     for (size_t i = 0; i < output->numChannels; ++i) {
-    //         if (i < m_animation->num_channels()) {
-    //             output->channels[i][0] = static_cast<float>(m_animation->channel(i).evaluate(eval_time));
-    //         }
-    //     }
-    //     return;
-    // } case OutputMode::range: case OutputMode::autoRange: default: {
-    //     size_t num_anim_channels = m_animation->num_channels();
-    //     for (int i = 0; i < output->numChannels; i++) {
-    //         if (i < static_cast<int>(num_anim_channels)) {
-    //             auto samples = m_animation->channel(i).evaluate_range(
-    //                 m_animation->start_time(),
-    //                 m_animation->end_time(),
-    //                 output->numSamples
-    //             );
-    //             std::copy(samples.begin(), samples.end(), output->channels[i]);
-    //         }
-    //     }
-    //     return;
-    // }
-    // }
+            if (strcmp(index_unit, "seconds") == 0) {
+                auto time_step = (eval_time - m_lastEvalTime) / output->numSamples;
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            auto sub_eval_time = m_lastEvalTime + (j * time_step);
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(sub_eval_time));
+                        }
+                    }
+                }
+            } else if (strcmp(index_unit, "samples") == 0) {
+                auto time_step = (eval_time - m_lastEvalTime) / output->numSamples / output->sampleRate;
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            auto sub_eval_time = m_lastEvalTime + (j * time_step / output->sampleRate);
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(sub_eval_time));
+                        }
+                    }
+                }
+            } else if (strcmp(index_unit, "frames") == 0) {
+                auto time_step = (eval_time - 1 - m_lastEvalTime) / output->numSamples / output->sampleRate;
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            auto sub_eval_time = (m_lastEvalTime - 1) + (j * time_step / output->sampleRate);
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(sub_eval_time));
+                        }
+                    }
+                }
+            } 
+        } else {
+            if (strcmp(index_unit, "seconds") == 0) {
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_time));
+                        }
+                    }
+                }
+            } else if (strcmp(index_unit, "samples") == 0) {
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_time / output->sampleRate));
+                        }
+                    }
+                }
+            } else if (strcmp(index_unit, "frames") == 0) {
+                for (size_t i = 0; i < output->numChannels; ++i) {
+                    if (i < m_animation->num_channels()) {
+                        for (int j = 0; j < output->numSamples; ++j) {
+                            output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate((eval_time - 1.0f) / output->sampleRate));
+                        }
+                    }
+                }
+            }
+        }
+        m_lastEvalTime = eval_time;
+        return;
+    } case OutputMode::range: case OutputMode::autoRange: default: {
+        size_t num_anim_channels = m_animation->num_channels();
+        for (int i = 0; i < output->numChannels; i++) {
+            if (i < static_cast<int>(num_anim_channels)) {
+                auto samples = m_animation->channel(i).evaluate_range(
+                    m_animation->start_time(),
+                    m_animation->end_time(),
+                    output->numSamples
+                );
+                std::copy(samples.begin(), samples.end(), output->channels[i]);
+            }
+        }
+        return;
+    }
+    }
 }
 
 void 
@@ -389,7 +447,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 		const char *names[] = { "range", "autorange", "input", "sequence" };
 		const char *labels[] = { "Range", "Auto Range", "Input Index (first channel)", "Sequence Index" };
 
-		OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
+		OP_ParAppendResult res = manager->appendMenu(sp, 4, names, labels);
 		assert(res == OP_ParAppendResult::Success);
 	} {
         OP_StringParameter	sp;
@@ -457,11 +515,6 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 void
 AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
-    // Handle parameter pulses here
-    if (strcmp(name, "Reset") == 0)
-    {
-
-    }
 }
 
 void
@@ -481,10 +534,8 @@ AnimationCHOP::applyOutputMode(const OP_Inputs *inputs)
     }
 }
 
-// Python bindings for animation methods
-
 // --- Channel creation and insertion ---
-static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
+static PyObject* py_create_channel(PyObject *self, PyObject *args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -509,7 +560,7 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
         try {
             anim::Channel& channel = animation->create_channel(std::string(name));
             me->context->makeNodeDirty();
-            return ChannelToPyObject(&channel, (PyObject*)self);
+            return ChannelToPY_Object(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
@@ -530,7 +581,7 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
             }
             anim::Channel& channel = animation->create_channel(std::string(name), static_cast<size_t>(index));
             me->context->makeNodeDirty();
-            return ChannelToPyObject(&channel, (PyObject*)self);
+            return ChannelToPY_Object(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
@@ -541,69 +592,8 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
     }
 }
 
-static PyObject* py_chop_emplace_channel(PyObject *self, PyObject *args) {
-	PY_Struct* me = (PY_Struct*)self;
-    PY_GetInfo info;
-    info.autoCook = false;
-    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst) {
-        return nullptr;
-    }
-	auto animation = inst->animation();
-    if (!animation) {
-        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
-        return NULL;
-    }
-
-    PyObject* py_chop_channel;
-    if (!PyArg_ParseTuple(args, "O", &py_chop_channel))
-        return NULL;
-    anim::Channel* channel_ptr = nullptr;
-    if (!PyObjectToChannel(py_chop_channel, channel_ptr))
-        return NULL;
-    try {
-        anim::Channel& channel = animation->emplace_channel(std::move(*channel_ptr));
-		me->context->makeNodeDirty();
-        return ChannelToPyObject(&channel, (PyObject*)self);
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
-static PyObject* py_chop_insert_channel(PyObject *self, PyObject *args) {
-	PY_Struct* me = (PY_Struct*)self;
-    PY_GetInfo info;
-    info.autoCook = false;
-    AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
-    if (!inst) {
-        return nullptr;
-    }
-	auto animation = inst->animation();
-    if (!animation) {
-        PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
-        return NULL;
-    }
-
-    Py_ssize_t index;
-    PyObject* py_chop_channel;
-    if (!PyArg_ParseTuple(args, "nO", &index, &py_chop_channel))
-        return NULL;
-    anim::Channel* channel_ptr = nullptr;
-    if (!PyObjectToChannel(py_chop_channel, channel_ptr))
-        return NULL;
-    try {
-        anim::Channel& channel = animation->insert_channel(static_cast<size_t>(index), *channel_ptr);
-		me->context->makeNodeDirty();
-        return ChannelToPyObject(&channel, (PyObject*)self);
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
 // --- Channel access ---
-static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
+static PyObject* py_get_channel(PyObject *self, PyObject *args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -631,7 +621,7 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
         }
         try {
             anim::Channel& channel = animation->channel(index);
-            return ChannelToPyObject(&channel, (PyObject*)self);
+            return ChannelToPY_Object(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_IndexError, e.what());
             return NULL;
@@ -644,7 +634,7 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
         std::string name = name_cstr;
         try {
             anim::Channel& channel = animation->channel(name);
-            return ChannelToPyObject(&channel, (PyObject*)self);
+            return ChannelToPY_Object(&channel, (PyObject*)self);
         } catch (const std::exception& e) {
             PyErr_SetString(PyExc_KeyError, e.what());
             return NULL;
@@ -655,7 +645,7 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
     }
 }
 
-static PyObject* py_chop_has_channel(PyObject *self, PyObject *args) {
+static PyObject* py_has_channel(PyObject *self, PyObject *args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -679,7 +669,7 @@ static PyObject* py_chop_has_channel(PyObject *self, PyObject *args) {
 
 
 // --- Channel removal ---
-static PyObject* py_chop_remove_channel(PyObject *self, PyObject *args) {
+static PyObject* py_remove_channel(PyObject *self, PyObject *args) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -726,7 +716,7 @@ static PyObject* py_chop_remove_channel(PyObject *self, PyObject *args) {
 }
 
 
-static PyObject* py_chop_clear(PyObject *self, PyObject *args) {
+static PyObject* py_clear(PyObject *self, PyObject *args) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -749,7 +739,7 @@ static PyObject* py_chop_clear(PyObject *self, PyObject *args) {
 // -------------------------------------------------------------------------------------
 // --- Properties ---
 
-static PyObject* py_chop_get_channels(PyObject *self, void* closure) {
+static PyObject* py_get_channels(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -762,21 +752,21 @@ static PyObject* py_chop_get_channels(PyObject *self, void* closure) {
         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
         return NULL;
     }
-    const auto& chans = animation->channels();
+    auto& chans = animation->channels();
     PyObject* list = PyList_New(chans.size());
     if (!list) return NULL;
     for (size_t i = 0; i < chans.size(); ++i) {
-        PyObject* py_chop_ch = ChannelToPyObject(const_cast<anim::Channel*>(&chans[i]), (PyObject*)self);
-        if (!py_chop_ch) {
+        PyObject* py_ch = ChannelToPY_Object(chans[i].get(), (PyObject*)self);
+        if (!py_ch) {
             Py_DECREF(list);
             return NULL;
         }
-        PyList_SET_ITEM(list, i, py_chop_ch);
+        PyList_SET_ITEM(list, i, py_ch);
     }
     return list;
 }
 
-static PyObject* py_chop_get_channel_names(PyObject *self, void* closure) {
+static PyObject* py_get_channel_names(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -795,17 +785,17 @@ static PyObject* py_chop_get_channel_names(PyObject *self, void* closure) {
         return NULL;
     }
     for (size_t i = 0; i < names.size(); ++i) {
-        PyObject* py_chop_name = PyUnicode_FromString(names[i].c_str());
-        if (!py_chop_name) {
+        PyObject* py_name = PyUnicode_FromString(names[i].c_str());
+        if (!py_name) {
             Py_DECREF(names_list);
             return NULL;
         }
-        PyList_SET_ITEM(names_list, i, py_chop_name);
+        PyList_SET_ITEM(names_list, i, py_name);
     }
     return names_list;
 }
 
-static PyObject* py_chop_get_num_channels(PyObject *self, void* closure) {
+static PyObject* py_get_num_channels(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -823,7 +813,7 @@ static PyObject* py_chop_get_num_channels(PyObject *self, void* closure) {
 }
 
 // --- Properties and other methods ---
-static PyObject* py_chop_get_start_time(PyObject *self, void* closure) {
+static PyObject* py_get_start_time(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -840,7 +830,7 @@ static PyObject* py_chop_get_start_time(PyObject *self, void* closure) {
     return PyFloat_FromDouble(animation->start_time());
 }
 
-static int py_chop_set_start_time(PyObject *self, PyObject *value, void* closure) {
+static int py_set_start_time(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -869,7 +859,7 @@ static int py_chop_set_start_time(PyObject *self, PyObject *value, void* closure
     return 0;
 }
 
-static PyObject* py_chop_get_end_time(PyObject *self, void* closure) {
+static PyObject* py_get_end_time(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -886,7 +876,7 @@ static PyObject* py_chop_get_end_time(PyObject *self, void* closure) {
     return PyFloat_FromDouble(animation->end_time());
 }
 
-static int py_chop_set_end_time(PyObject *self, PyObject *value, void* closure) {
+static int py_set_end_time(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -915,7 +905,7 @@ static int py_chop_set_end_time(PyObject *self, PyObject *value, void* closure) 
     return 0;
 }
 
-static PyObject* py_chop_get_length(PyObject *self, void* closure) {
+static PyObject* py_get_length(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -937,7 +927,7 @@ static PyObject* py_chop_get_length(PyObject *self, void* closure) {
     }
 }
 
-static int py_chop_set_length(PyObject *self, PyObject *value, void* closure) {
+static int py_set_length(PyObject *self, PyObject *value, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -968,7 +958,7 @@ static int py_chop_set_length(PyObject *self, PyObject *value, void* closure) {
 
 }
 
-static PyObject* py_chop_get_num_samples(PyObject *self, void* closure) {
+static PyObject* py_get_num_samples(PyObject *self, void* closure) {
 	PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -991,7 +981,7 @@ static PyObject* py_chop_get_num_samples(PyObject *self, void* closure) {
     }
 }
 
-static PyObject* py_chop_get_state(PyObject *self, void* closure) {
+static PyObject* py_get_state(PyObject *self, void* closure) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -1027,14 +1017,14 @@ static PyObject* py_chop_get_state(PyObject *self, void* closure) {
         for (size_t ch_idx = 0; ch_idx < animation->num_channels(); ++ch_idx) {
             try {
                 anim::Channel& channel = animation->channel(ch_idx);
-                PyChannel* py_channel = (PyChannel*)ChannelToPyObject(&channel, (PyObject*)self);
+                PY_Channel* py_channel = (PY_Channel*)ChannelToPY_Object(&channel, (PyObject*)self);
                 if (!py_channel) {
                     Py_DECREF(channels_list);
                     Py_DECREF(anim_dict);
                     return NULL;
                 }
                 
-                PyObject* channel_state = PyChannel_get_state(py_channel, NULL);
+                PyObject* channel_state = PY_Channel_get_state(py_channel, NULL);
                 Py_DECREF(py_channel); // We only needed it for the state
                 
                 if (!channel_state) {
@@ -1065,11 +1055,11 @@ static PyObject* py_chop_get_state(PyObject *self, void* closure) {
     }
 }
 
-static PyObject* py_chop_get_state_method(PyObject *self, PyObject* args) {
-    return py_chop_get_state(self, NULL);
+static PyObject* py_get_state_method(PyObject *self, PyObject* args) {
+    return py_get_state(self, NULL);
 }
 
-static int py_chop_set_state(PyObject *self, PyObject *value, void* closure) {
+static int py_set_state(PyObject *self, PyObject *value, void* closure) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
@@ -1130,13 +1120,13 @@ static int py_chop_set_state(PyObject *self, PyObject *value, void* closure) {
             std::string channel_name = PyUnicode_AsUTF8(name_obj);
             anim::Channel& channel = animation->create_channel(channel_name);
             
-            // Create PyChannel wrapper and set its state
-            PyChannel* py_channel = (PyChannel*)ChannelToPyObject(&channel, (PyObject*)self);
+            // Create PY_Channel wrapper and set its state
+            PY_Channel* py_channel = (PY_Channel*)ChannelToPY_Object(&channel, (PyObject*)self);
             if (!py_channel) {
                 return -1;
             }
             
-            if (PyChannel_set_state(py_channel, channel_state, NULL) < 0) {
+            if (PY_Channel_set_state(py_channel, channel_state, NULL) < 0) {
                 Py_DECREF(py_channel);
                 return -1;
             }
@@ -1153,13 +1143,13 @@ static int py_chop_set_state(PyObject *self, PyObject *value, void* closure) {
     }
 }
 
-static PyObject* py_chop_set_state_method(PyObject *self, PyObject *args) {
+static PyObject* py_set_state_method(PyObject *self, PyObject *args) {
     PyObject* value;
     if (!PyArg_ParseTuple(args, "O", &value)) {
         return NULL;
     }
     
-    if (py_chop_set_state(self, value, NULL) < 0) {
+    if (py_set_state(self, value, NULL) < 0) {
         return NULL;
     }
     

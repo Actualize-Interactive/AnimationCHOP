@@ -4,21 +4,21 @@
 #include <format>
 
 // Allocation/deallocation functions
-static PyObject* PyKeyframe_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-    PyKeyframe *self = (PyKeyframe *)type->tp_alloc(type, 0);
+static PyObject* PY_Keyframe_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    PY_Keyframe *self = (PY_Keyframe *)type->tp_alloc(type, 0);
     if (self != NULL) {
         new (&self->keyframe) anim::Keyframe(0.0, 0.0);
     }
     return (PyObject *)self;
 }
 
-static void PyKeyframe_dealloc(PyKeyframe *self) {
+static void PY_Keyframe_dealloc(PY_Keyframe *self) {
     self->keyframe.~Keyframe(); 
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 // Initialize the object
-static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
+static int PY_Keyframe_init(PY_Keyframe *self, PyObject *args, PyObject *kwds) {
     double time = 0.0, value = 0.0;
     PyObject* in_handle_obj = NULL;
     PyObject* out_handle_obj = NULL;
@@ -43,16 +43,16 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
     
     // Parse in_handle if provided
     if (in_handle_obj) {
-        if (!PyObjectToPoint(in_handle_obj, in_handle)) {
-            // PyObjectToPoint already sets the error
+        if (!PY_ObjectToPoint(in_handle_obj, in_handle)) {
+            // PY_ObjectToPoint already sets the error
             return -1;
         }
     }
     
     // Parse out_handle if provided
     if (out_handle_obj) {
-        if (!PyObjectToPoint(out_handle_obj, out_handle)) {
-            // PyObjectToPoint already sets the error
+        if (!PY_ObjectToPoint(out_handle_obj, out_handle)) {
+            // PY_ObjectToPoint already sets the error
             return -1;
         }
     }
@@ -98,11 +98,11 @@ static int PyKeyframe_init(PyKeyframe *self, PyObject *args, PyObject *kwds) {
 }
 
 // Getter/setter functions for properties
-static PyObject* PyKeyframe_get_time(PyKeyframe *self, void *closure) {
+static PyObject* PY_Keyframe_get_time(PY_Keyframe *self, void *closure) {
     return PyFloat_FromDouble(self->keyframe.position.time);
 }
 
-static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_time(PY_Keyframe *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The time attribute must be a float");
         return -1;
@@ -112,11 +112,11 @@ static int PyKeyframe_set_time(PyKeyframe *self, PyObject *value, void *closure)
     return 0;
 }
 
-static PyObject* PyKeyframe_get_value(PyKeyframe *self, void *closure) {
+static PyObject* PY_Keyframe_get_value(PY_Keyframe *self, void *closure) {
     return PyFloat_FromDouble(self->keyframe.position.value);
 }
 
-static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_value(PY_Keyframe *self, PyObject *value, void *closure) {
     if (!PyFloat_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "The value attribute must be a float");
         return -1;
@@ -126,14 +126,14 @@ static int PyKeyframe_set_value(PyKeyframe *self, PyObject *value, void *closure
     return 0;
 }
 
-static PyObject* PyKeyframe_get_in_handle(PyKeyframe *self, void *closure) {
-    return PointToPyObject(self->keyframe.in_handle);
+static PyObject* PY_Keyframe_get_in_handle(PY_Keyframe *self, void *closure) {
+    return PointToPY_Object(self->keyframe.in_handle);
 }
 
-static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_in_handle(PY_Keyframe *self, PyObject *value, void *closure) {
     anim::Point handle;
-    if (!PyObjectToPoint(value, handle)) {
-        // PyObjectToPoint already sets the error
+    if (!PY_ObjectToPoint(value, handle)) {
+        // PY_ObjectToPoint already sets the error
         return -1;
     }
     
@@ -142,14 +142,14 @@ static int PyKeyframe_set_in_handle(PyKeyframe *self, PyObject *value, void *clo
     return 0;
 }
 
-static PyObject* PyKeyframe_get_out_handle(PyKeyframe *self, void *closure) {
-    return PointToPyObject(self->keyframe.out_handle);
+static PyObject* PY_Keyframe_get_out_handle(PY_Keyframe *self, void *closure) {
+    return PointToPY_Object(self->keyframe.out_handle);
 }
 
-static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_out_handle(PY_Keyframe *self, PyObject *value, void *closure) {
     anim::Point handle;
-    if (!PyObjectToPoint(value, handle)) {
-        // PyObjectToPoint already sets the error
+    if (!PY_ObjectToPoint(value, handle)) {
+        // PY_ObjectToPoint already sets the error
         return -1;
     }
     
@@ -158,11 +158,11 @@ static int PyKeyframe_set_out_handle(PyKeyframe *self, PyObject *value, void *cl
     return 0;
 }
 
-static PyObject* PyKeyframe_get_function(PyKeyframe *self, void *closure) {
+static PyObject* PY_Keyframe_get_function(PY_Keyframe *self, void *closure) {
     return PyLong_FromLong(static_cast<long>(self->keyframe.function));
 }
 
-static int PyKeyframe_set_function(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_function(PY_Keyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
         long function_val = PyLong_AsLong(value);
         if (function_val >= 0 && function_val < static_cast<long>(anim::Function::count)) {
@@ -178,11 +178,11 @@ static int PyKeyframe_set_function(PyKeyframe *self, PyObject *value, void *clos
     }
 }
 
-static PyObject* PyKeyframe_get_handle_mode(PyKeyframe *self, void *closure) {
+static PyObject* PY_Keyframe_get_handle_mode(PY_Keyframe *self, void *closure) {
     return PyLong_FromLong(static_cast<long>(self->keyframe.handle_mode));
 }
 
-static int PyKeyframe_set_handle_mode(PyKeyframe *self, PyObject *value, void *closure) {
+static int PY_Keyframe_set_handle_mode(PY_Keyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
         long mode_val = PyLong_AsLong(value);
         if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::count)) {
@@ -199,7 +199,7 @@ static int PyKeyframe_set_handle_mode(PyKeyframe *self, PyObject *value, void *c
 }
 
 // --- State methods ---
-PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
+PyObject* PY_Keyframe_get_state(PY_Keyframe *self, void *closure) {
     if (!self) {
         PyErr_SetString(PyExc_RuntimeError, "Keyframe object is invalid");
         return NULL;
@@ -209,28 +209,28 @@ PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
     if (!state_dict) return NULL;
     
     try {
-        // Use PyPoint state functions for position and handles
-        PyPoint* position_point = PointToPyPoint(self->keyframe.position);
+        // Use PY_Point state functions for position and handles
+        PY_Point* position_point = PointToPY_Point(self->keyframe.position);
         if (!position_point) {
             Py_DECREF(state_dict);
             return NULL;
         }
         
-        PyObject* position_state = PyPoint_get_state(position_point, NULL);
+        PyObject* position_state = PY_Point_get_state(position_point, NULL);
         Py_DECREF(position_point);
         if (!position_state) {
             Py_DECREF(state_dict);
             return NULL;
         }
         
-        PyPoint* in_handle_point = PointToPyPoint(self->keyframe.in_handle);
+        PY_Point* in_handle_point = PointToPY_Point(self->keyframe.in_handle);
         if (!in_handle_point) {
             Py_DECREF(position_state);
             Py_DECREF(state_dict);
             return NULL;
         }
         
-        PyObject* in_handle_state = PyPoint_get_state(in_handle_point, NULL);
+        PyObject* in_handle_state = PY_Point_get_state(in_handle_point, NULL);
         Py_DECREF(in_handle_point);
         if (!in_handle_state) {
             Py_DECREF(position_state);
@@ -238,7 +238,7 @@ PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
             return NULL;
         }
         
-        PyPoint* out_handle_point = PointToPyPoint(self->keyframe.out_handle);
+        PY_Point* out_handle_point = PointToPY_Point(self->keyframe.out_handle);
         if (!out_handle_point) {
             Py_DECREF(position_state);
             Py_DECREF(in_handle_state);
@@ -246,7 +246,7 @@ PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
             return NULL;
         }
         
-        PyObject* out_handle_state = PyPoint_get_state(out_handle_point, NULL);
+        PyObject* out_handle_state = PY_Point_get_state(out_handle_point, NULL);
         Py_DECREF(out_handle_point);
         if (!out_handle_state) {
             Py_DECREF(position_state);
@@ -300,7 +300,7 @@ PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure) {
     }
 }
 
-int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
+int PY_Keyframe_set_state(PY_Keyframe *self, PyObject *value, void *closure) {
     if (!self) {
         PyErr_SetString(PyExc_RuntimeError, "Keyframe object is invalid");
         return -1;
@@ -312,19 +312,19 @@ int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
     }
     
     try {
-        // Get position using PyPoint state functions
+        // Get position using PY_Point state functions
         PyObject* position_obj = PyDict_GetItemString(value, "position");
         if (!position_obj) {
             PyErr_SetString(PyExc_ValueError, "Keyframe state must have 'position' field");
             return -1;
         }
         
-        PyPoint* position_point = PointToPyPoint(anim::Point(0.0, 0.0));
+        PY_Point* position_point = PointToPY_Point(anim::Point(0.0, 0.0));
         if (!position_point) {
             return -1;
         }
         
-        if (PyPoint_set_state(position_point, position_obj, NULL) < 0) {
+        if (PY_Point_set_state(position_point, position_obj, NULL) < 0) {
             Py_DECREF(position_point);
             return -1;
         }
@@ -332,18 +332,18 @@ int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
         anim::Point position = position_point->point;
         Py_DECREF(position_point);
         
-        // Get handles (with defaults based on position) using PyPoint state functions
+        // Get handles (with defaults based on position) using PY_Point state functions
         anim::Point in_handle(position.time - 0.3, position.value);
         anim::Point out_handle(position.time + 0.3, position.value);
         
         PyObject* in_handle_obj = PyDict_GetItemString(value, "in_handle");
         if (in_handle_obj) {
-            PyPoint* in_handle_point = PointToPyPoint(in_handle);
+            PY_Point* in_handle_point = PointToPY_Point(in_handle);
             if (!in_handle_point) {
                 return -1;
             }
             
-            if (PyPoint_set_state(in_handle_point, in_handle_obj, NULL) < 0) {
+            if (PY_Point_set_state(in_handle_point, in_handle_obj, NULL) < 0) {
                 Py_DECREF(in_handle_point);
                 return -1;
             }
@@ -354,12 +354,12 @@ int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
         
         PyObject* out_handle_obj = PyDict_GetItemString(value, "out_handle");
         if (out_handle_obj) {
-            PyPoint* out_handle_point = PointToPyPoint(out_handle);
+            PY_Point* out_handle_point = PointToPY_Point(out_handle);
             if (!out_handle_point) {
                 return -1;
             }
             
-            if (PyPoint_set_state(out_handle_point, out_handle_obj, NULL) < 0) {
+            if (PY_Point_set_state(out_handle_point, out_handle_obj, NULL) < 0) {
                 Py_DECREF(out_handle_point);
                 return -1;
             }
@@ -423,57 +423,57 @@ int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure) {
     }
 }
 
-static PyObject* PyKeyframe_get_state_method(PyKeyframe *self, PyObject *args) {
-    return PyKeyframe_get_state(self, NULL);
+static PyObject* PY_Keyframe_get_state_method(PY_Keyframe *self, PyObject *args) {
+    return PY_Keyframe_get_state(self, NULL);
 }
 
-static PyObject* PyKeyframe_set_state_method(PyKeyframe *self, PyObject *args) {
+static PyObject* PY_Keyframe_set_state_method(PY_Keyframe *self, PyObject *args) {
     PyObject* state;
     if (!PyArg_ParseTuple(args, "O", &state))
         return NULL;
     
-    if (PyKeyframe_set_state(self, state, NULL) < 0)
+    if (PY_Keyframe_set_state(self, state, NULL) < 0)
         return NULL;
     
     Py_RETURN_NONE;
 }
 
-static PyObject* PyKeyframe_copy(PyKeyframe* self, PyObject*) {
-    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+static PyObject* PY_Keyframe_copy(PY_Keyframe* self, PyObject*) {
+    PY_Keyframe* result = KeyframeToPY_Keyframe(self->keyframe);
     if (!result) return NULL;
     return (PyObject*)result;
 }
-static PyObject* PyKeyframe_deepcopy(PyKeyframe* self, PyObject* args) {
+static PyObject* PY_Keyframe_deepcopy(PY_Keyframe* self, PyObject* args) {
     // Ignore memo dict
-    PyKeyframe* result = KeyframeToPyKeyframe(self->keyframe);
+    PY_Keyframe* result = KeyframeToPY_Keyframe(self->keyframe);
     if (!result) return NULL;
     return (PyObject*)result;
 }
 
 
 // --- Methods table ---
-static PyMethodDef PyKeyframe_methods[] = {
-    {"__copy__", (PyCFunction)PyKeyframe_copy, METH_NOARGS, "Shallow copy of Keyframe"},
-    {"__deepcopy__", (PyCFunction)PyKeyframe_deepcopy, METH_VARARGS, "Deep copy of Keyframe"},
-    {"get_state", (PyCFunction)PyKeyframe_get_state_method, METH_NOARGS, "Get Keyframe state as dictionary"},
-    {"set_state", (PyCFunction)PyKeyframe_set_state_method, METH_VARARGS, "Set Keyframe state from dictionary"},
+static PyMethodDef PY_Keyframe_methods[] = {
+    {"__copy__", (PyCFunction)PY_Keyframe_copy, METH_NOARGS, "Shallow copy of Keyframe"},
+    {"__deepcopy__", (PyCFunction)PY_Keyframe_deepcopy, METH_VARARGS, "Deep copy of Keyframe"},
+    {"get_state", (PyCFunction)PY_Keyframe_get_state_method, METH_NOARGS, "Get Keyframe state as dictionary"},
+    {"set_state", (PyCFunction)PY_Keyframe_set_state_method, METH_VARARGS, "Set Keyframe state from dictionary"},
     {NULL, NULL, 0, NULL}
 };
 
 // Property definitions
-static PyGetSetDef PyKeyframe_getset[] = {
-    {"time", (getter)PyKeyframe_get_time, (setter)PyKeyframe_set_time, "Time of the keyframe", NULL},
-    {"value", (getter)PyKeyframe_get_value, (setter)PyKeyframe_set_value, "Value of the keyframe", NULL},
-    {"in_handle", (getter)PyKeyframe_get_in_handle, (setter)PyKeyframe_set_in_handle, "Incoming handle point", NULL},
-    {"out_handle", (getter)PyKeyframe_get_out_handle, (setter)PyKeyframe_set_out_handle, "Outgoing handle point", NULL},
-    {"function", (getter)PyKeyframe_get_function, (setter)PyKeyframe_set_function, "Interpolation function", NULL},
-    {"handle_mode", (getter)PyKeyframe_get_handle_mode, (setter)PyKeyframe_set_handle_mode, "Handle mode", NULL},
-    {"state", (getter)PyKeyframe_get_state, (setter)PyKeyframe_set_state, "Keyframe state as dictionary", NULL},
+static PyGetSetDef PY_Keyframe_getset[] = {
+    {"time", (getter)PY_Keyframe_get_time, (setter)PY_Keyframe_set_time, "Time of the keyframe", NULL},
+    {"value", (getter)PY_Keyframe_get_value, (setter)PY_Keyframe_set_value, "Value of the keyframe", NULL},
+    {"in_handle", (getter)PY_Keyframe_get_in_handle, (setter)PY_Keyframe_set_in_handle, "Incoming handle point", NULL},
+    {"out_handle", (getter)PY_Keyframe_get_out_handle, (setter)PY_Keyframe_set_out_handle, "Outgoing handle point", NULL},
+    {"function", (getter)PY_Keyframe_get_function, (setter)PY_Keyframe_set_function, "Interpolation function", NULL},
+    {"handle_mode", (getter)PY_Keyframe_get_handle_mode, (setter)PY_Keyframe_set_handle_mode, "Handle mode", NULL},
+    {"state", (getter)PY_Keyframe_get_state, (setter)PY_Keyframe_set_state, "Keyframe state as dictionary", NULL},
     {NULL}  // Sentinel
 };
 
 // String representation
-static PyObject* PyKeyframe_str(PyKeyframe *self) {
+static PyObject* PY_Keyframe_str(PY_Keyframe *self) {
     auto str = std::format("Keyframe(time={}, value={}, function={}, handle_mode={})", 
                             self->keyframe.position.time, 
                             self->keyframe.position.value, 
@@ -483,12 +483,12 @@ static PyObject* PyKeyframe_str(PyKeyframe *self) {
 }
 
 // --- Equality and copy protocol ---
-static PyObject* PyKeyframe_richcompare(PyObject* a, PyObject* b, int op) {
-    if (!PyObject_TypeCheck(a, &PyKeyframeType) || !PyObject_TypeCheck(b, &PyKeyframeType)) {
+static PyObject* PY_Keyframe_richcompare(PyObject* a, PyObject* b, int op) {
+    if (!PyObject_TypeCheck(a, &PY_KeyframeType) || !PyObject_TypeCheck(b, &PY_KeyframeType)) {
         Py_RETURN_NOTIMPLEMENTED;
     }
-    const anim::Keyframe& kfa = ((PyKeyframe*)a)->keyframe;
-    const anim::Keyframe& kfb = ((PyKeyframe*)b)->keyframe;
+    const anim::Keyframe& kfa = ((PY_Keyframe*)a)->keyframe;
+    const anim::Keyframe& kfb = ((PY_Keyframe*)b)->keyframe;
     switch (op) {
         case Py_EQ:
             return PyBool_FromLong(kfa == kfb);
@@ -500,23 +500,23 @@ static PyObject* PyKeyframe_richcompare(PyObject* a, PyObject* b, int op) {
 }
 
 // Type definition
-PyTypeObject PyKeyframeType = {
+PyTypeObject PY_KeyframeType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "anim.Keyframe",          // tp_name
-    sizeof(PyKeyframe),       // tp_basicsize
+    sizeof(PY_Keyframe),       // tp_basicsize
     0,                         // tp_itemsize
-    (destructor)PyKeyframe_dealloc, // tp_dealloc
+    (destructor)PY_Keyframe_dealloc, // tp_dealloc
     0,                         // tp_print
     0,                         // tp_getattr
     0,                         // tp_setattr
     0,                         // tp_compare
-    (reprfunc)PyKeyframe_str, // tp_repr
+    (reprfunc)PY_Keyframe_str, // tp_repr
     0,                         // tp_as_number
     0,                         // tp_as_sequence
     0,                         // tp_as_mapping
     0,                         // tp_hash 
     0,                         // tp_call
-    (reprfunc)PyKeyframe_str, // tp_str
+    (reprfunc)PY_Keyframe_str, // tp_str
     PyObject_GenericGetAttr,   // tp_getattro
     PyObject_GenericSetAttr,   // tp_setattro
     0,                         // tp_as_buffer
@@ -524,38 +524,38 @@ PyTypeObject PyKeyframeType = {
     "Keyframe object",        // tp_doc
     0,                         // tp_traverse
     0,                         // tp_clear
-    PyKeyframe_richcompare,    // tp_richcompare
+    PY_Keyframe_richcompare,    // tp_richcompare
     0,                         // tp_weaklistoffset
     0,                         // tp_iter
     0,                         // tp_iternext
-    PyKeyframe_methods,        // tp_methods
+    PY_Keyframe_methods,        // tp_methods
     0,                         // tp_members
-    PyKeyframe_getset,         // tp_getset
+    PY_Keyframe_getset,         // tp_getset
     0,                         // tp_base
     0,                         // tp_dict
     0,                         // tp_descr_get
     0,                         // tp_descr_set
     0,                         // tp_dictoffset
-    (initproc)PyKeyframe_init, // tp_init
+    (initproc)PY_Keyframe_init, // tp_init
     0,                         // tp_alloc
-    PyKeyframe_new,            // tp_new
+    PY_Keyframe_new,            // tp_new
 };
 
 // Type getter for external use
 PyObject* get_keyframe_type(PyObject* self, void* closure) {
-    if (PyType_Ready(&PyKeyframeType) < 0) {
+    if (PyType_Ready(&PY_KeyframeType) < 0) {
         return NULL;
     }
-    Py_INCREF(&PyKeyframeType);
-    return (PyObject*)&PyKeyframeType;
+    Py_INCREF(&PY_KeyframeType);
+    return (PyObject*)&PY_KeyframeType;
 }
 
-PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe) {
+PY_Keyframe* KeyframeToPY_Keyframe(const anim::Keyframe& keyframe) {
     // Ensure the type is initialized before creating an instance
-    if (PyType_Ready(&PyKeyframeType) < 0) {
+    if (PyType_Ready(&PY_KeyframeType) < 0) {
         return NULL;
     }
-    PyKeyframe* py_keyframe = PyObject_New(PyKeyframe, &PyKeyframeType);
+    PY_Keyframe* py_keyframe = PyObject_New(PY_Keyframe, &PY_KeyframeType);
     if (py_keyframe == NULL) {
         return NULL;
     }
@@ -564,16 +564,16 @@ PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe) {
 }
 
 // Helper functions for conversion between C++ and Python
-PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe) {
-    return (PyObject*)KeyframeToPyKeyframe(keyframe);
+PyObject* KeyframeToPY_Object(const anim::Keyframe& keyframe) {
+    return (PyObject*)KeyframeToPY_Keyframe(keyframe);
 }
 
-bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe) {
+bool PY_KeyframeToKeyframe(PY_Keyframe* py_keyframe, anim::Keyframe& keyframe) {
     if (!py_keyframe) { // This check might be redundant if type checking is done before calling
         PyErr_SetString(PyExc_TypeError, "Expected a Keyframe object, got NULL");
         return false;
     }
-    if (!PyObject_TypeCheck(py_keyframe, &PyKeyframeType)) { // Ensure it's the correct type
+    if (!PyObject_TypeCheck(py_keyframe, &PY_KeyframeType)) { // Ensure it's the correct type
         PyErr_SetString(PyExc_TypeError, "Expected a Keyframe object");
         return false;
     }
@@ -581,18 +581,18 @@ bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe) {
     return true;
 }
 
-bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe) {
-    if (!PyObject_TypeCheck(obj, &PyKeyframeType)) {
+bool PY_ObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe) {
+    if (!PyObject_TypeCheck(obj, &PY_KeyframeType)) {
         PyErr_SetString(PyExc_TypeError, "Expected a Keyframe object");
         return false;
     }
     
-    PyKeyframe* py_keyframe = (PyKeyframe*)obj;
+    PY_Keyframe* py_keyframe = (PY_Keyframe*)obj;
     keyframe = py_keyframe->keyframe; // Direct assignment if Keyframe is copyable
     return true;
 }
 
 // Forward declarations for state functions (make them accessible to other files)
-extern PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure);
-extern int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure);
+extern PyObject* PY_Keyframe_get_state(PY_Keyframe *self, void *closure);
+extern int PY_Keyframe_set_state(PY_Keyframe *self, PyObject *value, void *closure);
 

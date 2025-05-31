@@ -16,25 +16,25 @@
 typedef struct {
     PyObject_HEAD
     anim::Keyframe keyframe;
-} PyKeyframe;
+} PY_Keyframe;
 
-extern PyTypeObject PyKeyframeType;
+extern PyTypeObject PY_KeyframeType;
 
 
 // Utility functions for conversion
-PyKeyframe* KeyframeToPyKeyframe(const anim::Keyframe& keyframe);
-PyObject* KeyframeToPyObject(const anim::Keyframe& keyframe);
-bool PyKeyframeToKeyframe(PyKeyframe* py_keyframe, anim::Keyframe& keyframe);
-bool PyObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe);
+PY_Keyframe* KeyframeToPY_Keyframe(const anim::Keyframe& keyframe);
+PyObject* KeyframeToPY_Object(const anim::Keyframe& keyframe);
+bool PY_KeyframeToKeyframe(PY_Keyframe* py_keyframe, anim::Keyframe& keyframe);
+bool PY_ObjectToKeyframe(PyObject* obj, anim::Keyframe& keyframe);
 
 
 // Type getter for external use
 PyObject* get_keyframe_type(PyObject* self, void* closure);
 
 // Forward declare Point state functions for use in keyframe
-extern PyObject* PyPoint_get_state(PyPoint *self, void *closure);
-extern int PyPoint_set_state(PyPoint *self, PyObject *value, void *closure);
+extern PyObject* PY_Point_get_state(PY_Point *self, void *closure);
+extern int PY_Point_set_state(PY_Point *self, PyObject *value, void *closure);
 
 // State function declarations
-extern PyObject* PyKeyframe_get_state(PyKeyframe *self, void *closure);
-extern int PyKeyframe_set_state(PyKeyframe *self, PyObject *value, void *closure);
+extern PyObject* PY_Keyframe_get_state(PY_Keyframe *self, void *closure);
+extern int PY_Keyframe_set_state(PY_Keyframe *self, PyObject *value, void *closure);

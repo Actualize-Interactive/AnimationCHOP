@@ -13,15 +13,15 @@
 typedef struct {
     PyObject_HEAD
     anim::Point point;  // Using Point directly
-} PyPoint;
+} PY_Point;
 
 
-extern PyTypeObject PyPointType;
+extern PyTypeObject PY_PointType;
 
 // Utility functions for conversion
-PyPoint* PointToPyPoint(const anim::Point& point);
-PyObject* PointToPyObject(const anim::Point& point);
-bool PyObjectToPoint(PyObject* obj, anim::Point& point);
+PY_Point* PointToPY_Point(const anim::Point& point);
+PyObject* PointToPY_Object(const anim::Point& point);
+bool PY_ObjectToPoint(PyObject* obj, anim::Point& point);
 
 // Type getter for external use
 PyObject* get_point_type(PyObject* self, void* closure);

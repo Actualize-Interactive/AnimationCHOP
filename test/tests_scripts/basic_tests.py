@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test suite for AnimationCHOP Python API
 This script tests all the exposed Python functions for channel and keyframe management.
 Run this in TouchDesigner with an AnimationCHOP node.
@@ -1129,7 +1129,7 @@ def run_tests(cleanup=False):
     # Get the current operator (this should be called from the AnimationCHOP node)
     try:
         # In TouchDesigner, 'me' refers to the current operator
-        anim_chop = op('Animationchop1')
+        anim_chop = op('Animation1')
         print(f"Running tests on node: {anim_chop}")
     except NameError:
         print("ERROR: This script must be run from within TouchDesigner")

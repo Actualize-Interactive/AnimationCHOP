@@ -1,5 +1,6 @@
 #pragma once
 
+#include <anim/id.hpp>
 #include <anim/channel.hpp>
 #include "py_keyframe.h"
 #include "py_point.h"
@@ -14,20 +15,32 @@
     #include <Python/structmember.h>
 #endif
 
+// Forward declaration
+class AnimationCHOP;
+namespace TD { struct PY_Struct; }
+
 typedef struct {
     PyObject_HEAD
-    anim::Channel* channel;  // Pointer to the actual channel in AnimationCHOP
-    PyObject* parent;        // Reference to the parent AnimationCHOP to keep it alive
-} PyChannel;
+    anim::Id channel_id; // Unique identifier for the channel - the internal Id is const and anim::Id has explicit constructor so we need to set on construction
+    PyObject* parent; // Reference to the parent AnimationCHOP to keep it alive
+} PY_Channel;
 
-extern PyTypeObject PyChannelType;
+struct ChannelData {
+    anim::Channel* channel {nullptr}; // Pointer to the anim::Channel object
+    AnimationCHOP* inst {nullptr}; // Pointer to the AnimationCHOP instance for context
+    TD::PY_Struct* node_struct {nullptr}; // Pointer to the TD node structure for context
+};
+
+extern PyTypeObject PY_ChannelType;
 
 // Helper functions for conversion between C++ and Python
-PyObject* ChannelToPyObject(anim::Channel* channel, PyObject* parent);
-bool PyObjectToChannel(PyObject* obj, anim::Channel*& channel);
+PyObject* ChannelToPY_Object(anim::Channel* channel, PyObject* parent);
+bool PY_ObjectToChannel(PyObject* obj, anim::Channel*& channel);
 
 // Type getter for external use
 PyObject* get_channel_type(PyObject* self, void* closure);
 
-PyObject* PyChannel_get_state(PyChannel *self, void *closure);
-int PyChannel_set_state(PyChannel *self, PyObject *value, void *closure);
+PyObject* PY_Channel_get_state(PY_Channel *self, void *closure);
+int PY_Channel_set_state(PY_Channel *self, PyObject *value, void *closure);
+
+ChannelData getChannelData(PY_Channel *self, bool autoCook = false);
