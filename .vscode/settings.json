@@ -82,7 +82,8 @@
         "__config": "cpp",
         "future": "cpp",
         "regex": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "numbers": "cpp"
     },
     "C_Cpp.default.cppStandard": "c++20",
     "C_Cpp.default.intelliSenseMode": "windows-msvc-x64"

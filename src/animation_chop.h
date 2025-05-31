@@ -1,8 +1,12 @@
+#pragma once
 #include "CHOP_CPlusPlusBase.h"
+
 #include <anim.hpp>
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
+
 
 using namespace TD;
 
@@ -10,7 +14,7 @@ class AnimationCHOP : public CHOP_CPlusPlusBase
 {
 public:
 	AnimationCHOP(const OP_NodeInfo* info);
-	virtual ~AnimationCHOP();
+	~AnimationCHOP() override;
 
 	virtual void		getGeneralInfo(CHOP_GeneralInfo*, const OP_Inputs*, void* ) override;
 	virtual bool		getOutputInfo(CHOP_OutputInfo*, const OP_Inputs*, void*) override;
@@ -24,53 +28,29 @@ public:
 	virtual void		setupParameters(OP_ParameterManager* manager, void *reserved1) override;
 	virtual void		pulsePressed(const char* name, void* reserved1) override;
 
-	anim::Animation& animation() { return m_animation; }
-
-	const anim::Channel* createChannel(const std::string& name, int32_t insertIndex = -1);
-	bool removeChannel(const std::string& name);
-	bool removeChannel(size_t index);
-
-	void createChannels(const std::vector<std::string>& channelNames);
-	bool removeChannels(const std::vector<std::string>& channelNames);
-	void clearChannels();
-
-	bool setKeyframeAtTime(const std::string& channelName, double time, double value, anim::TangentMode mode, double in_tangent_time, double in_tangent_value, double out_tangent_time, double out_tangent_value);
-	bool removeKeyframeAtTime(const std::string& channelName, double time);
-	bool removeKeyframes(const std::string& channelName, const std::vector<double>& times);
-
-	size_t getChannelCount() const;
-	std::vector<std::string> getChannelNames() const;
-	bool channelExists(const std::string& name) const;
-	size_t getKeyframeCount(const std::string& channelName) const;
+	anim::Animation* animation() { return m_animation.get(); }
+	const anim::Animation& animation() const { return *m_animation; }
+	float sampleRate() const { return m_sampleRate; }
 
 private:
-	const OP_NodeInfo*	m_nodeInfo;
+	const OP_NodeInfo* m_nodeInfo;
 	const char* m_warning;
 	const char* m_error;
+	float m_sampleRate { 60.0f }; 
+	std::unique_ptr<anim::Animation> m_animation;
 
-	anim::Animation     m_animation;
+	enum class OutputMode {
+		range,
+		autoRange,
+		input,
+		sequence
+	};
+
+	OutputMode m_outputMode { OutputMode::range };
+	double m_lastEvalTime { 0.0 };
+
+	void applyOutputMode(const OP_Inputs* inputs);
 
 };
 
-static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
 
-static PyObject* py_createChannel(PyObject* self, PyObject* args);
-static PyObject* py_getChannel(PyObject* self, PyObject* args);
-static PyObject* py_removeChannel(PyObject* self, PyObject* args);
-static PyObject* py_getChannelNames(PyObject* self);
-static PyObject* py_clearChannels(PyObject* self);
-
-static PyObject* py_setKeyframe(PyObject* self, PyObject* args);
-static PyObject* py_setKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* py_getKeyframe(PyObject* self, PyObject* args);
-static PyObject* py_getKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* py_hasKeyframe(PyObject* self, PyObject* args);
-static PyObject* py_hasKeyframeAtTime(PyObject* self, PyObject* args);
-static PyObject* py_removeKeyframe(PyObject* self, PyObject* args);
-static PyObject* py_removeKeyframeAtTime(PyObject* self, PyObject* args);
-
-static PyObject* py_setKeyframes(PyObject* self, PyObject* args);
-static PyObject* py_setKeyframesAtTime(PyObject* self, PyObject* args);
-static PyObject* py_removeKeyframesAtTime(PyObject* self, PyObject* args);
-
-static PyObject* py_debugChannel(PyObject* self, PyObject* args);
