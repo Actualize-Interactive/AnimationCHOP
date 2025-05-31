@@ -574,8 +574,12 @@ static PyObject* PyChannel_get_name(PyChannel *self, void*) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
         return NULL;
     }
-    return PyUnicode_FromString(self->channel->name().c_str());
+    
+    PyObject* result = PyUnicode_FromString(self->channel->name().c_str());
+    // PyUnicode_FromString sets exception on failure, so just return result
+    return result;
 }
+
 static int PyChannel_set_name(PyChannel *self, PyObject* value, void*) {
     if (!self->channel) {
         PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");

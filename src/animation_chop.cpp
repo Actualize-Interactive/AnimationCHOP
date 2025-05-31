@@ -21,6 +21,8 @@
 #include <cmath>
 #include <assert.h>
 
+#include <iostream>
+
 
 #ifdef _WIN32
 	#include <Python.h>
@@ -194,43 +196,64 @@ AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, 
 	// ginfo->timeslice = true;
 
 	// ginfo->inputMatchIndex = 0;
+    auto output_mode = inputs->getParString("Outputmode");
+    if (strcmp(output_mode, "sequence") == 0 && inputs->getParInt("Timeslice") == 1) {
+        ginfo->timeslice = true;
+    } 
 }
 
 bool
 AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
-    info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate"));
     info->numChannels = static_cast<int32_t>(m_animation->num_channels());
+    std::cout << "AnimationCHOP::getOutputInfo: numChannels = " << info->numChannels << std::endl;
+    info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate"));
+    applyOutputMode(inputs);
 
-    // auto output_mode = inputs->getParString("Outputmode");
-    // if (output_mode == "fullrange") {
 
-    // } else {
+    // switch(m_outputMode) {
+    // case OutputMode::input: {
+    //     const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
+    //     if (input_chop) {
+    //         info->startIndex = input_chop->startIndex;
+    //         info->numSamples = input_chop->numSamples;
+    //         info->sampleRate = input_chop->sampleRate;
+            
+    //     } else {
+    //         info->startIndex = 0;
+    //         info->numSamples = 1;
+    //         m_error = "An CHOP with at least one channel must be connected when using 'Input' mode.";
+    //     }
+    //     break;
+    // } case OutputMode::sequence: {
+    //     info->startIndex = static_cast<uint32_t>(inputs->getParDouble("Sequence"));
 
+    //     // overridden if CHOP_GeneralInfo::timeslice == true
+    //     info->numSamples = 1;
+    //     break;
+    // } case OutputMode::range: {
+    //     auto start_time = inputs->getParDouble("Range", 0);
+    //     auto end_time = inputs->getParDouble("Range", 1);
+    //     m_animation->set_start_time(start_time);
+    //     m_animation->set_end_time(end_time);
+    //     info->startIndex = static_cast<uint32_t>(start_time * info->sampleRate);
+    //     info->numSamples = static_cast<int32_t>(end_time * info->sampleRate) - info->startIndex;
+    //     if (info->numSamples < 1) {
+    //         info->numSamples = 1;
+    //     }
+    //     break;
+    // } case OutputMode::autoRange: default: {
+    //     double max_length = 0.0;
+    //     for (size_t i = 0; i < m_animation->num_channels(); ++i) {
+    //         const auto& channel = m_animation->channel(i);
+    //         max_length = std::max(max_length, channel.length());
+    //     }
+    //     info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
+    //     m_animation->set_start_time(0.0);
+    //     m_animation->set_end_time(max_length);
+    //     break;
     // }
-
-
-    // Compute the maximum channel length (end_time - start_time) across all channels
-    double max_length = 0.0;
-    for (size_t i = 0; i < m_animation->num_channels(); ++i) {
-        try {
-            const auto& channel = m_animation->channel(i);
-            double length = channel.length();
-            if (length > max_length) {
-                max_length = length;
-            }
-        } catch (const std::out_of_range&) {
-            // skip
-        }
-    }
-    // If no channels, default to 1 sample
-    if (max_length <= 0.0) {
-        info->numSamples = 1;
-    } else {
-        // Output samples from t=0 to t=max_length at the current sample rate
-        info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
-        if (info->numSamples < 1) info->numSamples = 1;
-    }
+    // }
     return true;
 }
 
@@ -239,13 +262,14 @@ AnimationCHOP::getChannelName(int32_t index, OP_String *name, const OP_Inputs* i
 {
 	// If we have animation channels, use their names
 	if (index < static_cast<int32_t>(m_animation->num_channels())) {
-		try {
+		// try {
 			const auto& channel = m_animation->channel(index);
 			name->setString(channel.name().c_str());
-		} catch (const std::out_of_range&) {
-			// Default fallback name
-			name->setString("chan1");
-		}
+		// } catch (const std::out_of_range&) {
+        //     std::cout << "Warning: Channel index " << index << " out of range for AnimationCHOP." << std::endl;
+		// 	// Default fallback name
+		// 	name->setString("chan1");
+		// }
 	} else {
 		// Default fallback name
 		name->setString("chan1");
@@ -258,28 +282,77 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 	m_error = nullptr;
 	m_warning = nullptr;
 
-	size_t num_anim_channels = m_animation->num_channels();
-	for (int i = 0; i < output->numChannels; i++) {
-		if (i < static_cast<int>(num_anim_channels)) {
-			try {
-				const auto& channel = m_animation->channel(i);
-				for (int j = 0; j < output->numSamples; j++) {
-					double time = j / output->sampleRate;
-					output->channels[i][j] = static_cast<float>(channel.evaluate(time));
-				}
-			} catch (const std::out_of_range&) {
-				// Channel not found, fill with zeros
-				for (int j = 0; j < output->numSamples; j++) {
-					output->channels[i][j] = 0.0f;
-				}
-			}
-		} else {
-			// No animation channel for this output channel, fill with zeros
-			for (int j = 0; j < output->numSamples; j++) {
-				output->channels[i][j] = 0.0f;
-			}
-		}
-	}
+    // switch(m_outputMode) {
+    // case OutputMode::input: {
+    //     const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
+    //     if (!input_chop) {
+    //         m_error = "No input CHOP connected.";
+    //         return;
+    //     } else if (input_chop->numChannels < 1) {
+    //         m_error = "Input CHOP has no channels.";
+    //         return;
+    //     } else if (input_chop->numSamples != output->numSamples) {
+    //         m_error = "Input CHOP and output CHOP have different number of samples.";
+    //         return;
+    //     } else if (input_chop->sampleRate != output->sampleRate) {
+    //         m_error = "Input CHOP and output CHOP have different sample rates.";
+    //         return;
+    //     }
+
+    //     auto index_unit = inputs->getParString("Indexunit");
+    //     std::vector<double> eval_times;
+    //     eval_times.reserve(input_chop->numSamples);
+    //     if (strcmp(index_unit, "seconds") == 0) {
+    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
+    //             eval_times.push_back(input_chop->getChannelData(0)[i]);
+    //         }
+    //     } else if (strcmp(index_unit, "samples") == 0) {
+    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
+    //             eval_times.push_back(i / input_chop->sampleRate);
+    //         }
+    //     } else if (strcmp(index_unit, "frames") == 0) {
+    //         for (size_t i = 0; i < input_chop->numSamples; ++i) {
+    //             eval_times.push_back((i + 1.0f) / input_chop->sampleRate);
+    //         }
+    //     } 
+    //     for (size_t i = 0; i < output->numChannels; ++i) {
+    //         if (i < static_cast<int32_t>(input_chop->numChannels) && i < m_animation->num_channels()) {
+    //             for (int j = 0; j < output->numSamples; ++j) {
+    //                 output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_times[j]));
+    //             }
+    //         } 
+    //     }
+    //     return;
+    // } case OutputMode::sequence: {
+    //     auto index_unit = inputs->getParString("Indexunit");
+    //     auto eval_time = inputs->getParDouble("Sequence");
+    //     if (strcmp(index_unit, "samples") == 0) {
+    //         eval_time /= output->sampleRate; // Convert samples to seconds
+    //     } else if (strcmp(index_unit, "frames") == 0) {
+    //         eval_time = (eval_time - 1.0f) / output->sampleRate; // Convert frames to seconds
+    //     }
+            
+    //     for (size_t i = 0; i < output->numChannels; ++i) {
+    //         if (i < m_animation->num_channels()) {
+    //             output->channels[i][0] = static_cast<float>(m_animation->channel(i).evaluate(eval_time));
+    //         }
+    //     }
+    //     return;
+    // } case OutputMode::range: case OutputMode::autoRange: default: {
+    //     size_t num_anim_channels = m_animation->num_channels();
+    //     for (int i = 0; i < output->numChannels; i++) {
+    //         if (i < static_cast<int>(num_anim_channels)) {
+    //             auto samples = m_animation->channel(i).evaluate_range(
+    //                 m_animation->start_time(),
+    //                 m_animation->end_time(),
+    //                 output->numSamples
+    //             );
+    //             std::copy(samples.begin(), samples.end(), output->channels[i]);
+    //         }
+    //     }
+    //     return;
+    // }
+    // }
 }
 
 void 
@@ -299,41 +372,22 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 {
 	{
 		OP_NumericParameter	np;
-		np.name = "Samplerate";
-		np.label = "Sample Rate";
-		np.defaultValues[0] = 60.0;
-		np.minSliders[0] = 120.0;
-		np.maxSliders[0] =  30.0;
-		
-		OP_ParAppendResult res = manager->appendFloat(np);
-		assert(res == OP_ParAppendResult::Success);
-	} {
-		OP_NumericParameter	np;
 		np.name = "Range";
 		np.label = "Range";
 		np.defaultValues[0] = 0.0;
+        np.minValues[0] = 0.0;
         np.clampMins[0] = true;
         np.defaultValues[1] = 30.0;
 		
 		OP_ParAppendResult res = manager->appendFloat(np, 2);
 		assert(res == OP_ParAppendResult::Success);
 	} {
-        OP_StringParameter	sp;
-		sp.name = "Rangeunit";
-        sp.label = "Range Unit";
-        sp.defaultValue = "seconds";
-        const char *names[] = { "seconds", "samples", "frames" };
-        const char *labels[] = { "Seconds", "Samples", "Frames" };
-
-        OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
-        assert(res == OP_ParAppendResult::Success);
-    } {
 		OP_StringParameter	sp;
 		sp.name = "Outputmode";
 		sp.label = "Output Mode";
 		sp.defaultValue = "fullrange";
-		const char *names[] = { "fullrange", "chop", "index"};
-		const char *labels[] = { "Full Range", "Chop Input", "Index Par" };
+		const char *names[] = { "range", "autorange", "input", "sequence" };
+		const char *labels[] = { "Range", "Auto Range", "Input Index (first channel)", "Sequence Index" };
 
 		OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
 		assert(res == OP_ParAppendResult::Success);
@@ -347,7 +401,56 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 
         OP_ParAppendResult res = manager->appendMenu(sp, 3, names, labels);
         assert(res == OP_ParAppendResult::Success);
-    }
+    } {
+        OP_NumericParameter	np;
+        np.name = "Sequence";
+        np.label = "Sequence Index";
+		np.defaultValues[0] = 0.0;
+        np.minSliders[0] = 0.0;
+        np.maxSliders[0] = 30.0;
+        OP_ParAppendResult res = manager->appendFloat(np);
+        assert(res == OP_ParAppendResult::Success);
+    } {
+        OP_StringParameter	sp;
+        sp.name = "Extendleft";
+        sp.label = "Extend Left";
+        sp.defaultValue = "hold";
+        const char *names[] = { "hold", "repeat"};
+        const char *labels[] = { "Hold", "Repeat" };
+
+        OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
+        assert(res == OP_ParAppendResult::Success);
+    } {
+        OP_StringParameter	sp;
+        sp.name = "Extendright";
+        sp.label = "Extend Right";
+        sp.defaultValue = "repeat";
+        const char *names[] = { "hold", "repeat"};
+        const char *labels[] = { "Hold", "Repeat" };
+
+        OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
+        assert(res == OP_ParAppendResult::Success);
+    } {
+		OP_NumericParameter	np;
+		np.name = "Samplerate";
+		np.label = "Sample Rate";
+		np.defaultValues[0] = 60.0;
+		np.minSliders[0] = 120.0;
+        np.minValues[0] = 1.0;
+		np.maxSliders[0] =  30.0;
+        np.clampMins[0] = true;
+		
+		OP_ParAppendResult res = manager->appendFloat(np);
+		assert(res == OP_ParAppendResult::Success);
+	} {
+		OP_NumericParameter	np;
+        np.name = "Timeslice";
+        np.label = "Timeslice";
+        np.defaultValues[0] = 0.0;
+
+        OP_ParAppendResult res = manager->appendToggle(np);
+        assert(res == OP_ParAppendResult::Success);
+	}
 
 }
 
@@ -361,6 +464,23 @@ AnimationCHOP::pulsePressed(const char* name, void* reserved1)
     }
 }
 
+void
+AnimationCHOP::applyOutputMode(const OP_Inputs *inputs)
+{
+    const char* output_mode = inputs->getParString("Outputmode");
+    if (strcmp(output_mode, "range") == 0) {
+        m_outputMode = OutputMode::range;
+    } else if (strcmp(output_mode, "autorange") == 0) {
+        m_outputMode = OutputMode::autoRange;
+    } else if (strcmp(output_mode, "input") == 0) {
+        m_outputMode = OutputMode::input;
+    } else if (strcmp(output_mode, "sequence") == 0) {
+        m_outputMode = OutputMode::sequence;
+    } else {
+        m_outputMode = OutputMode::autoRange;
+    }
+}
+
 // Python bindings for animation methods
 
 // --- Channel creation and insertion ---
@@ -370,7 +490,8 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
     if (!inst) {
-        return nullptr;
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get CHOP instance for create_channel"); // Set an error
+        return NULL;
     }
     auto animation = inst->animation();
     if (!animation) {
@@ -397,7 +518,10 @@ static PyObject* py_chop_create_channel(PyObject *self, PyObject *args) {
         if (!PyArg_ParseTuple(args, "sn", &name, &index))
             return NULL;
         try {
-            // Allow index up to and including num_channels (for append at end)
+            if (index < 0) {
+                PyErr_SetString(PyExc_IndexError, "Channel index cannot be negative");
+                return NULL;
+            }
             if (static_cast<size_t>(index) > animation->num_channels()) {
 				PyErr_Format(PyExc_IndexError, "Channel index out of range: %zd (max %zd)", index, animation->num_channels());
 				return NULL;
@@ -498,12 +622,13 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
         return NULL;
 
     if (PyLong_Check(key)) {
-        long index_long = PyLong_AsLong(key);
-        if (index_long < 0) {
-            PyErr_SetString(PyExc_IndexError, "Channel index cannot be negative");
+        size_t index = PyLong_AsSize_t(key);
+        if (PyErr_Occurred()) {
+            if (PyErr_ExceptionMatches(PyExc_OverflowError)) {
+                PyErr_SetString(PyExc_IndexError, "Channel index out of range");
+            }
             return NULL;
         }
-        auto index = static_cast<size_t>(index_long);
         try {
             anim::Channel& channel = animation->channel(index);
             return ChannelToPyObject(&channel, (PyObject*)self);
@@ -512,7 +637,11 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
             return NULL;
         }
     } else if (PyUnicode_Check(key)) {
-        std::string name = PyUnicode_AsUTF8(key);
+        const char* name_cstr = PyUnicode_AsUTF8(key);
+        if (!name_cstr) {
+            return NULL;  // PyUnicode_AsUTF8 failed and set an exception
+        }
+        std::string name = name_cstr;
         try {
             anim::Channel& channel = animation->channel(name);
             return ChannelToPyObject(&channel, (PyObject*)self);
@@ -527,14 +656,14 @@ static PyObject* py_chop_get_channel(PyObject *self, PyObject *args) {
 }
 
 static PyObject* py_chop_has_channel(PyObject *self, PyObject *args) {
-	PY_Struct* me = (PY_Struct*)self;
+    PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
     info.autoCook = false;
     AnimationCHOP* inst = (AnimationCHOP*)me->context->getNodeInstance(info);
     if (!inst) {
-        return nullptr;
+        return NULL;
     }
-	auto animation = inst->animation();
+    auto animation = inst->animation();
     if (!animation) {
         PyErr_SetString(PyExc_RuntimeError, "Animation is not valid");
         return NULL;
@@ -542,8 +671,10 @@ static PyObject* py_chop_has_channel(PyObject *self, PyObject *args) {
     const char* name;
     if (!PyArg_ParseTuple(args, "s", &name))
         return NULL;
+    
+    // Direct conversion - PyBool_FromLong handles 0/1 automatically
     bool has_ch = animation->has_channel(std::string(name));
-    return PyBool_FromLong(has_ch ? 1 : 0);
+    return PyBool_FromLong(has_ch);
 }
 
 

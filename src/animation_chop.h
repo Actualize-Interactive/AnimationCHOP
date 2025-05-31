@@ -39,6 +39,18 @@ private:
 	float m_sampleRate { 60.0f }; 
 	std::unique_ptr<anim::Animation> m_animation;
 
+	enum class OutputMode {
+		range,
+		autoRange,
+		input,
+		sequence
+	};
+
+	OutputMode m_outputMode { OutputMode::range };
+
+
+	void applyOutputMode(const OP_Inputs* inputs);
+
 };
 
 
