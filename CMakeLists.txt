@@ -76,6 +76,8 @@ endif()
 set_target_properties(animation_chop PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    OUTPUT_NAME "AnimationCHOP"
+    PREFIX ""
 )
 
 if(SUPPRESS_NOT_REFERENCED_WARNINGS)
