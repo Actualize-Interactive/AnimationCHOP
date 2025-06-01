@@ -38,15 +38,30 @@ target_include_directories(animation_chop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/anim/include
 )
 
-target_link_directories(animation_chop PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
-)
+if(WIN32)
+    target_link_directories(animation_chop PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
+    )
 
-# Link against the anim library
-target_link_libraries(animation_chop PRIVATE 
-    python311
-    anim
-)
+    # Link against the anim library
+    target_link_libraries(animation_chop PRIVATE 
+        python311
+        anim
+    )
+elseif(APPLE)
+    # On macOS, use the system Python or the one set up by GitHub Actions
+    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+    target_link_libraries(animation_chop PRIVATE Python3::Python)
+    target_compile_definitions(animation_chop PRIVATE __cdecl=)
+else()
+    # On other platforms, use pkg-config to find Python
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PYTHON REQUIRED python3)
+    target_include_directories(animation_chop PRIVATE ${PYTHON_INCLUDE_DIRS})
+    target_link_libraries(animation_chop PRIVATE ${PYTHON_LIBRARIES})
+    target_compile_definitions(animation_chop PRIVATE __cdecl=)
+endif()
+
 
 # Define output directories
 set_target_properties(animation_chop PROPERTIES
