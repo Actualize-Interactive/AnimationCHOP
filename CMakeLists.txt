@@ -34,11 +34,14 @@ target_include_directories(animation_chop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/td/include
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/anim/include
 )
 
 if(WIN32)
+    target_include_directories(animation_chop PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
+    )
+
     target_link_directories(animation_chop PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
     )
