@@ -54,14 +54,20 @@ if(WIN32)
 elseif(APPLE)
     # On macOS, use the system Python or the one set up by GitHub Actions
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-    target_link_libraries(animation_chop PRIVATE Python3::Python)
+    target_link_libraries(animation_chop PRIVATE 
+        Python3::Python
+        anim
+    )
     target_compile_definitions(animation_chop PRIVATE __cdecl=)
 else()
     # On other platforms, use pkg-config to find Python
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(PYTHON REQUIRED python3)
     target_include_directories(animation_chop PRIVATE ${PYTHON_INCLUDE_DIRS})
-    target_link_libraries(animation_chop PRIVATE ${PYTHON_LIBRARIES})
+    target_link_libraries(animation_chop PRIVATE 
+        ${PYTHON_LIBRARIES}
+        anim
+    )
     target_compile_definitions(animation_chop PRIVATE __cdecl=)
 endif()
 
