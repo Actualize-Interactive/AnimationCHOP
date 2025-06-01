@@ -10,9 +10,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset_name: AsyncioDAT-windows.dll
+            asset_name: AnimationCHOP-windows.dll
           - os: macos-latest
-            asset_name: AsyncioDAT-macos.dylib
+            asset_name: AnimationCHOP-macos.dylib
     
     runs-on: ${{ matrix.os }}
     
@@ -86,7 +86,7 @@ jobs:
       if: runner.os == 'Windows'
       uses: softprops/action-gh-release@v1
       with:
-        files: build/bin/Release/AsyncioDAT.dll
+        files: build/bin/Release/AnimationCHOP.dll
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -94,6 +94,6 @@ jobs:
       if: runner.os == 'macOS'
       uses: softprops/action-gh-release@v1
       with:
-        files: build/bin/AsyncioDAT.dylib
+        files: build/bin/AnimationCHOP.dylib
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
