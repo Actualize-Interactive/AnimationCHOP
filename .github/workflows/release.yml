@@ -10,9 +10,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset_name: AnimationCHOP-windows.dll
+            asset_name: AnimationCHOP.dll
           - os: macos-latest
-            asset_name: AnimationCHOP-macos.dylib
+            asset_name: AnimationCHOP.dylib
     
     runs-on: ${{ matrix.os }}
     
