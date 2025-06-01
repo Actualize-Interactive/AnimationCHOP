@@ -86,7 +86,7 @@ jobs:
       if: runner.os == 'Windows'
       uses: softprops/action-gh-release@v1
       with:
-        files: build/bin/Release/AnimationCHOP.dll
+        files: build/bin/Release/animation_chop.dll
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -94,6 +94,6 @@ jobs:
       if: runner.os == 'macOS'
       uses: softprops/action-gh-release@v1
       with:
-        files: build/bin/AnimationCHOP.dylib
+        files: build/bin/animation_chop.dylib
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
