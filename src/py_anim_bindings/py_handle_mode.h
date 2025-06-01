@@ -1,11 +1,12 @@
 #pragma once
 
 #ifdef _WIN32
-    #include <Python.h>
-    #include <structmember.h>
+	#include <Python.h>
+	#include <structmember.h>
+	#include <modsupport.h>
 #else
-    #include <Python/Python.h>
-    #include <Python/structmember.h>
+	#include <Python.h>
+	#include <structmember.h>
 #endif
 
 #include <anim/handle_mode.hpp>

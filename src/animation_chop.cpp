@@ -31,8 +31,8 @@
 	#include <modsupport.h>
 
 #else
-	#include <Python/Python.h>
-	#include <Python/structmember.h>
+	#include <Python.h>
+	#include <structmember.h>
 #endif
 
 // static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
