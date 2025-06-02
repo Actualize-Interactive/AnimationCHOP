@@ -218,7 +218,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
 
             auto timeslice = inputs->getParInt("Timeslice");
             if (timeslice == 1) {
-                info->startIndex = input_chop->startIndex;
+                info->startIndex = static_cast<int32_t>(floor(input_chop->startIndex));
             } else {
                 info->numSamples = 1;
             }

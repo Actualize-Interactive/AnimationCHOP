@@ -85,12 +85,16 @@ jobs:
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
-        name: AnimationCHOP-windows-${{ matrix.build_type }}
-        path: build/bin/Release/AnimationCHOP.dll
+        name: AnimationCHOPs-windows-${{ matrix.build_type }}
+        path: |
+          build/bin/Release/AnimationCHOP.dll
+          build/bin/Release/AnimationSelectCHOP.dll
         
     - name: Upload build artifacts (macOS)
       if: runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
-        name: AnimationCHOP-macos-${{ matrix.build_type }}
-        path: build/bin/AnimationCHOP.dylib
+        name: AnimationCHOPs-macos-${{ matrix.build_type }}
+        path: |
+          build/bin/AnimationCHOP.dylib
+          build/bin/AnimationSelectCHOP.dylib
