@@ -42,7 +42,7 @@ DestroyCHOPInstance(CHOP_CPlusPlusBase* instance)
 AnimationSelectCHOP::AnimationSelectCHOP(const OP_NodeInfo* info)
     : m_warning(nullptr)
     , m_error(nullptr)
-    , m_autoRange(true)
+    , m_selectMode(SelectMode::autoRange)
     , m_startTime(0.0)
     , m_endTime(30.0)
 {
@@ -63,7 +63,8 @@ bool
 AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
     info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate", 0));
-    m_autoRange = inputs->getParInt("Autorange", 0) != 0;
+    m_selectMode = static_cast<SelectMode>(inputs->getParInt("Selectmode", 0));
+    
     info->startIndex = 0;
 
     auto animationChop = getAnimationCHOP(inputs);
@@ -75,9 +76,9 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
         return false;
     }
 
-    info->numChannels = static_cast<int32_t>(animation->size());
-
-    if (m_autoRange) {
+    switch (m_selectMode) {
+    case SelectMode::autoRange: {
+        info->numChannels = static_cast<int32_t>(animation->size());
         auto max_length = 0.0;
         for (const auto& channel : animation->channels()) {
             max_length = std::max(max_length, channel->length());
@@ -86,23 +87,42 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
         m_startTime = 0.0;
         m_endTime = max_length;
         return true;
-    }
-    
-    auto rangeStart = inputs->getParDouble("Range", 0);
-    auto rangeEnd = inputs->getParDouble("Range", 1);
-    auto range_delta = rangeEnd - rangeStart;
+    } case SelectMode::range: {
+        info->numChannels = static_cast<int32_t>(animation->size());
+        auto rangeStart = inputs->getParDouble("Range", 0);
+        auto rangeEnd = inputs->getParDouble("Range", 1);
+        auto range_delta = rangeEnd - rangeStart;
 
-    auto rangeUnit = inputs->getParString("Rangeunit");
-    if (strcmp(rangeUnit, "samples") == 0) { // Samples
-        info->numSamples = static_cast<int32_t>(range_delta + 1.0);
-        m_startTime = rangeStart / info->sampleRate;
-        m_endTime = rangeEnd / info->sampleRate;
-    } else { // Seconds
-        info->numSamples = static_cast<int32_t>(range_delta * info->sampleRate);
-        m_startTime = rangeStart;
-        m_endTime = rangeEnd;
+        auto rangeUnit = inputs->getParString("Rangeunit");
+        if (strcmp(rangeUnit, "samples") == 0) { // Samples
+            info->numSamples = static_cast<int32_t>(range_delta + 1.0);
+            m_startTime = rangeStart / info->sampleRate;
+            m_endTime = rangeEnd / info->sampleRate;
+        } else { // Seconds
+            info->numSamples = static_cast<int32_t>(range_delta * info->sampleRate);
+            m_startTime = rangeStart;
+            m_endTime = rangeEnd;
+        }
+        return true;
+    } case SelectMode::keyframes: {
+        info->numChannels = static_cast<int32_t>(m_keyframes_chan_names.size());
+        int32_t num_samples = 0;
+        for (const auto& channel : animation->channels()) {
+            num_samples += static_cast<int32_t>(channel->size());
+        }
+        info->numSamples = num_samples;
+        m_startTime = 0.0;
+        m_endTime = 0.0; // Not used in this mode
+        return true;
+    } case SelectMode::channel_info: {
+        info->numChannels = static_cast<int32_t>(m_channel_info_chan_names.size());
+        info->numSamples = static_cast<int32_t>(animation->size());
+        return true;
+    } default: {
+        m_error = "Invalid select mode specified.";
+        return false;
     }
-
+    }
     return true;
 }
 
@@ -113,15 +133,34 @@ AnimationSelectCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inp
     if (!animationChop) {
         return;
     }
-
     auto animation = animationChop->animation();
     if (!animation) {
         return;
     }
-    if (index < 0 || index >= static_cast<int32_t>(animation->channel_names().size())) {
+    switch (m_selectMode) {
+    case SelectMode::autoRange:
+    case SelectMode::range: {
+        if (index < 0 || index >= static_cast<int32_t>(animation->channel_names().size())) {
+            return;
+        }
+        name ->setString(animation->channel_names()[index].c_str());
+        break;
+    } case SelectMode::keyframes: {
+        if (index < 0 || index >= static_cast<int32_t>(m_keyframes_chan_names.size())) {
+            return;
+        }
+        name->setString(m_keyframes_chan_names[index]);
+        break;
+    } case SelectMode::channel_info: {
+        if (index < 0 || index >= static_cast<int32_t>(m_channel_info_chan_names.size())) {
+            return;
+        }
+        name->setString(m_channel_info_chan_names[index]);
+        break;
+    } default:
+        m_error = "Invalid select mode specified.";
         return;
     }
-    name ->setString(animation->channel_names()[index].c_str());
 }
 
 void 
@@ -139,19 +178,73 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
     if (!animation) {
         return;
     }
-
-    size_t num_anim_channels = animation->num_channels();
-    for (int i = 0; i < output->numChannels; i++) {
-        if (i < static_cast<int>(num_anim_channels)) {
-            auto samples = animation->channel(i).evaluate_range(
-                m_startTime,
-                m_endTime,
-                output->numSamples
-            );
-            std::copy(samples.begin(), samples.end(), output->channels[i]);
+    switch (m_selectMode) {
+    case SelectMode::autoRange:
+    case SelectMode::range: {
+        size_t num_anim_channels = animation->num_channels();
+        for (int i = 0; i < output->numChannels; ++i) {
+            if (i < static_cast<int>(num_anim_channels)) {
+                auto samples = animation->channel(i).evaluate_range(
+                    m_startTime,
+                    m_endTime,
+                    output->numSamples
+                );
+                std::copy(samples.begin(), samples.end(), output->channels[i]);
+            }
         }
+        break;
+    } case SelectMode::keyframes: {
+        size_t num_keyframe_channels = m_keyframes_chan_names.size();
+        if (output->numChannels > num_keyframe_channels) {
+            m_error = "Not enough channels allocated";
+            return;
+        }
+        size_t i = 0;
+        for (size_t c = 0; c < animation->size(); ++c) {
+            auto& channel = animation->channel(c);
+            for(size_t k = 0; k < channel.size(); ++k) {
+                if (i < output->numSamples) {
+                    output->channels[0][i] = static_cast<float>(c);
+                    output->channels[1][i] = static_cast<float>(channel.keyframe(k).time());
+                    output->channels[2][i] = static_cast<float>(channel.keyframe(k).value());
+                    output->channels[3][i] = static_cast<float>(channel.keyframe(k).in_handle.time);
+                    output->channels[4][i] = static_cast<float>(channel.keyframe(k).in_handle.value);
+                    output->channels[5][i] = static_cast<float>(channel.keyframe(k).out_handle.time);
+                    output->channels[6][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
+                    output->channels[7][i] = static_cast<float>(channel.keyframe(k).function);
+                    output->channels[8][i] = static_cast<float>(channel.keyframe(k).handle_mode);
+                }
+                ++i;
+            }
+        }
+        break;
+    }  case SelectMode::channel_info: {
+        size_t num_channel_info_channels = m_channel_info_chan_names.size();
+        if (output->numChannels > num_channel_info_channels) {
+            m_error = "Not enough channels allocated";
+            return;
+        }
+        int32_t keyframe_count = 0;
+        for (size_t c = 0; c < animation->size(); ++c) {
+            auto& channel = animation->channel(c);
+            if (c < output->numChannels) {
+                output->channels[0][c] = static_cast<float>(channel.start_time());
+                output->channels[1][c] = static_cast<float>(channel.end_time());
+                output->channels[2][c] = static_cast<float>(keyframe_count);
+                auto num_keyframes = channel.size();
+                keyframe_count += static_cast<int32_t>(num_keyframes);
+                output->channels[3][c] = static_cast<float>(num_keyframes);
+            }
+        }
+        break;
+
+    } default:
+        m_error = "Invalid select mode specified.";
+        return;
     }
+
 }
+
 void
 AnimationSelectCHOP::getWarningString(OP_String* warning, void* reserved1)
 {
@@ -174,14 +267,16 @@ AnimationSelectCHOP::setupParameters(OP_ParameterManager* manager, void* reserve
         sp.defaultValue = "";
         manager->appendCHOP(sp);
     } {
-		OP_NumericParameter	np;
-		np.name = "Autorange";
-		np.label = "Auto Range";
-		np.defaultValues[0] = 1.0;
- 
-		OP_ParAppendResult res = manager->appendToggle(np);
-		assert(res == OP_ParAppendResult::Success);
-	} {
+        OP_StringParameter	sp;
+		sp.name = "Selectmode";
+        sp.label = "Select Mode";
+        sp.defaultValue = "autorange";
+        const char *names[] = { "autorange", "range", "keyframes", "channelinfo" };
+        const char *labels[] = { "Auto Range", "Range", "Keyframes", "Channel Info" };
+
+        OP_ParAppendResult res = manager->appendMenu(sp, 4, names, labels);
+        assert(res == OP_ParAppendResult::Success);
+    } {
 		OP_NumericParameter	np;
 		np.name = "Range";
 		np.label = "Range";
@@ -230,23 +325,7 @@ AnimationSelectCHOP::getAnimationCHOP(const OP_Inputs *inputs)
         m_error = "Invalid Animation CHOP specified.";
         return nullptr;
     }
-    
-    std::cout << "Target CHOP: " << target->customOP->opType << std::endl;
-
     return static_cast<AnimationCHOP*>(target->customOP->instance);
-}
-
-void
-AnimationCHOP::applyOutputMode(const OP_Inputs *inputs)
-{
-    const char* output_mode = inputs->getParString("Outputmode");
-    if (strcmp(output_mode, "range") == 0) {
-        m_outputMode = OutputMode::range;
-    } else if (strcmp(output_mode, "autorange") == 0) {
-        m_outputMode = OutputMode::autoRange;
-    } else {
-        m_outputMode = OutputMode::autoRange;
-    }
 }
 
 // void 

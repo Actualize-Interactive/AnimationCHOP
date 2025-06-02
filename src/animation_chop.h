@@ -49,8 +49,6 @@ private:
 	OutputMode m_outputMode { OutputMode::range };
 	double m_lastEvalTime { 0.0 };
 
-	void applyOutputMode(const OP_Inputs* inputs);
-
 };
 
 
