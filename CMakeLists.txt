@@ -71,32 +71,20 @@ if(WIN32)
             ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
         )
 
-        # Link against the anim library (AnimationViewCHOP only needs anim, not full Python bindings)
-        if(${TARGET} STREQUAL "animation_chop")
-            target_link_libraries(${TARGET} PRIVATE 
-                python311
-                anim
-            )
-        else()
-            target_link_libraries(${TARGET} PRIVATE 
-                anim
-            )
-        endif()
+        # Both targets now need Python for their bindings
+        target_link_libraries(${TARGET} PRIVATE 
+            python311
+            anim
+        )
     endforeach()
 elseif(APPLE)
     # On macOS, use the system Python or the one set up by GitHub Actions
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
     foreach(TARGET animation_chop animation_view_chop)
-        if(${TARGET} STREQUAL "animation_chop")
-            target_link_libraries(${TARGET} PRIVATE 
-                Python3::Python
-                anim
-            )
-        else()
-            target_link_libraries(${TARGET} PRIVATE 
-                anim
-            )
-        endif()
+        target_link_libraries(${TARGET} PRIVATE 
+            Python3::Python
+            anim
+        )
         target_compile_definitions(${TARGET} PRIVATE __cdecl=)
     endforeach()
 else()
@@ -105,16 +93,10 @@ else()
     pkg_check_modules(PYTHON REQUIRED python3)
     foreach(TARGET animation_chop animation_view_chop)
         target_include_directories(${TARGET} PRIVATE ${PYTHON_INCLUDE_DIRS})
-        if(${TARGET} STREQUAL "animation_chop")
-            target_link_libraries(${TARGET} PRIVATE 
-                ${PYTHON_LIBRARIES}
-                anim
-            )
-        else()
-            target_link_libraries(${TARGET} PRIVATE 
-                anim
-            )
-        endif()
+        target_link_libraries(${TARGET} PRIVATE 
+            ${PYTHON_LIBRARIES}
+            anim
+        )
         target_compile_definitions(${TARGET} PRIVATE __cdecl=)
     endforeach()
 endif()

@@ -23,6 +23,34 @@ public:
     virtual void getErrorString(OP_String* error, void* reserved1) override;
     virtual void setupParameters(OP_ParameterManager* manager, void* reserved1) override;
 
+    AnimationCHOP* getAnimationCHOP(const OP_Inputs* inputs);
+
+    // Python binding methods
+    void selectKeyframes(const std::vector<size_t>& indices);
+    void unselectKeyframes(const std::vector<size_t>& indices);
+    void unselectAllKeyframes();
+    std::vector<size_t> getSelectedKeyframes() const;
+
+    void selectSegments(const std::vector<size_t>& indices);
+    void unselectSegments(const std::vector<size_t>& indices);
+    void unselectAllSegments();
+    std::vector<size_t> getSelectedSegments() const;
+
+    void selectStartHandles(const std::vector<size_t>& indices);
+    void unselectStartHandles(const std::vector<size_t>& indices);
+    void unselectAllStartHandles();
+    std::vector<size_t> getSelectedStartHandles() const;
+
+    void selectEndHandles(const std::vector<size_t>& indices);
+    void unselectEndHandles(const std::vector<size_t>& indices);
+    void unselectAllEndHandles();
+    std::vector<size_t> getSelectedEndHandles() const;
+
+    void selectChannels(const std::vector<size_t>& indices);
+    void unselectChannels(const std::vector<size_t>& indices);
+    void unselectAllChannels();
+    std::vector<size_t> getSelectedChannels() const;
+
 private:
     enum class ViewMode {
         samples,
@@ -52,7 +80,7 @@ private:
     std::array<const char*, 14> m_segments_chan_names {
         "channel_index", "segment_index", "start_time", "start_value", "end_time", "end_value", 
         "start_handle_time", "start_handle_value", "end_handle_time", "end_handle_value",
-        "display_handles", "selected", "selected_start_handle", "selected_end_handle"
+        "display_handles", "selected", "selected_start_handles", "selected_end_handles"
     };
 
     std::array<const char*, 5> m_channels_chan_names {
@@ -65,6 +93,5 @@ private:
     };
 
 
-    AnimationCHOP* getAnimationCHOP(const OP_Inputs* inputs);
     bool displayHandles(const Keyframe& start_keyframe) const;
 };

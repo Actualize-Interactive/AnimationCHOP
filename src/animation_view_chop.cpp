@@ -1,16 +1,78 @@
 #include "animation_view_chop.h"
 
-
 #include <cstring>
 #include <algorithm>
 
 
-#include <regex>
+#ifdef _WIN32
+	#include <Python.h>
+	#include <structmember.h>
+	#include <modsupport.h>
 
-#include <iostream>
+#else
+	#include <Python.h>
+	#include <structmember.h>
+#endif
+
 
 extern "C"
 {
+// Python binding methods
+static PyObject* py_select_keyframes(PyObject* self, PyObject* args);
+static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args);
+static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args);
+static PyObject* py_selected_keyframes(PyObject* self, PyObject* args);
+
+static PyObject* py_select_segments(PyObject* self, PyObject* args);
+static PyObject* py_unselect_segments(PyObject* self, PyObject* args);
+static PyObject* py_unselect_all_segments(PyObject* self, PyObject* args);
+static PyObject* py_selected_segments(PyObject* self, PyObject* args);
+
+static PyObject* py_select_start_handles(PyObject* self, PyObject* args);
+static PyObject* py_unselect_start_handles(PyObject* self, PyObject* args);
+static PyObject* py_unselect_all_start_handles(PyObject* self, PyObject* args);
+static PyObject* py_selected_start_handles(PyObject* self, PyObject* args);
+
+static PyObject* py_select_end_handles(PyObject* self, PyObject* args);
+static PyObject* py_unselect_end_handles(PyObject* self, PyObject* args);
+static PyObject* py_unselect_all_end_handles(PyObject* self, PyObject* args);
+static PyObject* py_selected_end_handles(PyObject* self, PyObject* args);
+
+static PyObject* py_select_channels(PyObject* self, PyObject* args);
+static PyObject* py_unselect_channels(PyObject* self, PyObject* args);
+static PyObject* py_unselect_all_channels(PyObject* self, PyObject* args);
+static PyObject* py_selected_channels(PyObject* self, PyObject* args);
+
+// Python method table for AnimationViewCHOP
+static PyMethodDef viewMethods[] = {
+    {"select_keyframes", (PyCFunction)py_select_keyframes, METH_VARARGS, "Select keyframes by indices."},
+    {"unselect_keyframes", (PyCFunction)py_unselect_keyframes, METH_VARARGS, "Unselect keyframes by indices."},
+    {"unselect_all_keyframes", (PyCFunction)py_unselect_all_keyframes, METH_NOARGS, "Unselect all keyframes."},
+    {"selected_keyframes", (PyCFunction)py_selected_keyframes, METH_NOARGS, "Get selected keyframe indices."},
+    
+    {"select_segments", (PyCFunction)py_select_segments, METH_VARARGS, "Select segments by indices."},
+    {"unselect_segments", (PyCFunction)py_unselect_segments, METH_VARARGS, "Unselect segments by indices."},
+    {"unselect_all_segments", (PyCFunction)py_unselect_all_segments, METH_NOARGS, "Unselect all segments."},
+    {"selected_segments", (PyCFunction)py_selected_segments, METH_NOARGS, "Get selected segment indices."},
+    
+    {"select_start_handles", (PyCFunction)py_select_start_handles, METH_VARARGS, "Select start handles by indices."},
+    {"unselect_start_handles", (PyCFunction)py_unselect_start_handles, METH_VARARGS, "Unselect start handles by indices."},
+    {"unselect_all_start_handles", (PyCFunction)py_unselect_all_start_handles, METH_NOARGS, "Unselect all start handles."},
+    {"selected_start_handles", (PyCFunction)py_selected_start_handles, METH_NOARGS, "Get selected start handle indices."},
+    
+    {"select_end_handles", (PyCFunction)py_select_end_handles, METH_VARARGS, "Select end handles by indices."},
+    {"unselect_end_handles", (PyCFunction)py_unselect_end_handles, METH_VARARGS, "Unselect end handles by indices."},
+    {"unselect_all_end_handles", (PyCFunction)py_unselect_all_end_handles, METH_NOARGS, "Unselect all end handles."},
+    {"selected_end_handles", (PyCFunction)py_selected_end_handles, METH_NOARGS, "Get selected end handle indices."},
+    
+    {"select_channels", (PyCFunction)py_select_channels, METH_VARARGS, "Select channels by indices."},
+    {"unselect_channels", (PyCFunction)py_unselect_channels, METH_VARARGS, "Unselect channels by indices."},
+    {"unselect_all_channels", (PyCFunction)py_unselect_all_channels, METH_NOARGS, "Unselect all channels."},
+    {"selected_channels", (PyCFunction)py_selected_channels, METH_NOARGS, "Get selected channel indices."},
+    
+    {nullptr, nullptr, 0, nullptr}
+};
+
 DLLEXPORT void 
 FillCHOPPluginInfo(CHOP_PluginInfo* info)
 {
@@ -22,8 +84,9 @@ FillCHOPPluginInfo(CHOP_PluginInfo* info)
     info->customOPInfo.authorEmail->setString("keith@actualize.vision");
     info->customOPInfo.minInputs = 0;
     info->customOPInfo.maxInputs = 0;
+    info->customOPInfo.pythonVersion->setString(PY_VERSION);
+    info->customOPInfo.pythonMethods = viewMethods;
 }
-
 
 DLLEXPORT 
 CHOP_CPlusPlusBase* CreateCHOPInstance(const OP_NodeInfo* info)
@@ -111,6 +174,8 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         }
         info->numSamples = num_samples;
         m_selectedSegments.resize(num_samples, false); // Initialize selection state
+        m_selectedStartHandles.resize(num_samples, false); // Initialize selection state
+        m_selectedEndHandles.resize(num_samples, false); // Initialize selection state
         return true;
     } case ViewMode::channels: {
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
@@ -257,6 +322,8 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[9][i] = static_cast<float>(end_keyframe.in_handle.value); // End handle value
                 output->channels[10][i] = static_cast<float>(displayHandles(start_keyframe));
                 output->channels[11][i] = static_cast<float>(m_selectedSegments[i]); // Selected
+                output->channels[12][i] = static_cast<float>(m_selectedStartHandles[i]); // Selected start handles
+                output->channels[13][i] = static_cast<float>(m_selectedEndHandles[i]); // Selected end handles
                 ++i;
             }
         }
@@ -403,4 +470,564 @@ bool AnimationViewCHOP::displayHandles(const Keyframe& start_keyframe) const
 {
     return start_keyframe.function == Function::bezier 
         && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
+}
+
+// Helper function to convert Python list to vector of indices
+std::vector<size_t> pyListToIndices(PyObject* list) {
+    std::vector<size_t> indices;
+    if (!PyList_Check(list)) {
+        return indices;
+    }
+    
+    Py_ssize_t size = PyList_Size(list);
+    indices.reserve(size);
+    
+    for (Py_ssize_t i = 0; i < size; ++i) {
+        PyObject* item = PyList_GetItem(list, i);
+        if (PyLong_Check(item)) {
+            long idx = PyLong_AsLong(item);
+            if (idx >= 0) {
+                indices.push_back(static_cast<size_t>(idx));
+            }
+        }
+    }
+    return indices;
+}
+
+// Helper function to convert vector of indices to Python list
+PyObject* indicesToPyList(const std::vector<size_t>& indices) {
+    PyObject* list = PyList_New(indices.size());
+    if (!list) return nullptr;
+    
+    for (size_t i = 0; i < indices.size(); ++i) {
+        PyObject* idx = PyLong_FromSize_t(indices[i]);
+        if (!idx) {
+            Py_DECREF(list);
+            return nullptr;
+        }
+        PyList_SET_ITEM(list, i, idx);
+    }
+    return list;
+}
+
+// AnimationViewCHOP selection methods implementation
+void AnimationViewCHOP::selectKeyframes(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedKeyframes.size()) {
+            m_selectedKeyframes[idx] = true;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectKeyframes(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedKeyframes.size()) {
+            m_selectedKeyframes[idx] = false;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectAllKeyframes() {
+    std::fill(m_selectedKeyframes.begin(), m_selectedKeyframes.end(), false);
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
+    std::vector<size_t> selected;
+    for (size_t i = 0; i < m_selectedKeyframes.size(); ++i) {
+        if (m_selectedKeyframes[i]) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
+}
+
+void AnimationViewCHOP::selectSegments(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedSegments.size()) {
+            m_selectedSegments[idx] = true;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectSegments(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedSegments.size()) {
+            m_selectedSegments[idx] = false;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectAllSegments() {
+    std::fill(m_selectedSegments.begin(), m_selectedSegments.end(), false);
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
+    std::vector<size_t> selected;
+    for (size_t i = 0; i < m_selectedSegments.size(); ++i) {
+        if (m_selectedSegments[i]) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
+}
+
+void AnimationViewCHOP::selectStartHandles(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedStartHandles.size()) {
+            m_selectedStartHandles[idx] = true;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectStartHandles(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedStartHandles.size()) {
+            m_selectedStartHandles[idx] = false;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectAllStartHandles() {
+    std::fill(m_selectedStartHandles.begin(), m_selectedStartHandles.end(), false);
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
+    std::vector<size_t> selected;
+    for (size_t i = 0; i < m_selectedStartHandles.size(); ++i) {
+        if (m_selectedStartHandles[i]) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
+}
+
+void AnimationViewCHOP::selectEndHandles(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedEndHandles.size()) {
+            m_selectedEndHandles[idx] = true;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectEndHandles(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedEndHandles.size()) {
+            m_selectedEndHandles[idx] = false;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectAllEndHandles() {
+    std::fill(m_selectedEndHandles.begin(), m_selectedEndHandles.end(), false);
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
+    std::vector<size_t> selected;
+    for (size_t i = 0; i < m_selectedEndHandles.size(); ++i) {
+        if (m_selectedEndHandles[i]) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
+}
+
+void AnimationViewCHOP::selectChannels(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedChannels.size()) {
+            m_selectedChannels[idx] = true;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectChannels(const std::vector<size_t>& indices) {
+    for (size_t idx : indices) {
+        if (idx < m_selectedChannels.size()) {
+            m_selectedChannels[idx] = false;
+        }
+    }
+}
+
+void AnimationViewCHOP::unselectAllChannels() {
+    std::fill(m_selectedChannels.begin(), m_selectedChannels.end(), false);
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
+    std::vector<size_t> selected;
+    for (size_t i = 0; i < m_selectedChannels.size(); ++i) {
+        if (m_selectedChannels[i]) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
+}
+
+// Python binding implementations
+static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->selectKeyframes(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->unselectKeyframes(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->unselectAllKeyframes();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_selected_keyframes(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = inst->getSelectedKeyframes();
+    return indicesToPyList(selected);
+}
+
+static PyObject* py_select_segments(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->selectSegments(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_segments(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->unselectSegments(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_all_segments(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->unselectAllSegments();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_selected_segments(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = inst->getSelectedSegments();
+    return indicesToPyList(selected);
+}
+
+static PyObject* py_select_start_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->selectStartHandles(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_start_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->unselectStartHandles(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_all_start_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->unselectAllStartHandles();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_selected_start_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = inst->getSelectedStartHandles();
+    return indicesToPyList(selected);
+}
+
+static PyObject* py_select_end_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->selectEndHandles(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_end_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->unselectEndHandles(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_all_end_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->unselectAllEndHandles();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_selected_end_handles(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = inst->getSelectedEndHandles();
+    return indicesToPyList(selected);
+}
+
+static PyObject* py_select_channels(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->selectChannels(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_channels(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) {
+        return NULL;
+    }
+
+    std::vector<size_t> indices = pyListToIndices(list);
+    inst->unselectChannels(indices);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_unselect_all_channels(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->unselectAllChannels();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_selected_channels(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = inst->getSelectedChannels();
+    return indicesToPyList(selected);
 }
