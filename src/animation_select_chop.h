@@ -27,7 +27,8 @@ private:
         autoRange,
         range,
         keyframes,
-        channel_info,
+        channels,
+        animation
     };
 
     const char* m_warning;
@@ -36,13 +37,18 @@ private:
     double m_startTime;
     double m_endTime;
 
-    std::array<const char*, 9> m_keyframes_chan_names {
-        "channel_index", "time", "value", "in_handle_time", "in_handle_value",
+    std::array<const char*, 10> m_keyframes_chan_names {
+        "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",
         "out_handle_time", "out_handle_value", "function", "handle_mode"
     };
 
-    std::array<const char*, 4> m_channel_info_chan_names {
-        "start_time", "end_time", "start_index", "num_keyframes"
+    std::array<const char*, 4> m_channels_chan_names {
+        "num_keyframes", "start_time", "end_time", "start_index"
+    };
+
+    std::array<const char*, 5> m_animation_chan_names {
+        "num_channels", "min_keyframe_time", "max_keyframe_time", 
+        "min_keyframe_value", "max_keyframe_value", 
     };
 
 

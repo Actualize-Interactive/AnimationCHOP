@@ -149,10 +149,10 @@ endif()
 # Add post-build commands to copy both DLLs to the Plugins folder
 foreach(TARGET animation_chop animation_select_chop)
     add_custom_command(TARGET ${TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/test/Plugins"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
         COMMAND ${CMAKE_COMMAND} -E copy 
                 "$<TARGET_FILE:${TARGET}>" 
-                "${CMAKE_SOURCE_DIR}/test/Plugins/"
+                "${CMAKE_SOURCE_DIR}/td/Plugins/"
         COMMENT "Copying ${TARGET} to Plugins directory"
     )
 endforeach()

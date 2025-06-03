@@ -23,7 +23,7 @@ if (Test-Path $buildScriptPath) {
 # Set the path to the TouchDesigner executable
 $touchDesignerPath = "C:\Program Files\Derivative\TouchDesigner\bin\TouchDesigner.exe"
 # Set the path to the .toe file
-$toeFilePath = Join-Path $scriptDir "./test/test.toe"
+$toeFilePath = Join-Path $scriptDir "./td/AnimationCHOP.toe"
 # Check if the TouchDesigner executable exists
 if (Test-Path $touchDesignerPath) {
     # Check if the .toe file exists

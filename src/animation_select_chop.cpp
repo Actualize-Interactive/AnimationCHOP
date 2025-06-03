@@ -114,9 +114,13 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
         m_startTime = 0.0;
         m_endTime = 0.0; // Not used in this mode
         return true;
-    } case SelectMode::channel_info: {
-        info->numChannels = static_cast<int32_t>(m_channel_info_chan_names.size());
+    } case SelectMode::channels: {
+        info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
         info->numSamples = static_cast<int32_t>(animation->size());
+        return true;
+    } case SelectMode::animation: {
+        info->numChannels = static_cast<int32_t>(m_animation_chan_names.size());
+        info->numSamples = 1; // Single sample for animation info
         return true;
     } default: {
         m_error = "Invalid select mode specified.";
@@ -151,11 +155,17 @@ AnimationSelectCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inp
         }
         name->setString(m_keyframes_chan_names[index]);
         break;
-    } case SelectMode::channel_info: {
-        if (index < 0 || index >= static_cast<int32_t>(m_channel_info_chan_names.size())) {
+    } case SelectMode::channels: {
+        if (index < 0 || index >= static_cast<int32_t>(m_channels_chan_names.size())) {
             return;
         }
-        name->setString(m_channel_info_chan_names[index]);
+        name->setString(m_channels_chan_names[index]);
+        break;
+    } case SelectMode::animation: {
+        if (index < 0 || index >= static_cast<int32_t>(m_animation_chan_names.size())) {
+            return;
+        }
+        name->setString(m_animation_chan_names[index]);
         break;
     } default:
         m_error = "Invalid select mode specified.";
@@ -205,39 +215,64 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
             for(size_t k = 0; k < channel.size(); ++k) {
                 if (i < output->numSamples) {
                     output->channels[0][i] = static_cast<float>(c);
-                    output->channels[1][i] = static_cast<float>(channel.keyframe(k).time());
-                    output->channels[2][i] = static_cast<float>(channel.keyframe(k).value());
-                    output->channels[3][i] = static_cast<float>(channel.keyframe(k).in_handle.time);
-                    output->channels[4][i] = static_cast<float>(channel.keyframe(k).in_handle.value);
-                    output->channels[5][i] = static_cast<float>(channel.keyframe(k).out_handle.time);
-                    output->channels[6][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
-                    output->channels[7][i] = static_cast<float>(channel.keyframe(k).function);
-                    output->channels[8][i] = static_cast<float>(channel.keyframe(k).handle_mode);
+                    output->channels[1][i] = static_cast<float>(k);
+                    output->channels[2][i] = static_cast<float>(channel.keyframe(k).time());
+                    output->channels[3][i] = static_cast<float>(channel.keyframe(k).value());
+                    output->channels[4][i] = static_cast<float>(channel.keyframe(k).in_handle.time);
+                    output->channels[5][i] = static_cast<float>(channel.keyframe(k).in_handle.value);
+                    output->channels[6][i] = static_cast<float>(channel.keyframe(k).out_handle.time);
+                    output->channels[7][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
+                    output->channels[8][i] = static_cast<float>(channel.keyframe(k).function);
+                    output->channels[9][i] = static_cast<float>(channel.keyframe(k).handle_mode);
                 }
                 ++i;
             }
         }
         break;
-    }  case SelectMode::channel_info: {
-        size_t num_channel_info_channels = m_channel_info_chan_names.size();
+    } case SelectMode::channels: {
+        size_t num_channel_info_channels = m_channels_chan_names.size();
         if (output->numChannels > num_channel_info_channels) {
             m_error = "Not enough channels allocated";
             return;
         }
-        int32_t keyframe_count = 0;
+        int32_t start_index = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
             auto& channel = animation->channel(c);
             if (c < output->numChannels) {
-                output->channels[0][c] = static_cast<float>(channel.start_time());
-                output->channels[1][c] = static_cast<float>(channel.end_time());
-                output->channels[2][c] = static_cast<float>(keyframe_count);
                 auto num_keyframes = channel.size();
-                keyframe_count += static_cast<int32_t>(num_keyframes);
-                output->channels[3][c] = static_cast<float>(num_keyframes);
+                output->channels[0][c] = static_cast<float>(num_keyframes);
+                output->channels[1][c] = static_cast<float>(channel.start_time());
+                output->channels[2][c] = static_cast<float>(channel.end_time());
+                output->channels[3][c] = static_cast<float>(start_index);
+                start_index += static_cast<int32_t>(num_keyframes);
             }
         }
         break;
-
+    } case SelectMode::animation: {
+        size_t num_animation_info_channels = m_animation_chan_names.size();
+        if (output->numChannels > num_animation_info_channels) {
+            m_error = "Not enough channels allocated";
+            return;
+        }
+        double min_keyframe_time = std::numeric_limits<double>::max();
+        double max_keyframe_time = std::numeric_limits<double>::lowest();
+        double min_keyframe_value = std::numeric_limits<double>::max();
+        double max_keyframe_value = std::numeric_limits<double>::lowest();
+        for (const auto& channel : animation->channels()) {
+            for (size_t k = 0; k < channel->size(); ++k) {
+                const auto& keyframe = channel->keyframe(k);
+                min_keyframe_time = std::min(min_keyframe_time, keyframe.time());
+                max_keyframe_time = std::max(max_keyframe_time, keyframe.time());
+                min_keyframe_value = std::min(min_keyframe_value, keyframe.value());
+                max_keyframe_value = std::max(max_keyframe_value, keyframe.value());
+            }
+        }
+        output->channels[0][0] = static_cast<float>(animation->size());
+        output->channels[1][0] = static_cast<float>(min_keyframe_time);
+        output->channels[2][0] = static_cast<float>(max_keyframe_time);
+        output->channels[3][0] = static_cast<float>(min_keyframe_value);
+        output->channels[4][0] = static_cast<float>(max_keyframe_value);
+        break;
     } default:
         m_error = "Invalid select mode specified.";
         return;
@@ -271,18 +306,20 @@ AnimationSelectCHOP::setupParameters(OP_ParameterManager* manager, void* reserve
 		sp.name = "Selectmode";
         sp.label = "Select Mode";
         sp.defaultValue = "autorange";
-        const char *names[] = { "autorange", "range", "keyframes", "channelinfo" };
-        const char *labels[] = { "Auto Range", "Range", "Keyframes", "Channel Info" };
+        const char *names[] = { "autorange", "range", 
+            "keyframes", "channel", "animation" };
+        const char *labels[] = { "Auto Range (curves)", "Range (curves)", 
+            "Keyframe Data", "Channels Info", "Animation Info" };
 
-        OP_ParAppendResult res = manager->appendMenu(sp, 4, names, labels);
+        OP_ParAppendResult res = manager->appendMenu(sp, 5, names, labels);
         assert(res == OP_ParAppendResult::Success);
     } {
 		OP_NumericParameter	np;
 		np.name = "Range";
 		np.label = "Range";
 		np.defaultValues[0] = 0.0;
-        np.minValues[0] = 0.0;
-        np.clampMins[0] = true;
+        // np.minValues[0] = 0.0;
+        // np.clampMins[0] = true;
         np.defaultValues[1] = 30.0;
 		
 		OP_ParAppendResult res = manager->appendFloat(np, 2);
