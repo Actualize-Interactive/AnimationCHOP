@@ -4,89 +4,25 @@
         "e20bedff": {
             "ComputerName": "AEON",
             "Plugins": {
-                "D:/AnimationCHOP/test/Plugins/AnimationCHOP.dll": {
+                "D:/AnimationCHOP/td/Plugins/AnimationViewCHOP.dll": {
                     "Hashes": [
-                        "tXT8mlGPt/5mp+3T0VSyLo/mzPY5WPlgA99fv5HN1GyhrKmQgTZ955v9mxxx42gHhi8w92q8haW1Cjglc8uaOaOB/B9vZNpKOv8HkvCSyVTgMYE7ek9qZel3gLpbD2XF",
-                        "R3rbSfmI28SJ0eytkjT/smN234yNOQ8YT2u5URzMjRkNEU0uZn1YnaPbXG1XkCFBsvl9SVnh4DGAVh2kSHAEblbe9VegHXP5a8VZK0zTnvlqEHv2GmhkltHJFxUyKNEo",
-                        "0Ii/Ih168tnudMhLDZrcevAm/nzpZvK39hC1dEhHz9KwWTzM/r2+ZoN6QoPLOOyC1+yC0900D1v995hqwMFMDlhdmdewy0QPwFSY8vaZRSKAWpgjCrpABA/tAmSv0QeC",
-                        "NDAU40f8YU/HvCqAzRHJJ1Srxzc/xYlS9GUzpJrc5hoOYLDxSiJavlgXip7Znl0ptgqivlOOo+CQnvG6iWc5IJG9AI9++aYlsl972BoE1drx/5pjOhIHtINbQfnC++7u",
-                        "2VqFKvXZ8OApbnPEOvkL26SNM1gE2cnkBJL7PCGj6EQII6PNM18GW/gYR5DTc64mbFqifo82gIREeoF0mRSylWzrY+iUhrWTa3n8Sq1mavgA28r2gZijQ4KvWwFSbPP3"
-                    ],
-                    "AuthorName": "Keith Lostracco",
-                    "AuthorEmail": "keith@actualize.vision"
-                },
-                "D:/AnimationCHOP/test/Plugins/AnimationSelectCHOP.dll": {
-                    "Hashes": [
-                        "KZCkC7WObXliXzbfpsWJmMn67KBoAj/Gv54B6xwxbYKf7Ih4fSA/BsFHwOldXvisFhRwPLF3vt2TCscuR0CQpi4rUehezm/0UyPHg5sBpYKqGjr+hZUwQDLjvOOS8ajQ",
-                        "B83yRS9VtDAP1+QX4QNR76m6kblND7v8L5eGJFGg1RMfyuBQn2kWEdLBs2QthBUHeC6/lsusfOGm9IXtBzo+SHBN6Y1yDvRZHCdSaeL8PnbG7Bm1quNy+rZffxBdCnLN",
-                        "SJDCGHnm4sp4I0pezFkWXPo6qubQhD1X9723JsXmlqfilDUmLbLpPsIqBPBE3p5V8kGpBLOCtcEFKVT7+2z+9XQkFLdGuEpkdlsi5CpLS8wqqIL1lXqmwPa6umrSNC6V",
-                        "s8YVDAWaAUvrHDM+c6bD4ul5TgILwRvHWeo9vrLEJbBaNydokJeK9tBbrPZbXKsxseADApTaqDhAwujPiYfZj3SUfLj5hkwHjrC+kvfYlu0m21rt2YhQeLLm51C7ay6h",
-                        "h14EfS5tUSu9E+1f67UQexC8i3O9lTqHBxKlvEAcHy7xWsVbGxAU6kKMbnfiJxvVMH9CwJc8n4YyExgmXvMl31mb9zqOW27y9gv3QvVpPRbkktVqB75kU2Zc3na4qdH7",
-                        "B953VOC8D2CHeeSogaIAnnaCR+syhEtxoTxhZKTwafXHSGvfQg5NnsGtCJoBXN38359UZfVIZn5N2kMzOzz/NUJBsFVo36rbLq9r3FxXI3Hl5at5FOXiXGoW30O959s2",
-                        "cSUionoQAxdIcmwQvoDr0p9I/fHcJ4bIc+3hgini/4NJmV/k+S33ZQBTplgWHwm8FCJXGS2Hjxxg8AaGsm9pBd8m5sH7FX0J7X6FGW4GkqRa+hTyK3Ps+fip35hMjXqa",
-                        "LijfWQ7kcnjv8VP/3swKsMwqf6Zr/EmJvMOymlJyjjtOlYWZ3V62F32U2Kp/uGfEvfT85H8RaA3gVbH8+7xHqN3/GUV+kzjvYaELrbVW1G+njZyM6rsigT7tlTkfL0AH",
-                        "iGxsA4T3x6Lx1p8ecfUkx2hThZslWaVOlf/8W54PiJi1pLRbIa1RZA5oQ7IGgU0ElrcNjHLMXiUhpXT/XmPXHTfhutTCk4KygJgpHHdJlIFBQfZp7GiJwqb/lu3KLF3p",
-                        "czpjiz8Wk/wFVGVLeAcieHN4FOtNuYFSvgddd1FYR9AbtiFfA7X6KgzWQ8v8inBZmMS34k/up6MUxru7SkcD7QGpfAsSzey8QSHdzWuXWm0W6DMbIhMrIgcOLsU+BIi0",
-                        "QKOkb9s40AI18pdVL6iQvC2cnQp7pCvu23TFjzIVW7uaMY9n60FpTZ3b/s3FLBjsvnDhxSXXc8+QSDRPYkUQcsbXPL0qbnbJjj9Fp1xb3cDCJ/h5LysKwYTK9kZoROF+",
-                        "dQE0/sd0KSo2v103+vLi4yI8g8AIKJwzUPj9rk/J01Y6bRh8Fbr8+GSkPHahnh4lw7sn4NO1A/sG+lve6/MmZZOpBuBVkuIyJ5IDon6w8DyB16F8Muas/nOtnp8tsSgv",
-                        "QGlEr5et142pQN+8dDIrHN9ay7IV/NA/oHyCn9kb6iRdlij240eRx3eO3pz7vsnOWxb93ix7d1FcF6AsPiyTQYrb1Bp9mdw0+NoIsLjRkynEmW8ofCrGuDgHgBnJ6z4W",
-                        "EdKY8x0BLR1zpnGBt6YDWJwHqCN4+jIyuIZoLhYu/dBSYCGqBmPwPkW2a9r8kRYdJzari0x5XYvNSqj+5wQQZK0ryxxyRJAryBzpQ8ueQjXPScDArcbqRLWH9Hh0wbm9",
-                        "gdexgFrmGTFXDCyzI7fmviWmLhSPscR1g8L+GQMuHR984xv28ArCs8yadWMAuLwvF8iCDhMviZE2q+eU66ivVbbznq6e6ZvVvUM8vfUp2yFllJXsT0nU0xnG/Yky1Qmp",
-                        "Seh2EFtl7pjBx9J7u60QV1fMJkbqy5HHznkvQFJy+2bpFA4VKubHdknRhQ0I1dKdTUAgC/nch6SmiIwGhOARX9N0foOkVuUZc1TitJ8OTkBNDhsxlPv4Q0KC16jPeDt/",
-                        "dbevrW3CZ7n6FVL373C2XdS2jBXIb8rGLmpPOObTWzEnakgp7uUpfuNTqE9KJ8ASbuLR5JiZH9ay8izHhYDwEHjWcyuOaUG4QledORneRwAN26kvRvDTputiHsOxN9Pp",
-                        "nn2IruQvqnJIVJnJde3MayGKjkrSz5MhfyDHGSnbwEr07rbDUWPgKd7moNALtOSUrO1RFVdxQ+FgaWSUniItuL11DJ4tgOLO7Brl9u3lBewpQllv+zv/eBf8fz/v/U7Q",
-                        "cTC7jhqoatYBqCL8kYm7LM4b6/BSF46Ajfiztxcrny7+7aQeG5LwMm6WvvnD0mKZN2byrrRE+91IK0LO5WPMdMnslwuPntwB7M1qxunYGx95P27SqSIITcj98qMaHNjt",
-                        "0uPNVI4GFTis6or+wkC5ODUub6xfCTIzkUBF7E0BEXwP3EiAYDCGr07uXhPirtyA/Tx0+Q0Yb7Dk8v05qzCWDvOcXgdZdtKSwy+ZAQkg7/kMQt4mRVIUuizDUWKfcs/J",
-                        "ypA1sxzuoZNnMVdJDH4Y7n+XLWnlW0kUqTFHtonmPZpsHHiNDHpjCo3aCzCPttW2vXwk/HTp1FPAYQubCJ2CX8fAjqTIzkr2CvqVDMHq2Wb8UE/SUfieygl/s4xm0Jf7",
-                        "8onHfM9qkrjzxb2NyENSZEFQjkPGL48ZVBHvznk3AhN+ECU5zqNWp01vLFFLARGkrrH1MoXKb+iorqbYgfIaISBnQ4UGhiRppF5n7u+BJFQivccuCzNKFjyKPJ37VKdM",
-                        "o0N9U27WzVvCU6+NGMAwHuBQLSoVxpVY6NIF845S8wjTmzJqdgIUUI5ABpjXqqpMN+Zq07zdSnJi4r3eQyBpV8zKghe4VCwMqD57KbEvLd+wZlr9uHfpNSUIxMrF0VZt",
-                        "X1tcBqHAnktT/O985X2UAD9wsAOiw2/zR7Mz5Q7mkyAWv/cUP7MUHdNKFNr1X0fyuWnr2xKOim/mUJI1Q/B0aOvHjqLOvcION4MBDUM3/97TdbRhwFRzO24v/159o6SR"
-                    ],
-                    "AuthorName": "Keith Lostracco",
-                    "AuthorEmail": "keith@actualize.vision"
-                },
-                "D:/AnimationCHOP/td/Plugins/AnimationSelectCHOP.dll": {
-                    "Hashes": [
-                        "KZCkC7WObXliXzbfpsWJmMn67KBoAj/Gv54B6xwxbYKf7Ih4fSA/BsFHwOldXvisFhRwPLF3vt2TCscuR0CQpi4rUehezm/0UyPHg5sBpYKqGjr+hZUwQDLjvOOS8ajQ",
-                        "B83yRS9VtDAP1+QX4QNR76m6kblND7v8L5eGJFGg1RMfyuBQn2kWEdLBs2QthBUHeC6/lsusfOGm9IXtBzo+SHBN6Y1yDvRZHCdSaeL8PnbG7Bm1quNy+rZffxBdCnLN",
-                        "SJDCGHnm4sp4I0pezFkWXPo6qubQhD1X9723JsXmlqfilDUmLbLpPsIqBPBE3p5V8kGpBLOCtcEFKVT7+2z+9XQkFLdGuEpkdlsi5CpLS8wqqIL1lXqmwPa6umrSNC6V",
-                        "s8YVDAWaAUvrHDM+c6bD4ul5TgILwRvHWeo9vrLEJbBaNydokJeK9tBbrPZbXKsxseADApTaqDhAwujPiYfZj3SUfLj5hkwHjrC+kvfYlu0m21rt2YhQeLLm51C7ay6h",
-                        "h14EfS5tUSu9E+1f67UQexC8i3O9lTqHBxKlvEAcHy7xWsVbGxAU6kKMbnfiJxvVMH9CwJc8n4YyExgmXvMl31mb9zqOW27y9gv3QvVpPRbkktVqB75kU2Zc3na4qdH7",
-                        "B953VOC8D2CHeeSogaIAnnaCR+syhEtxoTxhZKTwafXHSGvfQg5NnsGtCJoBXN38359UZfVIZn5N2kMzOzz/NUJBsFVo36rbLq9r3FxXI3Hl5at5FOXiXGoW30O959s2",
-                        "cSUionoQAxdIcmwQvoDr0p9I/fHcJ4bIc+3hgini/4NJmV/k+S33ZQBTplgWHwm8FCJXGS2Hjxxg8AaGsm9pBd8m5sH7FX0J7X6FGW4GkqRa+hTyK3Ps+fip35hMjXqa",
-                        "LijfWQ7kcnjv8VP/3swKsMwqf6Zr/EmJvMOymlJyjjtOlYWZ3V62F32U2Kp/uGfEvfT85H8RaA3gVbH8+7xHqN3/GUV+kzjvYaELrbVW1G+njZyM6rsigT7tlTkfL0AH",
-                        "iGxsA4T3x6Lx1p8ecfUkx2hThZslWaVOlf/8W54PiJi1pLRbIa1RZA5oQ7IGgU0ElrcNjHLMXiUhpXT/XmPXHTfhutTCk4KygJgpHHdJlIFBQfZp7GiJwqb/lu3KLF3p",
-                        "czpjiz8Wk/wFVGVLeAcieHN4FOtNuYFSvgddd1FYR9AbtiFfA7X6KgzWQ8v8inBZmMS34k/up6MUxru7SkcD7QGpfAsSzey8QSHdzWuXWm0W6DMbIhMrIgcOLsU+BIi0",
-                        "QKOkb9s40AI18pdVL6iQvC2cnQp7pCvu23TFjzIVW7uaMY9n60FpTZ3b/s3FLBjsvnDhxSXXc8+QSDRPYkUQcsbXPL0qbnbJjj9Fp1xb3cDCJ/h5LysKwYTK9kZoROF+",
-                        "dQE0/sd0KSo2v103+vLi4yI8g8AIKJwzUPj9rk/J01Y6bRh8Fbr8+GSkPHahnh4lw7sn4NO1A/sG+lve6/MmZZOpBuBVkuIyJ5IDon6w8DyB16F8Muas/nOtnp8tsSgv",
-                        "QGlEr5et142pQN+8dDIrHN9ay7IV/NA/oHyCn9kb6iRdlij240eRx3eO3pz7vsnOWxb93ix7d1FcF6AsPiyTQYrb1Bp9mdw0+NoIsLjRkynEmW8ofCrGuDgHgBnJ6z4W",
-                        "EdKY8x0BLR1zpnGBt6YDWJwHqCN4+jIyuIZoLhYu/dBSYCGqBmPwPkW2a9r8kRYdJzari0x5XYvNSqj+5wQQZK0ryxxyRJAryBzpQ8ueQjXPScDArcbqRLWH9Hh0wbm9",
-                        "gdexgFrmGTFXDCyzI7fmviWmLhSPscR1g8L+GQMuHR984xv28ArCs8yadWMAuLwvF8iCDhMviZE2q+eU66ivVbbznq6e6ZvVvUM8vfUp2yFllJXsT0nU0xnG/Yky1Qmp",
-                        "Seh2EFtl7pjBx9J7u60QV1fMJkbqy5HHznkvQFJy+2bpFA4VKubHdknRhQ0I1dKdTUAgC/nch6SmiIwGhOARX9N0foOkVuUZc1TitJ8OTkBNDhsxlPv4Q0KC16jPeDt/",
-                        "dbevrW3CZ7n6FVL373C2XdS2jBXIb8rGLmpPOObTWzEnakgp7uUpfuNTqE9KJ8ASbuLR5JiZH9ay8izHhYDwEHjWcyuOaUG4QledORneRwAN26kvRvDTputiHsOxN9Pp",
-                        "nn2IruQvqnJIVJnJde3MayGKjkrSz5MhfyDHGSnbwEr07rbDUWPgKd7moNALtOSUrO1RFVdxQ+FgaWSUniItuL11DJ4tgOLO7Brl9u3lBewpQllv+zv/eBf8fz/v/U7Q",
-                        "cTC7jhqoatYBqCL8kYm7LM4b6/BSF46Ajfiztxcrny7+7aQeG5LwMm6WvvnD0mKZN2byrrRE+91IK0LO5WPMdMnslwuPntwB7M1qxunYGx95P27SqSIITcj98qMaHNjt",
-                        "0uPNVI4GFTis6or+wkC5ODUub6xfCTIzkUBF7E0BEXwP3EiAYDCGr07uXhPirtyA/Tx0+Q0Yb7Dk8v05qzCWDvOcXgdZdtKSwy+ZAQkg7/kMQt4mRVIUuizDUWKfcs/J",
-                        "ypA1sxzuoZNnMVdJDH4Y7n+XLWnlW0kUqTFHtonmPZpsHHiNDHpjCo3aCzCPttW2vXwk/HTp1FPAYQubCJ2CX8fAjqTIzkr2CvqVDMHq2Wb8UE/SUfieygl/s4xm0Jf7",
-                        "8onHfM9qkrjzxb2NyENSZEFQjkPGL48ZVBHvznk3AhN+ECU5zqNWp01vLFFLARGkrrH1MoXKb+iorqbYgfIaISBnQ4UGhiRppF5n7u+BJFQivccuCzNKFjyKPJ37VKdM",
-                        "o0N9U27WzVvCU6+NGMAwHuBQLSoVxpVY6NIF845S8wjTmzJqdgIUUI5ABpjXqqpMN+Zq07zdSnJi4r3eQyBpV8zKghe4VCwMqD57KbEvLd+wZlr9uHfpNSUIxMrF0VZt",
-                        "X1tcBqHAnktT/O985X2UAD9wsAOiw2/zR7Mz5Q7mkyAWv/cUP7MUHdNKFNr1X0fyuWnr2xKOim/mUJI1Q/B0aOvHjqLOvcION4MBDUM3/97TdbRhwFRzO24v/159o6SR",
-                        "qO33W7avHvQ/iFPy7oFy7kkl+w2QNdoLa+3nds+oUq0s4TuSwwvD25ca3FJkcV/c97f8bKqNi3apdYh7nBLol7MefZMTWrWdBFuUEvMfwdXTlBsDnI7g/Hq00gqdy+66",
-                        "3lRfHF8kXkyPz1Rp6/I5gryzZ8s9k+vHjwRwQ+QllyGApIHwCKZ2NQvuGy+xsflIutP72mesBgOucnl9s4mBw3nEa0lnGJgnyhMjlpopX/YZ+gkG3dIDbj3Ph7RbjUyD",
-                        "myWdu9NvXt1DKM08dPqj7Sji+Su13DofkETOuYOuPCqRE2KNfLKTs1AD6c6L+jwG3xWff8B0svRZOzwiEj7nNmYsJaQ+Ixn1+zcKUTkDQRYEmWHXZhjQYXE+svbUdGB+",
-                        "+pTf/bZHQ4cOmh6JdOkZKSQ1dDNqvmNrD+EuasA9O+AGlNBL0yHl6I3L1Hb+/IYVDiQuzp6RMQw8TU3Y2hC2diTxukZONqYNsIJltInpxyTnZGNWWgFqi5lzF5REpdgB",
-                        "EuQZdkLlJJ4bsj/E7gE1TSOBJJF3sut9og4Lc/TPj/GOwQnXinF38399tMx0et5pwf8B5U1sSTa2wmhby/cotQgYGEIyLYatL+IacoMSCmT4+uBACZMgSvwQfMa5lySU"
+                        "Z/qmutlf/oFIdoufLn3mrcDyxSKM6S+TjwXFxzNthf1rWLjdbptUJjJEbxQ7bCovMKnWEYJFB0oDG/KbBdPmZw0wxLQAVmsJVvHqDP0HonBLDIPO2Iz0xP9okZyhkpTK",
+                        "HfCSaE2PZZakdkrxztQitapwdP8FNY4SiZ06J9qhXppb8gfSf5j7Y/4h5WtsUqu5d9kSCp+uXx3sssk+yxvvQEifBIp8qB9Z43HrFepQduf3tvnQNJ7FEfF8Kbvo8nXT",
+                        "3mUY6B+7UA++6W/x0ZTNs181MTRTAu6vqEvaqXVXegxEZa4E7f21xHNO+KjCP3xpoBzB/hlYX/Lr3aG/XigITWENwF7FqBgXiR4di7dbHcmY/3RqBiRMJ+ZhFkOtOYGd",
+                        "M5N+91wc3s55Mj8LteOrYqJt8O84g/iinUXe6gum8FoX0uyeCOhmIrP6xTf3Uyg+2sVKv6NKItcy1pJ5RCqBnTpv8aq6Y5CRbH6WrF5dBNhfFmxCkw127BvFysbM3WGq",
+                        "Gc3KcJGbd3IUhIlrgrdRem4yK6+R9QiPyTEjQtfvYMgVGyO/3Np9W9002Ua7UEj5kVKL0OElsV6G0oLOmUqC+OGxs537jtBw0nne+/5HW8PVk8h8dxxwFxR4u8Ramrdi",
+                        "BAKMdoxCil3ho7Qrm4q+H+Q7hLd4OJrQbFlgRFdWHndTQzXtNQYJjGLY7adcJA3o3LK162a3XwLKIzkRCEyniDQX3l36lnYFpGyqraL6J2y2R5JB32X41nxjXzdzBsOr",
+                        "saUXfkitgpWrIHBTrdDsXRjO1KB2Oil6ejC1EklnY7QgKEACUqNkXYM6hsvzHp0fsIHtgtH4ArdmbqAfsptjdXQjTmB0ZI/n5yLZO/BjtkDDU/Ima39/b539sdTgaRDt",
+                        "DofPSUhG4u2TQ4+Kp7WMeFJASBQSxAUDlW+9VIzzPUU9es3O2C5/1nunSnamd+gL7OcVYI3FUghHBihrxzB6i6LN/3pzFr93AKlstS64J3j+z0DdxVq99RtBnBqFj8We",
+                        "MVS2BphQ3zM3IcRDLMCCQBUa7HCURpai+1i6AWg1DO/QEaDYcD7iHu+HFGFPW+6MTCItCW/a94HHpukfWUdMppDM5OX3ZUkwbQaInvZcKwfSYVpbU3XY+lIQd3ryTW8x",
+                        "Zq8WBv/ByicnAsOfguJJKVA9Tcn4eSKyy9V/qOhYCn4DwtB1noKsb9pRu6EIo1T8CCC1EYtzyfQvw6rXqbOdSuc9BqTtCY4GQ1ZYIyV/vjcH/f9LWPttvy/3lcm3CJrK"
                     ],
                     "AuthorName": "Keith Lostracco",
                     "AuthorEmail": "keith@actualize.vision"
                 },
                 "D:/AnimationCHOP/td/Plugins/AnimationCHOP.dll": {
                     "Hashes": [
-                        "tXT8mlGPt/5mp+3T0VSyLo/mzPY5WPlgA99fv5HN1GyhrKmQgTZ955v9mxxx42gHhi8w92q8haW1Cjglc8uaOaOB/B9vZNpKOv8HkvCSyVTgMYE7ek9qZel3gLpbD2XF",
-                        "R3rbSfmI28SJ0eytkjT/smN234yNOQ8YT2u5URzMjRkNEU0uZn1YnaPbXG1XkCFBsvl9SVnh4DGAVh2kSHAEblbe9VegHXP5a8VZK0zTnvlqEHv2GmhkltHJFxUyKNEo",
-                        "0Ii/Ih168tnudMhLDZrcevAm/nzpZvK39hC1dEhHz9KwWTzM/r2+ZoN6QoPLOOyC1+yC0900D1v995hqwMFMDlhdmdewy0QPwFSY8vaZRSKAWpgjCrpABA/tAmSv0QeC",
-                        "NDAU40f8YU/HvCqAzRHJJ1Srxzc/xYlS9GUzpJrc5hoOYLDxSiJavlgXip7Znl0ptgqivlOOo+CQnvG6iWc5IJG9AI9++aYlsl972BoE1drx/5pjOhIHtINbQfnC++7u",
-                        "2VqFKvXZ8OApbnPEOvkL26SNM1gE2cnkBJL7PCGj6EQII6PNM18GW/gYR5DTc64mbFqifo82gIREeoF0mRSylWzrY+iUhrWTa3n8Sq1mavgA28r2gZijQ4KvWwFSbPP3"
+                        "MminKEz/96ZiF7j1oEVreJhcnbelMyqrB1KdIsuTtoL9a2L50QpV2udtlXLbkrcNTiuS/QWmfAjLXs/dciD4nMyhprkgDOXvadlYQifeWednTxMSQcRJpHpq0je5+7GE"
                     ],
                     "AuthorName": "Keith Lostracco",
                     "AuthorEmail": "keith@actualize.vision"

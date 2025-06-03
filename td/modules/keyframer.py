@@ -1075,10 +1075,10 @@ class KeyframerExt(Keyframer):
 				chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
 			elif i == 1:
 				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)
-				chan.set_keyframe_in_handle(indices[1], point)
+				chan.set_keyframe_out_handle(indices[1], point)
 			elif i == 2:
 				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)	
-				chan.set_keyframe_out_handle(indices[1], point)
+				chan.set_keyframe_in_handle(indices[1] + 1, point)
 
 		
 			
@@ -1186,15 +1186,17 @@ class KeyframerExt(Keyframer):
 			if i < 3:
 				indices = event.custom['indices']
 				chan = self.AnimationChop.channels[indices[0]]
-				keyframe = chan.keyframe(indices[1])
 				if i == 0:
+					keyframe = chan.keyframe(indices[1])
 					self.start_item_pos = tdu.Position(keyframe.time, keyframe.value, 0)
 				elif i == 1:
-					self.start_item_pos = tdu.Position(keyframe.in_handle.time, 
-														keyframe.in_handle.value, 0)
-				elif i == 2:
+					keyframe = chan.keyframe(indices[1])
 					self.start_item_pos = tdu.Position(keyframe.out_handle.time, 
 														keyframe.out_handle.value, 0)
+				elif i == 2:
+					keyframe = chan.keyframe(indices[1] + 1)
+					self.start_item_pos = tdu.Position(keyframe.in_handle.time, 
+														keyframe.in_handle.value, 0)
 
 
 	def onPickEnd(self, didAction=True):

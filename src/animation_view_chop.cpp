@@ -1,4 +1,4 @@
-#include "animation_select_chop.h"
+#include "animation_view_chop.h"
 
 
 #include <cstring>
@@ -15,9 +15,9 @@ DLLEXPORT void
 FillCHOPPluginInfo(CHOP_PluginInfo* info)
 {
     info->apiVersion = CHOPCPlusPlusAPIVersion;
-    info->customOPInfo.opType->setString("Animationselect");
-    info->customOPInfo.opLabel->setString("Animation Select");
-    info->customOPInfo.opIcon->setString("ANS");
+    info->customOPInfo.opType->setString("Animationview");
+    info->customOPInfo.opLabel->setString("Animation View");
+    info->customOPInfo.opIcon->setString("AMV");
     info->customOPInfo.authorName->setString("Keith Lostracco");
     info->customOPInfo.authorEmail->setString("keith@actualize.vision");
     info->customOPInfo.minInputs = 0;
@@ -28,42 +28,42 @@ FillCHOPPluginInfo(CHOP_PluginInfo* info)
 DLLEXPORT 
 CHOP_CPlusPlusBase* CreateCHOPInstance(const OP_NodeInfo* info)
 {
-    return new AnimationSelectCHOP(info);
+    return new AnimationViewCHOP(info);
 }
 
 DLLEXPORT void 
 DestroyCHOPInstance(CHOP_CPlusPlusBase* instance)
 {
-    delete static_cast<AnimationSelectCHOP*>(instance);
+    delete static_cast<AnimationViewCHOP*>(instance);
 }
 
 }; // extern "C"
 
-AnimationSelectCHOP::AnimationSelectCHOP(const OP_NodeInfo* info)
+AnimationViewCHOP::AnimationViewCHOP(const OP_NodeInfo* info)
     : m_warning(nullptr)
     , m_error(nullptr)
-    , m_selectMode(SelectMode::autoRange)
-    , m_startTime(0.0)
-    , m_endTime(30.0)
+    , m_viewMode(ViewMode::samples)
+    , m_samplesStartTime(0.0)
+    , m_samplesEndTime(30.0)
 {
 }
 
-AnimationSelectCHOP::~AnimationSelectCHOP()
+AnimationViewCHOP::~AnimationViewCHOP()
 {
 }
 
 void 
-AnimationSelectCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
+AnimationViewCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
     ginfo->cookEveryFrameIfAsked = false;
     ginfo->timeslice = false;
 }
 
 bool 
-AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
+AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, void* reserved1)
 {
     info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate", 0));
-    m_selectMode = static_cast<SelectMode>(inputs->getParInt("Selectmode", 0));
+    m_viewMode = static_cast<ViewMode>(inputs->getParInt("Viewmode", 0));
     
     info->startIndex = 0;
 
@@ -76,18 +76,8 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
         return false;
     }
 
-    switch (m_selectMode) {
-    case SelectMode::autoRange: {
-        info->numChannels = static_cast<int32_t>(animation->size());
-        auto max_length = 0.0;
-        for (const auto& channel : animation->channels()) {
-            max_length = std::max(max_length, channel->length());
-        }
-        info->numSamples = static_cast<int32_t>(max_length * info->sampleRate);
-        m_startTime = 0.0;
-        m_endTime = max_length;
-        return true;
-    } case SelectMode::range: {
+    switch (m_viewMode) {
+    case ViewMode::samples: {
         info->numChannels = static_cast<int32_t>(animation->size());
         auto rangeStart = inputs->getParDouble("Range", 0);
         auto rangeEnd = inputs->getParDouble("Range", 1);
@@ -96,29 +86,38 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
         auto rangeUnit = inputs->getParString("Rangeunit");
         if (strcmp(rangeUnit, "samples") == 0) { // Samples
             info->numSamples = static_cast<int32_t>(range_delta + 1.0);
-            m_startTime = rangeStart / info->sampleRate;
-            m_endTime = rangeEnd / info->sampleRate;
+            m_samplesStartTime = rangeStart / info->sampleRate;
+            m_samplesEndTime = rangeEnd / info->sampleRate;
         } else { // Seconds
             info->numSamples = static_cast<int32_t>(range_delta * info->sampleRate);
-            m_startTime = rangeStart;
-            m_endTime = rangeEnd;
+            m_samplesStartTime = rangeStart;
+            m_samplesEndTime = rangeEnd;
         }
         return true;
-    } case SelectMode::keyframes: {
+    } case ViewMode::keyframes: {
         info->numChannels = static_cast<int32_t>(m_keyframes_chan_names.size());
         int32_t num_samples = 0;
         for (const auto& channel : animation->channels()) {
             num_samples += static_cast<int32_t>(channel->size());
         }
         info->numSamples = num_samples;
-        m_startTime = 0.0;
-        m_endTime = 0.0; // Not used in this mode
+        m_selectedKeyframes.resize(num_samples, false); // Initialize selection state
         return true;
-    } case SelectMode::channels: {
+    } case ViewMode::segments: {
+        info->numChannels = static_cast<int32_t>(m_segments_chan_names.size());
+        int32_t num_samples = 0;
+        for (const auto& channel : animation->channels()) {
+            num_samples += static_cast<int32_t>(channel->size() - 1); // Each segment is defined by two keyframes
+        }
+        info->numSamples = num_samples;
+        m_selectedSegments.resize(num_samples, false); // Initialize selection state
+        return true;
+    } case ViewMode::channels: {
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
         info->numSamples = static_cast<int32_t>(animation->size());
+        m_selectedChannels.resize(animation->size(), false); // Initialize selection state
         return true;
-    } case SelectMode::animation: {
+    } case ViewMode::animation: {
         info->numChannels = static_cast<int32_t>(m_animation_chan_names.size());
         info->numSamples = 1; // Single sample for animation info
         return true;
@@ -131,7 +130,7 @@ AnimationSelectCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* input
 }
 
 void 
-AnimationSelectCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inputs* inputs, void* reserved1)
+AnimationViewCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inputs* inputs, void* reserved1)
 {
     auto animationChop = getAnimationCHOP(inputs);
     if (!animationChop) {
@@ -141,27 +140,32 @@ AnimationSelectCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inp
     if (!animation) {
         return;
     }
-    switch (m_selectMode) {
-    case SelectMode::autoRange:
-    case SelectMode::range: {
+    switch (m_viewMode) {
+    case ViewMode::samples: {
         if (index < 0 || index >= static_cast<int32_t>(animation->channel_names().size())) {
             return;
         }
         name ->setString(animation->channel_names()[index].c_str());
         break;
-    } case SelectMode::keyframes: {
+    } case ViewMode::keyframes: {
         if (index < 0 || index >= static_cast<int32_t>(m_keyframes_chan_names.size())) {
             return;
         }
         name->setString(m_keyframes_chan_names[index]);
         break;
-    } case SelectMode::channels: {
+    } case ViewMode::segments: {
+        if (index < 0 || index >= static_cast<int32_t>(m_segments_chan_names.size())) {
+            return;
+        }
+        name->setString(m_segments_chan_names[index]);
+        break;
+    } case ViewMode::channels: {
         if (index < 0 || index >= static_cast<int32_t>(m_channels_chan_names.size())) {
             return;
         }
         name->setString(m_channels_chan_names[index]);
         break;
-    } case SelectMode::animation: {
+    } case ViewMode::animation: {
         if (index < 0 || index >= static_cast<int32_t>(m_animation_chan_names.size())) {
             return;
         }
@@ -174,7 +178,7 @@ AnimationSelectCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inp
 }
 
 void 
-AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reserved1)
+AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reserved1)
 {
     m_error = nullptr;
     m_warning = nullptr;
@@ -188,22 +192,21 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
     if (!animation) {
         return;
     }
-    switch (m_selectMode) {
-    case SelectMode::autoRange:
-    case SelectMode::range: {
+    switch (m_viewMode) {
+    case ViewMode::samples: {
         size_t num_anim_channels = animation->num_channels();
         for (int i = 0; i < output->numChannels; ++i) {
             if (i < static_cast<int>(num_anim_channels)) {
                 auto samples = animation->channel(i).evaluate_range(
-                    m_startTime,
-                    m_endTime,
+                    m_samplesStartTime,
+                    m_samplesEndTime,
                     output->numSamples
                 );
                 std::copy(samples.begin(), samples.end(), output->channels[i]);
             }
         }
         break;
-    } case SelectMode::keyframes: {
+    } case ViewMode::keyframes: {
         size_t num_keyframe_channels = m_keyframes_chan_names.size();
         if (output->numChannels > num_keyframe_channels) {
             m_error = "Not enough channels allocated";
@@ -224,12 +227,41 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
                     output->channels[7][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
                     output->channels[8][i] = static_cast<float>(channel.keyframe(k).function);
                     output->channels[9][i] = static_cast<float>(channel.keyframe(k).handle_mode);
+                    output->channels[10][i] = static_cast<float>(m_selectedKeyframes[i]);
                 }
                 ++i;
             }
         }
         break;
-    } case SelectMode::channels: {
+    } case ViewMode::segments: {
+        size_t num_segment_info_channels = m_segments_chan_names.size();
+        if (output->numChannels > num_segment_info_channels) {
+            m_error = "Not enough channels allocated";
+            return;
+        }
+        size_t i = 0;
+        for (size_t c = 0; c < animation->size(); ++c) {
+            auto& channel = animation->channel(c);
+            for (size_t k = 0; k < channel.size() - 1; ++k) {
+                auto start_keyframe = channel.keyframe(k);
+                auto end_keyframe = channel.keyframe(k + 1);
+                output->channels[0][i] = static_cast<float>(c); // Channel index
+                output->channels[1][i] = static_cast<float>(k); // Segment index
+                output->channels[2][i] = static_cast<float>(start_keyframe.time()); // Start time
+                output->channels[3][i] = static_cast<float>(start_keyframe.value()); // Start value
+                output->channels[4][i] = static_cast<float>(end_keyframe.time()); // End time
+                output->channels[5][i] = static_cast<float>(end_keyframe.value()); // End value
+                output->channels[6][i] = static_cast<float>(start_keyframe.out_handle.time); // Start handle time
+                output->channels[7][i] = static_cast<float>(start_keyframe.out_handle.value); // Start handle value
+                output->channels[8][i] = static_cast<float>(end_keyframe.in_handle.time); // End handle time
+                output->channels[9][i] = static_cast<float>(end_keyframe.in_handle.value); // End handle value
+                output->channels[10][i] = static_cast<float>(displayHandles(start_keyframe));
+                output->channels[11][i] = static_cast<float>(m_selectedSegments[i]); // Selected
+                ++i;
+            }
+        }
+        break;
+    } case ViewMode::channels: {
         size_t num_channel_info_channels = m_channels_chan_names.size();
         if (output->numChannels > num_channel_info_channels) {
             m_error = "Not enough channels allocated";
@@ -245,10 +277,11 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
                 output->channels[2][c] = static_cast<float>(channel.end_time());
                 output->channels[3][c] = static_cast<float>(start_index);
                 start_index += static_cast<int32_t>(num_keyframes);
+                output->channels[4][c] = static_cast<float>(m_selectedChannels[c]); // Selected
             }
         }
         break;
-    } case SelectMode::animation: {
+    } case ViewMode::animation: {
         size_t num_animation_info_channels = m_animation_chan_names.size();
         if (output->numChannels > num_animation_info_channels) {
             m_error = "Not enough channels allocated";
@@ -281,19 +314,19 @@ AnimationSelectCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void*
 }
 
 void
-AnimationSelectCHOP::getWarningString(OP_String* warning, void* reserved1)
+AnimationViewCHOP::getWarningString(OP_String* warning, void* reserved1)
 {
     warning->setString(m_warning);
 }
 
 void
-AnimationSelectCHOP::getErrorString(OP_String* error, void* reserved1)
+AnimationViewCHOP::getErrorString(OP_String* error, void* reserved1)
 {
     error->setString(m_error);
 }
 
 void
-AnimationSelectCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
+AnimationViewCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
     {
         OP_StringParameter sp;
@@ -303,13 +336,13 @@ AnimationSelectCHOP::setupParameters(OP_ParameterManager* manager, void* reserve
         manager->appendCHOP(sp);
     } {
         OP_StringParameter	sp;
-		sp.name = "Selectmode";
-        sp.label = "Select Mode";
-        sp.defaultValue = "autorange";
-        const char *names[] = { "autorange", "range", 
-            "keyframes", "channel", "animation" };
-        const char *labels[] = { "Auto Range (curves)", "Range (curves)", 
-            "Keyframe Data", "Channels Info", "Animation Info" };
+		sp.name = "Viewmode";
+        sp.label = "View Mode";
+        sp.defaultValue = "samples";
+        const char *names[] = { "samples", 
+            "keyframes", "segments", "channel", "animation" };
+        const char *labels[] = { "Samples View (range)", 
+            "Keyframe View", "Segments View", "Channels View", "Animation View" };
 
         OP_ParAppendResult res = manager->appendMenu(sp, 5, names, labels);
         assert(res == OP_ParAppendResult::Success);
@@ -352,7 +385,7 @@ AnimationSelectCHOP::setupParameters(OP_ParameterManager* manager, void* reserve
 }
 
 AnimationCHOP*
-AnimationSelectCHOP::getAnimationCHOP(const OP_Inputs *inputs)
+AnimationViewCHOP::getAnimationCHOP(const OP_Inputs *inputs)
 {
     auto target = inputs->getParCHOP("Animationchop");
     if (!target) {
@@ -365,69 +398,9 @@ AnimationSelectCHOP::getAnimationCHOP(const OP_Inputs *inputs)
     return static_cast<AnimationCHOP*>(target->customOP->instance);
 }
 
-// void 
-// AnimationSelectCHOP::updateChannelSelection(const OP_Inputs* inputs)
-// {
-//     // // Get parameters
-//     // m_targetCHOPPath = inputs->getParString("targetpath");
-//     // m_startFrame = inputs->getParInt("startframe");
-//     // m_endFrame = inputs->getParInt("endframe");
-//     // m_channelPattern = inputs->getParString("channelpattern");
-    
-//     // // Clear previous channel names (actual channel evaluation happens in evaluateTargetCHOP)
-//     // m_channelNames.clear();
-// }
 
-// bool 
-// AnimationSelectCHOP::matchesPattern(const std::string& channelName, const std::string& pattern)
-// {
-//     // if (pattern == "*") return true;
-    
-//     // try {
-//     //     // Convert glob pattern to regex
-//     //     std::string regexPattern = pattern;
-//     //     std::replace(regexPattern.begin(), regexPattern.end(), '*', '.');
-//     //     regexPattern = ".*" + regexPattern + ".*";
-        
-//     //     std::regex re(regexPattern);
-//     //     return std::regex_match(channelName, re);
-//     // }
-//     // catch (const std::exception&) {
-//     //     return false;
-//     // }
-
-//     return true; // Placeholder, always matches for now
-// }
-
-// void 
-// AnimationSelectCHOP::evaluateTargetCHOP(const OP_Inputs* inputs)
-// {
-//     // // This is a placeholder implementation
-//     // // In a real implementation, you would:
-//     // // 1. Get reference to the target CHOP using m_targetCHOPPath
-//     // // 2. Extract channel names and data from the target CHOP
-//     // // 3. Filter channels based on m_channelPattern
-//     // // 4. Extract data for the frame range [m_startFrame, m_endFrame]
-    
-//     // // For now, create some dummy data
-//     // m_channelNames.clear();
-//     // m_channelData.clear();
-    
-//     // // Example: create a few test channels
-//     // for (int i = 0; i < 3; i++)
-//     // {
-//     //     std::string channelName = "chan" + std::to_string(i);
-//     //     if (matchesPattern(channelName, m_channelPattern))
-//     //     {
-//     //         m_channelNames.push_back(channelName);
-            
-//     //         std::vector<double> channelData;
-//     //         int numSamples = m_endFrame - m_startFrame + 1;
-//     //         for (int j = 0; j < numSamples; j++)
-//     //         {
-//     //             channelData.push_back(static_cast<double>(i + j) * 0.1);
-//     //         }
-//     //         m_channelData.push_back(channelData);
-//     //     }
-//     // }
-// }
+bool AnimationViewCHOP::displayHandles(const Keyframe& start_keyframe) const
+{
+    return start_keyframe.function == Function::bezier 
+        && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
+}

@@ -7,12 +7,13 @@
 
 
 using namespace TD;
+using namespace anim;
 
-class AnimationSelectCHOP : public CHOP_CPlusPlusBase
+class AnimationViewCHOP : public CHOP_CPlusPlusBase
 {
 public:
-    AnimationSelectCHOP(const OP_NodeInfo* info);
-    virtual ~AnimationSelectCHOP();
+    AnimationViewCHOP(const OP_NodeInfo* info);
+    virtual ~AnimationViewCHOP();
 
     virtual void getGeneralInfo(CHOP_GeneralInfo*, const OP_Inputs*, void* reserved1) override;
     virtual bool getOutputInfo(CHOP_OutputInfo*, const OP_Inputs*, void* reserved1) override;
@@ -23,27 +24,39 @@ public:
     virtual void setupParameters(OP_ParameterManager* manager, void* reserved1) override;
 
 private:
-    enum class SelectMode {
-        autoRange,
-        range,
+    enum class ViewMode {
+        samples,
         keyframes,
+        segments,
         channels,
         animation
     };
 
     const char* m_warning;
     const char* m_error;
-    SelectMode m_selectMode;
-    double m_startTime;
-    double m_endTime;
+    ViewMode m_viewMode;
+    double m_samplesStartTime;
+    double m_samplesEndTime;
 
-    std::array<const char*, 10> m_keyframes_chan_names {
+    std::vector<bool> m_selectedKeyframes;
+    std::vector<bool> m_selectedSegments;
+    std::vector<bool> m_selectedStartHandles;
+    std::vector<bool> m_selectedEndHandles;
+    std::vector<bool> m_selectedChannels;
+
+    std::array<const char*, 11> m_keyframes_chan_names {
         "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",
-        "out_handle_time", "out_handle_value", "function", "handle_mode"
+        "out_handle_time", "out_handle_value", "function", "handle_mode", "selected"
     };
 
-    std::array<const char*, 4> m_channels_chan_names {
-        "num_keyframes", "start_time", "end_time", "start_index"
+    std::array<const char*, 14> m_segments_chan_names {
+        "channel_index", "segment_index", "start_time", "start_value", "end_time", "end_value", 
+        "start_handle_time", "start_handle_value", "end_handle_time", "end_handle_value",
+        "display_handles", "selected", "selected_start_handle", "selected_end_handle"
+    };
+
+    std::array<const char*, 5> m_channels_chan_names {
+        "num_keyframes", "start_time", "end_time", "start_index", "selected"
     };
 
     std::array<const char*, 5> m_animation_chan_names {
@@ -53,8 +66,5 @@ private:
 
 
     AnimationCHOP* getAnimationCHOP(const OP_Inputs* inputs);
-
-    void updateChannelSelection(const OP_Inputs* inputs);
-    bool matchesPattern(const std::string& channelName, const std::string& pattern);
-    void evaluateTargetCHOP(const OP_Inputs* inputs);
+    bool displayHandles(const Keyframe& start_keyframe) const;
 };

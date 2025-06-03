@@ -24,9 +24,9 @@ set(ANIMATION_CHOP_SOURCES
     ${SRC}/animation_chop.cpp
 )
 
-# Explicitly define sources for AnimationSelectCHOP
+# Explicitly define sources for AnimationViewCHOP
 set(ANIMATION_SELECT_CHOP_SOURCES
-    ${SRC}/animation_select_chop.cpp
+    ${SRC}/animation_view_chop.cpp
 )
 
 if(VERBOSE_STATUS)
@@ -34,7 +34,7 @@ if(VERBOSE_STATUS)
         message(STATUS "Found AnimationCHOP source file: ${SOURCE}")
     endforeach()
     foreach(SOURCE ${ANIMATION_SELECT_CHOP_SOURCES})
-        message(STATUS "Found AnimationSelectCHOP source file: ${SOURCE}")
+        message(STATUS "Found AnimationViewCHOP source file: ${SOURCE}")
     endforeach()
 endif()
 
@@ -48,11 +48,11 @@ add_subdirectory(ext/anim)
 # Create the animation_chop target
 add_library(animation_chop SHARED ${ANIMATION_CHOP_SOURCES})
 
-# Create the animation_select_chop target
-add_library(animation_select_chop SHARED ${ANIMATION_SELECT_CHOP_SOURCES})
+# Create the animation_view_chop target
+add_library(animation_view_chop SHARED ${ANIMATION_SELECT_CHOP_SOURCES})
 
 # Include directories for both targets
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     target_include_directories(${TARGET} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/ext/td/include
@@ -62,7 +62,7 @@ foreach(TARGET animation_chop animation_select_chop)
 endforeach()
 
 if(WIN32)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         target_include_directories(${TARGET} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
         )
@@ -71,7 +71,7 @@ if(WIN32)
             ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
         )
 
-        # Link against the anim library (AnimationSelectCHOP only needs anim, not full Python bindings)
+        # Link against the anim library (AnimationViewCHOP only needs anim, not full Python bindings)
         if(${TARGET} STREQUAL "animation_chop")
             target_link_libraries(${TARGET} PRIVATE 
                 python311
@@ -86,7 +86,7 @@ if(WIN32)
 elseif(APPLE)
     # On macOS, use the system Python or the one set up by GitHub Actions
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         if(${TARGET} STREQUAL "animation_chop")
             target_link_libraries(${TARGET} PRIVATE 
                 Python3::Python
@@ -103,7 +103,7 @@ else()
     # On other platforms, use pkg-config to find Python
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(PYTHON REQUIRED python3)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         target_include_directories(${TARGET} PRIVATE ${PYTHON_INCLUDE_DIRS})
         if(${TARGET} STREQUAL "animation_chop")
             target_link_libraries(${TARGET} PRIVATE 
@@ -127,15 +127,15 @@ set_target_properties(animation_chop PROPERTIES
     PREFIX ""
 )
 
-set_target_properties(animation_select_chop PROPERTIES
+set_target_properties(animation_view_chop PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    OUTPUT_NAME "AnimationSelectCHOP"
+    OUTPUT_NAME "AnimationViewCHOP"
     PREFIX ""
 )
 
 if(SUPPRESS_NOT_REFERENCED_WARNINGS)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         if(MSVC)
             target_compile_options(${TARGET} PRIVATE /wd4100 /wd4189)
             target_compile_definitions(${TARGET} PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -147,7 +147,7 @@ if(SUPPRESS_NOT_REFERENCED_WARNINGS)
 endif()
 
 # Add post-build commands to copy both DLLs to the Plugins folder
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     add_custom_command(TARGET ${TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
         COMMAND ${CMAKE_COMMAND} -E copy 
@@ -158,7 +158,7 @@ foreach(TARGET animation_chop animation_select_chop)
 endforeach()
 
 # Add platform-specific settings for both targets
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     if(WIN32)
         target_compile_definitions(${TARGET} PRIVATE WIN32 _WINDOWS _USRDLL)
         # Windows-specific settings
@@ -179,7 +179,7 @@ foreach(TARGET animation_chop animation_select_chop)
 endforeach()
 
 # Install targets
-install(TARGETS animation_chop animation_select_chop
+install(TARGETS animation_chop animation_view_chop
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
