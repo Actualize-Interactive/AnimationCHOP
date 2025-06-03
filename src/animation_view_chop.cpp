@@ -181,6 +181,7 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
         info->numSamples = static_cast<int32_t>(animation->size());
         m_selectedChannels.resize(animation->size(), false); // Initialize selection state
+        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
         return true;
     } case ViewMode::animation: {
         info->numChannels = static_cast<int32_t>(m_animation_chan_names.size());
@@ -345,6 +346,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[3][c] = static_cast<float>(start_index);
                 start_index += static_cast<int32_t>(num_keyframes);
                 output->channels[4][c] = static_cast<float>(m_selectedChannels[c]); // Selected
+                output->channels[5][c] = static_cast<float>(m_displayedChannels[c]); // Display
             }
         }
         break;
@@ -359,8 +361,9 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         double min_keyframe_value = std::numeric_limits<double>::max();
         double max_keyframe_value = std::numeric_limits<double>::lowest();
         for (const auto& channel : animation->channels()) {
-            for (size_t k = 0; k < channel->size(); ++k) {
-                const auto& keyframe = channel->keyframe(k);
+            // for (size_t k = 0; k < channel->size(); ++k) {
+            //     const auto& keyframe = channel->keyframe(k);
+            for (const auto& keyframe : channel->keyframes()) {
                 min_keyframe_time = std::min(min_keyframe_time, keyframe.time());
                 max_keyframe_time = std::max(max_keyframe_time, keyframe.time());
                 min_keyframe_value = std::min(min_keyframe_value, keyframe.value());

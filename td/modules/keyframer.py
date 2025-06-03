@@ -13,7 +13,8 @@ class Keyframer:
 		self.iParsComp = ownerComp.op('iPars')
 		self.default_animationChop = self.ownerComp.op('default_animation')
 		self.curvesChop = iop.curves
-		self.keyframeChop = iop.keyframes
+		self.keyframesChop = iop.keyframes
+		self.segmentsChop = iop.segments
 		self.channelsChop = iop.channels
 		self.animation_infoChop = iop.animation_info
 
@@ -189,7 +190,7 @@ class KeyframerExt(Keyframer):
 
 	@property
 	def ChannelNames(self):
-		return tdu.Dependency(list(self.Channels.keys()))
+		return tdu.Dependency(list(self.AnimationChop.channel_names))
 
 	@property
 	def currentChannelIds(self):
@@ -284,16 +285,16 @@ class KeyframerExt(Keyframer):
 		# 	chan.channelComp.par.Colorg = row[7].val
 		# 	chan.channelComp.par.Colorb = row[8].val						
 
-		# self.Channels = channels
-		# self.ChannelsList = list(self.Channels.values())	
-		# self.channelListComp.Refresh(self.Channels, self.ChannelNames.val)
-		# chanComps = self.ChannelsComp.findChildren(depth=1)
-		# for chanComp in chanComps:
-		# 	if chanComp.name not in self.ChannelNames.val:
-		# 		chanComp.destroy()
+
+		self.refreshChannelList()
 
 		self.updateKeysView(init=True)
 		self.GetKeyHandlesActive()
+
+	def refreshChannelList(self):
+		channels_display = self.channelsChop['display'].vals
+		channel_names = self.AnimationChop.channel_names
+		self.channelListComp.Refresh(channels_display, channel_names)
 
 
 	def OnPickEvents(self, allEvents):
@@ -394,46 +395,50 @@ class KeyframerExt(Keyframer):
 			run("args[0]()", self.keysNavHome, delayFrames=1)				
 
 	def AppendChannel(self, name, updateKeysView=True, startVal=None):
-		if name == '' or name == 'name' or self.Channels.get(name):
+		if name == '' or name == 'name' or self.AnimationChop.has_channel(name):
 			print(f"'{name}' is an invalid channel name.")
 			return False
 		else:
-			if len(self.currentChannelIds) > 0:
-				index = max(self.currentChannelIds) + 1
-			else:
-				index = 0
-			rowData = [
-				name, index, 'hold', 'hold', 0, 
-				f"keys/{name}", 
-				self.iParsComp.par.Defaultchancolr, 
-				self.iParsComp.par.Defaultchancolg,
-				self.iParsComp.par.Defaultchancolb,
-				1, 1, 0
-			]
-			if name in self.channelsDat.col(0):
-				self.channelsDat.replaceRow(name, rowData)
-			else:
-				self.channelsDat.appendRow(rowData)
-			self.Channels[name] = Channel(self, name, index, index, 
-										startVal=startVal)
-			if self.iParsComp.par.Chancolmode.eval() == 'MULTI_COL':
-				# rgbStart = self.iParsComp.pars('Defaultchancol*')
-				hue = (index / 16)
-				col = colorsys.hsv_to_rgb(hue, .4, .6)
-				self.channelsDat[name, 6] = col[0]
-				self.channelsDat[name, 7] = col[1]
-				self.channelsDat[name, 8] = col[2]
-				chanComp = self.Channels[name].channelComp
-				chanComp.par.Colorr = col[0]		
-				chanComp.par.Colorg = col[1]
-				chanComp.par.Colorb = col[2]
+			channel = self.AnimationChop.create_channel(name)
+			channel.create_keyframe(0.0, 0.0)
+			channel.create_keyframe(1.0, 0.0)
 
-			self.ChannelsList = list(self.Channels.values())								
-			self.channelListComp.Refresh(self.Channels, self.ChannelNames.val)
-			self.updateKeysView(init=True)
-		if updateKeysView:
-			# self.updateKeysView(init=True)
-			run("args[0](init=True)", self.updateKeysView, delayFrames=1)
+		# 	if len(self.currentChannelIds) > 0:
+		# 		index = max(self.currentChannelIds) + 1
+		# 	else:
+		# 		index = 0
+		# 	rowData = [
+		# 		name, index, 'hold', 'hold', 0, 
+		# 		f"keys/{name}", 
+		# 		self.iParsComp.par.Defaultchancolr, 
+		# 		self.iParsComp.par.Defaultchancolg,
+		# 		self.iParsComp.par.Defaultchancolb,
+		# 		1, 1, 0
+		# 	]
+		# 	if name in self.channelsDat.col(0):
+		# 		self.channelsDat.replaceRow(name, rowData)
+		# 	else:
+		# 		self.channelsDat.appendRow(rowData)
+		# 	self.Channels[name] = Channel(self, name, index, index, 
+		# 								startVal=startVal)
+		# 	if self.iParsComp.par.Chancolmode.eval() == 'MULTI_COL':
+		# 		# rgbStart = self.iParsComp.pars('Defaultchancol*')
+		# 		hue = (index / 16)
+		# 		col = colorsys.hsv_to_rgb(hue, .4, .6)
+		# 		self.channelsDat[name, 6] = col[0]
+		# 		self.channelsDat[name, 7] = col[1]
+		# 		self.channelsDat[name, 8] = col[2]
+		# 		chanComp = self.Channels[name].channelComp
+		# 		chanComp.par.Colorr = col[0]		
+		# 		chanComp.par.Colorg = col[1]
+		# 		chanComp.par.Colorb = col[2]
+
+		# 	self.ChannelsList = list(self.Channels.values())								
+		# 	self.refreshChannelList()
+		# 	self.updateKeysView(init=True)
+		# if updateKeysView:
+		# 	# self.updateKeysView(init=True)
+		# 	run("args[0](init=True)", self.updateKeysView, delayFrames=1)
 
 	def DeleteChannel(self, name):
 		if self.Channels.get(name):
@@ -454,7 +459,7 @@ class KeyframerExt(Keyframer):
 		for keysDat in keysDats:
 			if keysDat:
 				keysDat.destroy()
-		self.channelListComp.Refresh(self.Channels, self.ChannelNames.val)
+		self.refreshChannelList()
 
 	def DeleteChannelConfirm(self, chanName):
 		confirm = ui.messageBox('Delete Channel',
@@ -534,9 +539,11 @@ class KeyframerExt(Keyframer):
 		self.keysViewComp.par.cursor = index
 
 	def unSelectAll(self):
-		# for chan in self.Channels.values():
-		# 	chan.unSelectAll()
-		# self.selectedChannels = []
+		self.keyframesChop.unselect_all_keyframes()
+		self.segmentsChop.unselect_all_segments()
+		self.segmentsChop.unselect_all_start_handles()
+		self.segmentsChop.unselect_all_end_handles()
+		self.channelsChop.unselect_all_channels()
 		pass
 
 	def transformPos(self, event):
@@ -976,9 +983,23 @@ class KeyframerExt(Keyframer):
 
 	def selectItem(self, event):
 		geo = event.pickOp.parent()
-		
+		i = geo.par.Geotype.menuIndex
+		if i < 3:
+			instance_id = event.instanceId
+			indices = event.custom['indices']
+			
+			if i == 0:
+				print("select keyframe", instance_id, indices)
+				self.keyframesChop.select_keyframes([instance_id])
+			elif i == 1:
+				print("select end handle", instance_id, indices)
+				self.segmentsChop.select_end_handles([instance_id])
+			elif i == 2:
+				print("select start handle", instance_id, indices)
+				self.segmentsChop.select_start_handles([instance_id])
+
 		# i = geo.par.Geotype.menuIndex
-		# if i < 2:
+		# if i < 3:
 		# 	indices = event.custom['indices']
 		# 	chan = self.ChannelsList[indices[0]]
 		# 	_id = indices[2 + i]			
@@ -1074,11 +1095,11 @@ class KeyframerExt(Keyframer):
 			if i == 0:
 				chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
 			elif i == 1:
-				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)
-				chan.set_keyframe_out_handle(indices[1], point)
-			elif i == 2:
 				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)	
 				chan.set_keyframe_in_handle(indices[1] + 1, point)
+			elif i == 2:
+				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)
+				chan.set_keyframe_out_handle(indices[1], point)
 
 		
 			
@@ -1169,9 +1190,6 @@ class KeyframerExt(Keyframer):
 			event.u * self.keysViewComp.width,
 			event.v * self.keysViewComp.height, 0)
 
-		# self.startSetPosOffset.x = self.startSetPosOffset.x / self.AnimationChop.rate
-		# self.startSetPosOffset.y = self.startSetPosOffset.y / self.AnimationChop.rate
-
 		print("Start Set Pos Offset:", self.startSetPosOffset)
 
 		self.pickStartVals = {}
@@ -1190,13 +1208,13 @@ class KeyframerExt(Keyframer):
 					keyframe = chan.keyframe(indices[1])
 					self.start_item_pos = tdu.Position(keyframe.time, keyframe.value, 0)
 				elif i == 1:
-					keyframe = chan.keyframe(indices[1])
-					self.start_item_pos = tdu.Position(keyframe.out_handle.time, 
-														keyframe.out_handle.value, 0)
-				elif i == 2:
 					keyframe = chan.keyframe(indices[1] + 1)
 					self.start_item_pos = tdu.Position(keyframe.in_handle.time, 
 														keyframe.in_handle.value, 0)
+				elif i == 2:
+					keyframe = chan.keyframe(indices[1])
+					self.start_item_pos = tdu.Position(keyframe.out_handle.time, 
+														keyframe.out_handle.value, 0)
 
 
 	def onPickEnd(self, didAction=True):
@@ -1254,7 +1272,7 @@ class KeyframerExt(Keyframer):
 				chan.setStartSetKeys()				
 			self.SetPrevStateChannels()
 			self.curStateChannels = dict(state)			
-			self.channelListComp.Refresh(self.Channels, self.ChannelNames.val)	
+			self.refreshChannelList()
 			self.updateKeysView(init=True)	
 
 			keyHandlesActive = self.GetKeyHandlesActive()
@@ -1288,6 +1306,34 @@ class KeyframerExt(Keyframer):
 						[self.selStartPos.y, self.selectPos.y]]
 			mCoords[0].sort()
 			mCoords[1].sort()
+
+			selected_indices = [] # sample_index
+			for sample_index in range(self.keyframesChop.numSamples):
+				if (self.keyframesChop['time'][sample_index] >= mCoords[0][0]
+						and self.keyframesChop['time'][sample_index] < mCoords[0][1]
+						and self.keyframesChop['value'][sample_index] >= mCoords[1][0]
+						and self.keyframesChop['value'][sample_index] < mCoords[1][1]):
+					selected_indices.append(sample_index)
+			self.keyframesChop.select_keyframes(selected_indices)
+
+			selected_start_handles = []
+			selected_end_handles = []
+			for sample_index in range(self.segmentsChop.numSamples):
+				if (self.segmentsChop['start_handle_time'][sample_index] >= mCoords[0][0]
+						and self.segmentsChop['start_handle_time'][sample_index] < mCoords[0][1]
+						and self.segmentsChop['start_handle_value'][sample_index] >= mCoords[1][0]
+						and self.segmentsChop['start_handle_value'][sample_index] < mCoords[1][1]):
+					selected_start_handles.append(sample_index)
+				
+				if (self.segmentsChop['end_handle_time'][sample_index] >= mCoords[0][0]
+						and self.segmentsChop['end_handle_time'][sample_index] < mCoords[0][1]
+						and self.segmentsChop['end_handle_value'][sample_index] >= mCoords[1][0]
+						and self.segmentsChop['end_handle_value'][sample_index] < mCoords[1][1]):
+					selected_end_handles.append(sample_index)
+
+			self.segmentsChop.select_start_handles(selected_start_handles)
+			self.segmentsChop.select_end_handles(selected_end_handles)
+
 			# for chan in self.Channels.values():
 			# 	if chan.display:
 			# 		for segment in chan.segments:
@@ -1731,16 +1777,17 @@ class KeyframerExt(Keyframer):
 					self.animCompComp.UpdateView(animComp)
 
 	def OnAppendChannels(self):
-		prevState = self.getAnimationCompState()		
+		# prevState = self.getAnimationCompState()		
 		names = self.newChannelNamesComp.par.Value.eval().split(' ')
 		for i, name in enumerate(names):
 			self.AppendChannel(name, updateKeysView=False)
-		run("args[0](init=True)", self.updateKeysView, delayFrames=len(names) + 1)		
-		curState = self.getAnimationCompState()
-		ui.undo.startBlock(self.undoStateAnimCompName)
-		ui.undo.addCallback(self.undoDeleteAppendChannels, 
-							[prevState, curState])
-		ui.undo.endBlock()
+		# run("args[0](init=True)", self.updateKeysView, delayFrames=len(names) + 1)		
+		# curState = self.getAnimationCompState()
+		# ui.undo.startBlock(self.undoStateAnimCompName)
+		# ui.undo.addCallback(self.undoDeleteAppendChannels, 
+		# 					[prevState, curState])
+		# ui.undo.endBlock()
+
 
 	def OpenContextMenu(self, fromComp, *args):
 		info = self.contextMenuLookup[fromComp.name]

@@ -905,8 +905,7 @@ class MultiButton(Element):
 			attribs.textOffsetX = self.Settings.Textoffset[0]
 			attribs.textOffsetY = self.Settings.Textoffset[1]
 			attribs.fontSizeX = self.par.Fontsize
-			attribs.fontFace = "../vlib/widgets/fonts/Inter-3.13/"\
-								"Inter Desktop/Inter-Regular.otf"
+			attribs.fontFace = "Roboto"
 
 			if self.Settings.Type != 'toggledown':
 				isSelected = int(self.CurItem[2] == cell)
@@ -1324,8 +1323,7 @@ class List(Element):
 			attribs.textOffsetX = self.Settings.Textoffset[0]
 			attribs.textOffsetY = self.Settings.Textoffset[1]
 			attribs.fontSizeX = self.par.Fontsize
-			attribs.fontFace = "../vlib/widgets/fonts/Inter-3.13/"\
-								"Inter Desktop/Inter-Regular.otf"
+			attribs.fontFace = "Roboto"
 
 			if self.Settings.Type != 'toggledown':
 				isSelected = int(self.CurItem[2] == cell)

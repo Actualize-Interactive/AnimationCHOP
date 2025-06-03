@@ -71,6 +71,7 @@ private:
     std::vector<bool> m_selectedStartHandles;
     std::vector<bool> m_selectedEndHandles;
     std::vector<bool> m_selectedChannels;
+    std::vector<bool> m_displayedChannels;
 
     std::array<const char*, 11> m_keyframes_chan_names {
         "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",
@@ -83,8 +84,8 @@ private:
         "display_handles", "selected", "selected_start_handles", "selected_end_handles"
     };
 
-    std::array<const char*, 5> m_channels_chan_names {
-        "num_keyframes", "start_time", "end_time", "start_index", "selected"
+    std::array<const char*, 6> m_channels_chan_names {
+        "num_keyframes", "start_time", "end_time", "start_index", "selected", "display"
     };
 
     std::array<const char*, 5> m_animation_chan_names {
