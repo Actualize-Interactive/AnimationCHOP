@@ -23,12 +23,10 @@ void main()
 
 #ifndef TD_PICKING_ACTIVE
 	vec4 worldCamInvPos = uTDMats[0].worldCamInverse * adjPos;
-	if (worldCamInvPos.x < uAnimRange.x || worldCamInvPos.x > uAnimRange.y)
-	{
+
+	if (worldCamInvPos.x < uAnimRange.x || worldCamInvPos.x > uAnimRange.y) {
 		oVert.color = mix(vec4(.5), vec4(.0), int(P.x * 5) % 2);
-	}
-	else
-	{
+	} else {
 		oVert.color = TDInstanceColor(Cd);
 	}
 

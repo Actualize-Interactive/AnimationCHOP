@@ -42,6 +42,7 @@ static PyObject* py_select_channels(PyObject* self, PyObject* args);
 static PyObject* py_unselect_channels(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_channels(PyObject* self, PyObject* args);
 static PyObject* py_selected_channels(PyObject* self, PyObject* args);
+static PyObject* py_set_channel_display(PyObject* self, PyObject* args);
 
 // Python method table for AnimationViewCHOP
 static PyMethodDef viewMethods[] = {
@@ -69,6 +70,7 @@ static PyMethodDef viewMethods[] = {
     {"unselect_channels", (PyCFunction)py_unselect_channels, METH_VARARGS, "Unselect channels by indices."},
     {"unselect_all_channels", (PyCFunction)py_unselect_all_channels, METH_NOARGS, "Unselect all channels."},
     {"selected_channels", (PyCFunction)py_selected_channels, METH_NOARGS, "Get selected channel indices."},
+    {"set_channel_display", (PyCFunction)py_set_channel_display, METH_VARARGS, "Set channel display state by indices."},
     
     {nullptr, nullptr, 0, nullptr}
 };
@@ -165,6 +167,7 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         }
         info->numSamples = num_samples;
         m_selectedKeyframes.resize(num_samples, false); // Initialize selection state
+        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
         return true;
     } case ViewMode::segments: {
         info->numChannels = static_cast<int32_t>(m_segments_chan_names.size());
@@ -176,6 +179,7 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         m_selectedSegments.resize(num_samples, false); // Initialize selection state
         m_selectedStartHandles.resize(num_samples, false); // Initialize selection state
         m_selectedEndHandles.resize(num_samples, false); // Initialize selection state
+        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
         return true;
     } case ViewMode::channels: {
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
@@ -294,6 +298,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                     output->channels[8][i] = static_cast<float>(channel.keyframe(k).function);
                     output->channels[9][i] = static_cast<float>(channel.keyframe(k).handle_mode);
                     output->channels[10][i] = static_cast<float>(m_selectedKeyframes[i]);
+                    output->channels[11][i] = static_cast<float>(m_displayedChannels[c]); // Display
                 }
                 ++i;
             }
@@ -321,10 +326,12 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[7][i] = static_cast<float>(start_keyframe.out_handle.value); // Start handle value
                 output->channels[8][i] = static_cast<float>(end_keyframe.in_handle.time); // End handle time
                 output->channels[9][i] = static_cast<float>(end_keyframe.in_handle.value); // End handle value
-                output->channels[10][i] = static_cast<float>(displayHandles(start_keyframe));
-                output->channels[11][i] = static_cast<float>(m_selectedSegments[i]); // Selected
-                output->channels[12][i] = static_cast<float>(m_selectedStartHandles[i]); // Selected start handles
-                output->channels[13][i] = static_cast<float>(m_selectedEndHandles[i]); // Selected end handles
+                auto display_start_handle = displayStartHandle(c, start_keyframe);
+                output->channels[10][i] = static_cast<float>(display_start_handle);
+                output->channels[11][i] = static_cast<float>(displayEndHandle(display_start_handle, end_keyframe));
+                output->channels[12][i] = static_cast<float>(m_selectedSegments[i]); // Selected
+                output->channels[13][i] = static_cast<float>(m_selectedStartHandles[i]); // Selected start handles
+                output->channels[14][i] = static_cast<float>(m_selectedEndHandles[i]); // Selected end handles
                 ++i;
             }
         }
@@ -469,11 +476,22 @@ AnimationViewCHOP::getAnimationCHOP(const OP_Inputs *inputs)
 }
 
 
-bool AnimationViewCHOP::displayHandles(const Keyframe& start_keyframe) const
+bool AnimationViewCHOP::displayStartHandle(size_t channel_index, const Keyframe& start_keyframe) const
 {
-    return start_keyframe.function == Function::bezier 
+    return m_displayedChannels[channel_index]
+        && start_keyframe.function == Function::bezier 
         && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
 }
+
+bool AnimationViewCHOP::displayEndHandle(bool display_start_handle, const Keyframe& end_keyframe) const
+{
+    // if the first keyframe is bezier we want to display the end handle unless the end keyframe is bezier and it is flat or smooth
+    return display_start_handle
+        && (static_cast<uint8_t>(end_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth)
+        || end_keyframe.function != Function::bezier);
+}
+
+
 
 // Helper function to convert Python list to vector of indices
 std::vector<size_t> pyListToIndices(PyObject* list) {
@@ -662,6 +680,13 @@ std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
         }
     }
     return selected;
+}
+
+void AnimationViewCHOP::setChannelDisplay(size_t index, bool display)
+{
+    if (index < m_displayedChannels.size()) {
+        m_displayedChannels[index] = display;
+    }
 }
 
 // Python binding implementations
@@ -1033,4 +1058,33 @@ static PyObject* py_selected_channels(PyObject* self, PyObject* args) {
 
     std::vector<size_t> selected = inst->getSelectedChannels();
     return indicesToPyList(selected);
+}
+
+static PyObject* py_set_channel_display(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    Py_ssize_t index_ssize;
+    int display_int;
+    if (!PyArg_ParseTuple(args, "np", &index_ssize, &display_int)) {
+        return NULL;
+    }
+    if (index_ssize < 0) {
+        PyErr_SetString(PyExc_ValueError, "Channel index must be non-negative");
+        return NULL;
+    }
+    
+    size_t index = static_cast<size_t>(index_ssize);
+    bool display = (display_int != 0);
+    inst->setChannelDisplay(index, display);
+
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
 }

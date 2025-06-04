@@ -50,6 +50,7 @@ public:
     void unselectChannels(const std::vector<size_t>& indices);
     void unselectAllChannels();
     std::vector<size_t> getSelectedChannels() const;
+    void setChannelDisplay(size_t index, bool display);
 
 private:
     enum class ViewMode {
@@ -73,15 +74,15 @@ private:
     std::vector<bool> m_selectedChannels;
     std::vector<bool> m_displayedChannels;
 
-    std::array<const char*, 11> m_keyframes_chan_names {
+    std::array<const char*, 12> m_keyframes_chan_names {
         "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",
-        "out_handle_time", "out_handle_value", "function", "handle_mode", "selected"
+        "out_handle_time", "out_handle_value", "function", "handle_mode", "selected", "display"
     };
 
-    std::array<const char*, 14> m_segments_chan_names {
+    std::array<const char*, 15> m_segments_chan_names {
         "channel_index", "segment_index", "start_time", "start_value", "end_time", "end_value", 
         "start_handle_time", "start_handle_value", "end_handle_time", "end_handle_value",
-        "display_handles", "selected", "selected_start_handles", "selected_end_handles"
+        "display_start_handle", "display_end_handle", "selected", "selected_start_handles", "selected_end_handles"
     };
 
     std::array<const char*, 6> m_channels_chan_names {
@@ -93,6 +94,7 @@ private:
         "min_keyframe_value", "max_keyframe_value", 
     };
 
+    bool displayStartHandle(size_t channel_index, const Keyframe& keyframe) const;
+    bool displayEndHandle(bool display_start_handle, const Keyframe& keyframe) const;
 
-    bool displayHandles(const Keyframe& start_keyframe) const;
 };

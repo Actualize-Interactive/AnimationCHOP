@@ -664,27 +664,35 @@ class KeyframerExt(Keyframer):
 		self.insertPos.x = event.u * self.keysViewComp.width
 		self.insertPos.y = event.v * self.keysViewComp.height
 		self.insertPos = self.keysTransformComp.worldTransform * self.insertPos		
-		# lastSampleIndex = self.KeyframeLookupChop.numSamples - 1
-		# x = math.floor(self.insertPos.x)
-		# i = max(0, 
-		# 	min(lastSampleIndex, x - math.floor(self.KeysViewHorzRange[0])))
-		# nearestChopChan = None
-		# for chopChan in self.KeyframeLookupChop.chans():	
-		# 	if self.Channels[chopChan.name].display:	
-		# 		if nearestChopChan == None:
-		# 			nearestChopChan = chopChan
-		# 		elif (abs(chopChan[i] - self.insertPos.y) 
-		# 				< abs(nearestChopChan[i] - self.insertPos.y)):
-		# 			nearestChopChan = chopChan
-		# if nearestChopChan is not None:		
-		# 	chan = self.Channels[nearestChopChan.name]
+		lastSampleIndex = self.curvesChop.numSamples - 1
+		x = self.insertPos.x
+		i = max(0, 
+			min(lastSampleIndex, math.floor((x - self.KeysViewHorzRange[0]) * self.curvesChop.rate)))
+		nearestChopChan = None
+		nearestValue = None
+		for chopChan in self.curvesChop.chans():	
+			if self.channelsChop['display'][chopChan.index]:	
+				if nearestChopChan == None:
+					nearestChopChan = chopChan
+					nearestValue = chopChan[i]
+				elif (abs(chopChan[i] - self.insertPos.y) 
+						< abs(nearestChopChan[i] - self.insertPos.y)):
+					nearestChopChan = chopChan
+					nearestValue = chopChan[i]
+		if nearestChopChan is not None:
+			print(f"index: {i}, nearestChopChan: {nearestChopChan.name}, nearestValue: {nearestValue} ")
 			
-		# 	if all([segment.x0 != x and segment.x1 != x
-		# 				for segment in chan.segments]):
-		# 		insertIndex = chan.insertKey(x, None)
-		# 		self.unSelectAll()
-		# 		chan.selectKey(insertIndex, 1)
-		# 		return {chan.name: insertIndex}
+			chan = self.AnimationChop.channels[nearestChopChan.index]
+			chan.create_keyframe(x, nearestValue)
+			
+			# chan = self.Channels[nearestChopChan.name]
+
+			# if all([segment.x0 != x and segment.x1 != x
+			# 			for segment in chan.segments]):
+			# 	insertIndex = chan.insertKey(x, None)
+			# 	self.unSelectAll()
+			# 	chan.selectKey(insertIndex, 1)
+			# 	return {chan.name: insertIndex}
 
 	def insertKeys(self, event):
 		self.insertPos.x = event.u * self.keysViewComp.width
@@ -1850,11 +1858,18 @@ class KeyframerExt(Keyframer):
 						if self.updateViewOutHandleSegment is None:
 							self.updateViewOutHandleSegment = selectedHandle						
 		return self.keysSelected, self.inHandlesSelected, self.outHandlesSelected
-		
+	
+	def display_channel(self, index, display):
+		self.keyframesChop.set_channel_display(index, display)
+		self.segmentsChop.set_channel_display(index, display)
+		self.channelsChop.set_channel_display(index, display)
+
 	def OnChannelListSetValue(self, element, value):
-		chanName = element.cellAttribs[value[0], 0].text
-		self.Channels[chanName].display = value[2]
-		self.updateKeysView()
+		print(f"OnChannelListSetValue: {element}, {value}")
+		self.display_channel(value[0], value[2])
+		# chanName = element.cellAttribs[value[0], 0].text
+		# self.Channels[chanName].display = value[2]
+		# self.updateKeysView()
 
 	def SetFrameSelectedKeyframes(self, frame):
 		for chan in self.Channels.values():

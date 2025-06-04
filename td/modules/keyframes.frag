@@ -28,7 +28,7 @@ void main()
 	outcol.rgb *= col.rgb * iVert.color.rgb;
 
 	// Alpha Calculation
-	float alpha = outcol.a * uColor.a * iVert.color.a;
+	float alpha = outcol.a * uColor.a * iVert.color.a * iVert.customAttrib0.y;
 
 	// Dithering, does nothing if dithering is disabled
 	outcol = TDDither(outcol);
