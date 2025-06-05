@@ -25,7 +25,7 @@ set(ANIMATION_CHOP_SOURCES
 )
 
 # Explicitly define sources for AnimationViewCHOP
-set(ANIMATION_SELECT_CHOP_SOURCES
+set(ANIMATION_VIEW_CHOP_SOURCES
     ${SRC}/animation_view_chop.cpp
 )
 
@@ -33,7 +33,7 @@ if(VERBOSE_STATUS)
     foreach(SOURCE ${ANIMATION_CHOP_SOURCES})
         message(STATUS "Found AnimationCHOP source file: ${SOURCE}")
     endforeach()
-    foreach(SOURCE ${ANIMATION_SELECT_CHOP_SOURCES})
+    foreach(SOURCE ${ANIMATION_VIEW_CHOP_SOURCES})
         message(STATUS "Found AnimationViewCHOP source file: ${SOURCE}")
     endforeach()
 endif()
@@ -46,10 +46,18 @@ set(ANIM_BUILD_EXAMPLES OFF CACHE BOOL "Build anim examples" FORCE)
 add_subdirectory(ext/anim)
 
 # Create the animation_chop target
-add_library(animation_chop SHARED ${ANIMATION_CHOP_SOURCES})
+if(APPLE)
+    add_library(animation_chop MODULE ${ANIMATION_CHOP_SOURCES})
+else()
+    add_library(animation_chop SHARED ${ANIMATION_CHOP_SOURCES})
+endif()
 
 # Create the animation_view_chop target
-add_library(animation_view_chop SHARED ${ANIMATION_SELECT_CHOP_SOURCES})
+if(APPLE)
+    add_library(animation_view_chop MODULE ${ANIMATION_VIEW_CHOP_SOURCES})
+else()
+    add_library(animation_view_chop SHARED ${ANIMATION_VIEW_CHOP_SOURCES})
+endif()
 
 # Include directories for both targets
 foreach(TARGET animation_chop animation_view_chop)
@@ -78,15 +86,45 @@ if(WIN32)
         )
     endforeach()
 elseif(APPLE)
-    # On macOS, use the system Python or the one set up by GitHub Actions
-    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-    foreach(TARGET animation_chop animation_view_chop)
-        target_link_libraries(${TARGET} PRIVATE 
-            Python3::Python
-            anim
-        )
-        target_compile_definitions(${TARGET} PRIVATE __cdecl=)
-    endforeach()
+    # On macOS, use TouchDesigner's Python specifically
+    set(TD_PYTHON_EXECUTABLE "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3.11")
+    set(TD_PYTHON_INCLUDE_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/include/python3.11")
+    set(TD_PYTHON_LIBRARY_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/lib")
+    
+    # Check if TouchDesigner's Python exists, otherwise fall back to system Python
+    if(EXISTS "${TD_PYTHON_EXECUTABLE}" AND EXISTS "${TD_PYTHON_INCLUDE_DIR}")
+        message(STATUS "Using TouchDesigner's Python: ${TD_PYTHON_EXECUTABLE}")
+        
+        # Force CMake to use TouchDesigner's Python by setting the paths explicitly
+        set(Python3_EXECUTABLE "${TD_PYTHON_EXECUTABLE}" CACHE FILEPATH "Path to Python3 executable" FORCE)
+        set(Python3_INCLUDE_DIR "${TD_PYTHON_INCLUDE_DIR}" CACHE PATH "Path to Python3 include directory" FORCE)
+        set(Python3_LIBRARY_DIRS "${TD_PYTHON_LIBRARY_DIR}" CACHE PATH "Path to Python3 library directory" FORCE)
+        
+        # Set the find strategy to prioritize our specified paths
+        set(Python3_FIND_STRATEGY LOCATION)
+        set(Python3_FIND_REGISTRY NEVER)
+        set(Python3_FIND_FRAMEWORK NEVER)
+        
+        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+        
+        foreach(TARGET animation_chop animation_view_chop)
+            target_link_libraries(${TARGET} PRIVATE 
+                Python3::Python
+                anim
+            )
+            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
+        endforeach()
+    else()
+        message(WARNING "TouchDesigner's Python not found at ${TD_PYTHON_EXECUTABLE}, falling back to system Python")
+        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+        foreach(TARGET animation_chop animation_view_chop)
+            target_link_libraries(${TARGET} PRIVATE 
+                Python3::Python
+                anim
+            )
+            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
+        endforeach()
+    endif()
 else()
     # On other platforms, use pkg-config to find Python
     find_package(PkgConfig REQUIRED)
@@ -132,11 +170,26 @@ endif()
 foreach(TARGET animation_chop animation_view_chop)
     add_custom_command(TARGET ${TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
-        COMMAND ${CMAKE_COMMAND} -E copy 
-                "$<TARGET_FILE:${TARGET}>" 
-                "${CMAKE_SOURCE_DIR}/td/Plugins/"
-        COMMENT "Copying ${TARGET} to Plugins directory"
+        COMMENT "Creating Plugins directory"
     )
+    
+    if(APPLE)
+        # On macOS, copy the entire .plugin bundle
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory 
+                    "$<TARGET_BUNDLE_DIR:${TARGET}>" 
+                    "${CMAKE_SOURCE_DIR}/td/Plugins/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
+            COMMENT "Copying ${TARGET}.plugin bundle to Plugins directory"
+        )
+    else()
+        # On other platforms, copy the library file
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy 
+                    "$<TARGET_FILE:${TARGET}>" 
+                    "${CMAKE_SOURCE_DIR}/td/Plugins/"
+            COMMENT "Copying ${TARGET} to Plugins directory"
+        )
+    endif()
 endforeach()
 
 # Add platform-specific settings for both targets
@@ -149,10 +202,16 @@ foreach(TARGET animation_chop animation_view_chop)
             target_compile_options(${TARGET} PRIVATE /W4)
         endif()
     elseif(APPLE)
-        # macOS-specific settings
+        # macOS-specific settings for TouchDesigner modules
+        string(REPLACE "_" "-" BUNDLE_ID_TARGET ${TARGET})
         set_target_properties(${TARGET} PROPERTIES
             BUNDLE TRUE
-            MACOSX_BUNDLE_GUI_IDENTIFIER com.actualize.${TARGET}
+            BUNDLE_EXTENSION "plugin"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.actualize.${BUNDLE_ID_TARGET}"
+            MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+            MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
+            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.actualize.${BUNDLE_ID_TARGET}"
         )
     elseif(UNIX)
         # Linux-specific settings
