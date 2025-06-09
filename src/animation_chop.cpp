@@ -181,7 +181,6 @@ AnimationCHOP::~AnimationCHOP()
     cleanup_function_enum();
 }
 
-
 void
 AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {

@@ -37,6 +37,11 @@ class WidgetVecExt(WIDGETS.Widget):
 	def UpdateViewFunction(self, value):
 		self.elementDict['function'].UpdateView(value)
 
+	def UpdateViewHandleMode(self, value):
+		self.elementDict['handle_mode'].UpdateView(value)
+
+	
+
 	def GetState(self):
 		fullState = {key:e.GetState() for key,e in self.elementDict.items()
 				if e in self.elementsUpdate}

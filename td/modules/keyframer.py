@@ -680,7 +680,7 @@ class KeyframerExt(Keyframer):
 					nearestChopChan = chopChan
 					nearestValue = chopChan[i]
 		if nearestChopChan is not None:
-			print(f"index: {i}, nearestChopChan: {nearestChopChan.name}, nearestValue: {nearestValue} ")
+			# print(f"index: {i}, nearestChopChan: {nearestChopChan.name}, nearestValue: {nearestValue} ")
 			
 			chan = self.AnimationChop.channels[nearestChopChan.index]
 			chan.create_keyframe(x, nearestValue)
@@ -813,15 +813,25 @@ class KeyframerExt(Keyframer):
 			self.Channels[chanName].deleteKey(i)
 
 	def DeleteSelectedKeys(self):
-		for channel in self.Channels.values():
-			if channel.numSegments > 1:
-				channel.selectedKeys.sort()
-				channel.selectedKeys.reverse()
-				for i in channel.selectedKeys:
-					channel.deleteKey(i)
+		for n in range(self.keyframesChop.numSamples, 0, -1):
+			i = n - 1
+			selected = self.keyframesChop['selected'][i]
+			if selected:
+				channel_index = round(self.keyframesChop['channel_index'][i])
+				keyframe_index = round(self.keyframesChop['keyframe_index'][i])
+				channel = self.AnimationChop.channels[channel_index]
+				channel.delete_keyframe(keyframe_index)
+
+
+		# for channel in self.Channels.values():
+		# 	if channel.numSegments > 1:
+		# 		channel.selectedKeys.sort()
+		# 		channel.selectedKeys.reverse()
+		# 		for i in channel.selectedKeys:
+		# 			channel.deleteKey(i)
 		
-		self.unSelectAll()
-		self.SetChannels()
+		# self.unSelectAll()
+		# self.SetChannels()
 
 	def scaleKeys(self, event):	
 		self.setPos = self.transformPos(event)
@@ -997,13 +1007,13 @@ class KeyframerExt(Keyframer):
 			indices = event.custom['indices']
 			
 			if i == 0:
-				print("select keyframe", instance_id, indices)
+				# print("select keyframe", instance_id, indices)
 				self.keyframesChop.select_keyframes([instance_id])
 			elif i == 1:
-				print("select end handle", instance_id, indices)
+				# print("select end handle", instance_id, indices)
 				self.segmentsChop.select_end_handles([instance_id])
 			elif i == 2:
-				print("select start handle", instance_id, indices)
+				# print("select start handle", instance_id, indices)
 				self.segmentsChop.select_start_handles([instance_id])
 
 		# i = geo.par.Geotype.menuIndex
@@ -1067,13 +1077,13 @@ class KeyframerExt(Keyframer):
 		i = geo.par.Geotype.menuIndex
 		if i < 3:
 			indices = event.custom['indices']
-			print(i, indices)
+			# print(i, indices)
 			# chan = self.ChannelsList[indices[0]]
 			# clickId = indices[2 + i]			
 		else:
 			# chan = self.Channels[geo.par.Channelname.eval()]
 			clickId = event.instanceId
-			print(i, clickId)
+			# print(i, clickId)
 
 		# if not self.startSet:
 		# 	self.startSet = True						
@@ -1098,7 +1108,7 @@ class KeyframerExt(Keyframer):
 			self.setPos.x += self.start_item_pos.x - self.startSetPosOffset.x
 			self.setPos.y += self.start_item_pos.y - self.startSetPosOffset.y
 			
-			print(self.setPos)
+			# print(self.setPos)
 			chan = self.AnimationChop.channels[indices[0]]
 			if i == 0:
 				chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
@@ -1198,7 +1208,7 @@ class KeyframerExt(Keyframer):
 			event.u * self.keysViewComp.width,
 			event.v * self.keysViewComp.height, 0)
 
-		print("Start Set Pos Offset:", self.startSetPosOffset)
+		# print("Start Set Pos Offset:", self.startSetPosOffset)
 
 		self.pickStartVals = {}
 		self.pickStartVals['uv'] = (event.u, event.v)
@@ -1467,7 +1477,11 @@ class KeyframerExt(Keyframer):
 			elif key == 'delete':
 				self.SetPrevStateChannels()	
 				self.DeleteSelectedKeys()
-				self.SetCurStateChannels()	
+				self.SetCurStateChannels()			
+			elif key == 'backspace':
+				self.SetPrevStateChannels()	
+				self.DeleteSelectedKeys()
+				self.SetCurStateChannels()		
 			elif key == 'tab':
 				self.SetPrevStateChannels()	
 				self.SelectAdjacentItem(-1 if shift else 1)
@@ -1804,35 +1818,59 @@ class KeyframerExt(Keyframer):
 			*args
 		)
 
-	def KeyframeControlsUpdateView(self, updateFunction=False):
-		if self.keysSelected:
-			if not isinstance(self.updateViewKeySegment, tuple):
-				self.keyframeControlsComp.UpdateViewKey(
-					self.updateViewKeySegment.x0, 
-					self.updateViewKeySegment.y0
-				)
-				if updateFunction:
-					self.keyframeControlsComp.UpdateViewFunction(
-					self.updateViewKeySegment.segmentType
-					)	
-			else:
-				self.keyframeControlsComp.UpdateViewKey(
-					self.updateViewKeySegment[0].x1, 
-					self.updateViewKeySegment[0].y1
-				)
-				if updateFunction:
-					self.keyframeControlsComp.UpdateViewFunction(
-					self.updateViewKeySegment[0].segmentType
-					)					
-		if self.inHandlesSelected:
-			self.keyframeControlsComp.UpdateViewInHandle(
-				self.updateViewInHandleSegment.inslope, 
-				self.updateViewInHandleSegment.inaccel
+	def KeyframeControlsUpdateView(self, updateFunction=True):
+		first_kf_sel_index = -1
+		keyframe = None
+		for i in range(self.keyframesChop.numSamples):
+			if self.keyframesChop['selected'][i]:
+				first_kf_sel_index = i
+				break
+
+		if first_kf_sel_index >= 0:
+			channel = self.AnimationChop.channels[int(
+				self.keyframesChop['channel_index'][first_kf_sel_index])]
+			keyframe = channel.keyframe(int(
+				self.keyframesChop['keyframe_index'][first_kf_sel_index]))
+		else:
+			for i in range(self.segmentsChop.numSamples):
+				if self.segmentsChop['selected_start_handles'][i]:
+					channel_index = int(
+						self.segmentsChop['channel_index'][i])
+					segment_index = int(self.segmentsChop['segment_index'][i])
+					keyframe = self.AnimationChop.channels[channel_index].keyframe(
+						segment_index)
+
+				elif self.segmentsChop['selected_end_handles'][i]:
+					channel_index = int(
+						self.segmentsChop['channel_index'][i])
+					segment_index = int(self.segmentsChop['segment_index'][i]) + 1
+					keyframe = self.AnimationChop.channels[channel_index].keyframe(
+						segment_index)	
+					break
+
+
+		if keyframe is not None:
+			self.keyframeControlsComp.UpdateViewKey(
+				keyframe.time, 
+				keyframe.value,
 			)
-		if self.outHandlesSelected:
+			# if updateFunction:
+			self.keyframeControlsComp.UpdateViewFunction(
+			keyframe.function
+			)
+			self.keyframeControlsComp.UpdateViewHandleMode(
+				keyframe.handle_mode
+			)
+						
+		# if self.inHandlesSelected:
+			self.keyframeControlsComp.UpdateViewInHandle(
+				keyframe.in_handle.time, 
+				keyframe.in_handle.value,
+			)
+		# if self.outHandlesSelected:
 			self.keyframeControlsComp.UpdateViewOutHandle(
-				self.updateViewOutHandleSegment.outslope, 
-				self.updateViewOutHandleSegment.outaccel
+				keyframe.out_handle.time, 
+				keyframe.out_handle.value,
 			)		
 	
 	def GetKeyHandlesActive(self):
@@ -1865,7 +1903,7 @@ class KeyframerExt(Keyframer):
 		self.channelsChop.set_channel_display(index, display)
 
 	def OnChannelListSetValue(self, element, value):
-		print(f"OnChannelListSetValue: {element}, {value}")
+		# print(f"OnChannelListSetValue: {element}, {value}")
 		self.display_channel(value[0], value[2])
 		# chanName = element.cellAttribs[value[0], 0].text
 		# self.Channels[chanName].display = value[2]
