@@ -6,14 +6,16 @@
             "Plugins": {
                 "/Volumes/dev/AnimationCHOP/td/Plugins/AnimationCHOP.plugin": {
                     "Hashes": [
-                        "o0riddmKNOVotXMQheCN1XFTNfto4pcUoownH0X+xB+KPPo9FRbOzhJG8qQ71ypH30E3rQPPX4EE8rnxNqTXxJx+IkZ5B7xMNdf2IhHHf6K87g4EZqXnzOcmIvfJSvFVcjs9UYVzeT4+ikDebTTqL06NYx1YkwPLKasb4VWlC35zpgumDKX/qDlqAr7Sd+I6we0QH28LGw9ok3WOrNjwKiQHjqtbnFtrvKkB4fWPTIa5Un6u1Ot406my1x+K4tRbyZODIENiaS0Y/IIJ9VtNyrMN61YVX/h8SyjNY7v7ruZxuH3poouuQ8yehUFQShVKNjxF1LLBJlPwOZ0wllXg6w=="
+                        "o0riddmKNOVotXMQheCN1XFTNfto4pcUoownH0X+xB+KPPo9FRbOzhJG8qQ71ypH30E3rQPPX4EE8rnxNqTXxJx+IkZ5B7xMNdf2IhHHf6K87g4EZqXnzOcmIvfJSvFVcjs9UYVzeT4+ikDebTTqL06NYx1YkwPLKasb4VWlC35zpgumDKX/qDlqAr7Sd+I6we0QH28LGw9ok3WOrNjwKiQHjqtbnFtrvKkB4fWPTIa5Un6u1Ot406my1x+K4tRbyZODIENiaS0Y/IIJ9VtNyrMN61YVX/h8SyjNY7v7ruZxuH3poouuQ8yehUFQShVKNjxF1LLBJlPwOZ0wllXg6w==",
+                        "d+SPFKPdPU13ZSN+nZA8qKBkMnPcpgcFsem/6aLMK+F141a0sqifrFBcrf6Spg2RwIsn3OUef7Ilw+EpYEMJFRntcAeabRa9vPI+qlv6BcDG1BiX1qvEvDT+5GghJqgKHIFGObmZj5IARGQTE3HNI4RX9Qv8AHZR2tlSfg7nbENG1Ik6YZry7ImtZo9R80TsWzziTHZuvPeHv9Vc9R+Jh4bFle6MVy9+evkzHMAXgwUnhuGaejPraTJCHCJFveY+uVbAgc7UCnhTmmQcGcrikFhCQagWM/alDMzlmmG5ht695kf5BtX4F4j5csMuYSmCfQSlhLz3M4Qn4NFImv7oGA=="
                     ],
                     "AuthorName": "Keith Lostracco",
                     "AuthorEmail": "keith@actualize.vision"
                 },
                 "/Volumes/dev/AnimationCHOP/td/Plugins/AnimationViewCHOP.plugin": {
                     "Hashes": [
-                        "hgbM7pgOItMIXq6wJGH/B1JjGmvtPtZHSgPpuk06+Xtu2WYkbLu//CSdQjkZfzVCvWRv9MUV37EGYSpo56j1Kf1zSZMMW8eoZtIfOnkPt+gL+KzZC7zZTeiLyt4bhRga+fCi7hOWfJbDxfxycE3221o2hSG6FDsA9TlJhrAtjK/q02jTwvZGkJvU4n/T5jiwYhJ/qXLeYQVN61Ui/NoZTiSouIs0L0oILA0Ta5gHhSS2TP4Gos31rcbbubNEh7ohnW/HNJOlpGeF+WSaeysHBD0+/emrNG3S2PriOVe5P3435STV4v1Jt29VsMoGz/7apj6PE5uhnZ0yNAx9PIbNZA=="
+                        "hgbM7pgOItMIXq6wJGH/B1JjGmvtPtZHSgPpuk06+Xtu2WYkbLu//CSdQjkZfzVCvWRv9MUV37EGYSpo56j1Kf1zSZMMW8eoZtIfOnkPt+gL+KzZC7zZTeiLyt4bhRga+fCi7hOWfJbDxfxycE3221o2hSG6FDsA9TlJhrAtjK/q02jTwvZGkJvU4n/T5jiwYhJ/qXLeYQVN61Ui/NoZTiSouIs0L0oILA0Ta5gHhSS2TP4Gos31rcbbubNEh7ohnW/HNJOlpGeF+WSaeysHBD0+/emrNG3S2PriOVe5P3435STV4v1Jt29VsMoGz/7apj6PE5uhnZ0yNAx9PIbNZA==",
+                        "XV9lmtf5oW1ixmcpwXfv1dZHlcPXb3KYJee1QcQ2EFwUM4GSJ/k1JcPkJbu5wCL++SH34nzui+2IoSaYCAV6/u7ALo2e1ZPXQJUm8KAXJhHroV3c68/ZXN94z7leTQetolFWuuBTUD0pcLILSB62JCbB2S6Nab7qWf1OARKYjhospvC+cNl+LJYiLTQ2eQrYCf36hK3hBPlsqnCnH2wXKu3gnAdBm6lNNrkYF5+uRi4BUo0HRaV8Wh9GQgTEPnaFB4NfO02tSmJqJjthNViQvnEzO+gA6cq9NBwMW6kyrAOUl4xvbS168dIsXXtUoJw2OfiuNP5PuTpXyQT9mgLHGQ=="
                     ],
                     "AuthorName": "Keith Lostracco",
                     "AuthorEmail": "keith@actualize.vision"

@@ -27,20 +27,18 @@ class WidgetVecExt(WIDGETS.Widget):
 		self.elementDict['value'].UpdateView(None, value)
 
 	def UpdateViewInHandle(self, slope, accel):
-		self.elementDict['inslope'].UpdateView(None, slope)
-		self.elementDict['inaccel'].UpdateView(None, accel)
+		self.elementDict['in_handle_time'].UpdateView(None, slope)
+		self.elementDict['in_handle_value'].UpdateView(None, accel)
 
 	def UpdateViewOutHandle(self, slope, accel):
-		self.elementDict['outslope'].UpdateView(None, slope)
-		self.elementDict['outaccel'].UpdateView(None, accel)
+		self.elementDict['out_handle_time'].UpdateView(None, slope)
+		self.elementDict['out_handle_value'].UpdateView(None, accel)
 
 	def UpdateViewFunction(self, value):
 		self.elementDict['function'].UpdateView(value)
 
 	def UpdateViewHandleMode(self, value):
 		self.elementDict['handle_mode'].UpdateView(value)
-
-	
 
 	def GetState(self):
 		fullState = {key:e.GetState() for key,e in self.elementDict.items()
@@ -65,12 +63,12 @@ class WidgetVecExt(WIDGETS.Widget):
 			self.elementDict['function'].Active(active)			
 
 	def ActiveInHandle(self, active):
-		self.elementDict['inslope'].Active(active)
-		self.elementDict['inaccel'].Active(active)
+		self.elementDict['in_handle_time'].Active(active)
+		self.elementDict['in_handle_value'].Active(active)
 
 	def ActiveOutHandle(self, active):
-		self.elementDict['outslope'].Active(active)
-		self.elementDict['outaccel'].Active(active)
+		self.elementDict['out_handle_time'].Active(active)
+		self.elementDict['out_handle_value'].Active(active)
 
 	def ActiveAll(self, key, inHandle, outHandle):
 		self.ActiveKey(key)

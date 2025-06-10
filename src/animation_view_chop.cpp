@@ -531,6 +531,36 @@ PyObject* indicesToPyList(const std::vector<size_t>& indices) {
     return list;
 }
 
+// Helper function to convert vector of pairs to Python list of lists
+PyObject* pairsToPyList(const std::vector<std::pair<size_t, size_t>>& pairs) {
+    PyObject* list = PyList_New(pairs.size());
+    if (!list) return nullptr;
+    
+    for (size_t i = 0; i < pairs.size(); ++i) {
+        PyObject* sublist = PyList_New(2);
+        if (!sublist) {
+            Py_DECREF(list);
+            return nullptr;
+        }
+        
+        PyObject* channel_idx = PyLong_FromSize_t(pairs[i].first);
+        PyObject* item_idx = PyLong_FromSize_t(pairs[i].second);
+        
+        if (!channel_idx || !item_idx) {
+            Py_XDECREF(channel_idx);
+            Py_XDECREF(item_idx);
+            Py_DECREF(sublist);
+            Py_DECREF(list);
+            return nullptr;
+        }
+        
+        PyList_SET_ITEM(sublist, 0, channel_idx);
+        PyList_SET_ITEM(sublist, 1, item_idx);
+        PyList_SET_ITEM(list, i, sublist);
+    }
+    return list;
+}
+
 // AnimationViewCHOP selection methods implementation
 void AnimationViewCHOP::selectKeyframes(const std::vector<size_t>& indices) {
     for (size_t idx : indices) {
