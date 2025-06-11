@@ -20,7 +20,17 @@ fi
 # Configure CMake
 echo -e "\033[36mConfiguring CMake...\033[0m"
 cd build-xcode
-cmake -G Xcode ..
+
+# Try to use TouchDesigner's Python first
+TD_PYTHON="/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3"
+if [ -f "$TD_PYTHON" ]; then
+    TD_VERSION=$($TD_PYTHON --version 2>&1 | cut -d' ' -f2)
+    echo -e "\033[33mUsing TouchDesigner's Python $TD_VERSION: $TD_PYTHON\033[0m"
+    cmake -G Xcode -DPython3_EXECUTABLE="$TD_PYTHON" ..
+else
+    echo -e "\033[33mTouchDesigner Python not found, using system Python\033[0m"
+    cmake -G Xcode ..
+fi
 
 # # Build the project
 # echo -e "\033[36mBuilding project...\033[0m"

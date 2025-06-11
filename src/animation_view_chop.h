@@ -23,7 +23,10 @@ public:
     virtual void getErrorString(OP_String* error, void* reserved1) override;
     virtual void setupParameters(OP_ParameterManager* manager, void* reserved1) override;
 
-    AnimationCHOP* getAnimationCHOP(const OP_Inputs* inputs);
+    AnimationCHOP* animationCHOP();
+    AnimationViewCHOP* dataInstance();
+    const AnimationViewCHOP* dataInstance() const;
+
 
     // Python binding methods
     void selectKeyframes(const std::vector<size_t>& indices);
@@ -52,13 +55,25 @@ public:
     std::vector<size_t> getSelectedChannels() const;
     void setChannelDisplay(size_t index, bool display);
 
-private:
+    const std::vector<bool>& selectedKeyframes() const { return m_selectedKeyframes; }
+    const std::vector<bool>& selectedSegments() const { return m_selectedSegments; }
+    const std::vector<bool>& selectedStartHandles() const { return m_selectedStartHandles; }
+    const std::vector<bool>& selectedEndHandles() const { return m_selectedEndHandles; }
+    const std::vector<bool>& selectedChannels() const { return m_selectedChannels; }
+    const std::vector<bool>& displayedChannels() const { return m_displayedChannels; }
+
+protected:
     enum class ViewMode {
         samples,
         keyframes,
         segments,
         channels,
         animation
+    };
+
+    struct SelectedKeyframe {
+        size_t channel_index;
+        size_t keyframe_index;
     };
 
     const char* m_warning;
@@ -94,7 +109,13 @@ private:
         "min_keyframe_value", "max_keyframe_value", 
     };
 
+    AnimationCHOP* m_animationCHOP;
+    AnimationViewCHOP* m_dataInstance;
+
     bool displayStartHandle(size_t channel_index, const Keyframe& keyframe) const;
     bool displayEndHandle(bool display_start_handle, const Keyframe& keyframe) const;
+
+private:
+    bool setDataInstance(const OP_Inputs* inputs);
 
 };

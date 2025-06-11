@@ -110,6 +110,8 @@ AnimationViewCHOP::AnimationViewCHOP(const OP_NodeInfo* info)
     , m_viewMode(ViewMode::samples)
     , m_samplesStartTime(0.0)
     , m_samplesEndTime(30.0)
+    , m_animationCHOP(nullptr)
+    , m_dataInstance(nullptr)
 {
 }
 
@@ -132,17 +134,41 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
     
     info->startIndex = 0;
 
-    auto animationChop = getAnimationCHOP(inputs);
-    if (!animationChop) {
+    if (!setDataInstance(inputs)) {
         return false;
     }
-    auto animation = animationChop->animation();
-    if (!animation) {
-        return false;
+    
+    // If we are the data instance, store inputs and initialize all data members
+    if (m_dataInstance) {
+
+        auto animation = animationCHOP()->animation();
+        if (!animation) {
+            return false;
+        }
+        
+        // Initialize all data members regardless of current view mode
+        int32_t total_keyframes = 0;
+        int32_t total_segments = 0;
+        for (const auto& channel : animation->channels()) {
+            total_keyframes += static_cast<int32_t>(channel->size());
+            total_segments += static_cast<int32_t>(channel->size() - 1);
+        }
+        
+        m_selectedKeyframes.resize(total_keyframes, false);
+        m_selectedSegments.resize(total_segments, false);
+        m_selectedStartHandles.resize(total_segments, false);
+        m_selectedEndHandles.resize(total_segments, false);
+        m_selectedChannels.resize(animation->size(), false);
+        m_displayedChannels.resize(animation->size(), true);
     }
 
+    // Set output info based on current view mode
     switch (m_viewMode) {
     case ViewMode::samples: {
+        auto animation = animationCHOP()->animation();
+        if (!animation) {
+            return false;
+        }
         info->numChannels = static_cast<int32_t>(animation->size());
         auto rangeStart = inputs->getParDouble("Range", 0);
         auto rangeEnd = inputs->getParDouble("Range", 1);
@@ -161,35 +187,19 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         return true;
     } case ViewMode::keyframes: {
         info->numChannels = static_cast<int32_t>(m_keyframes_chan_names.size());
-        int32_t num_samples = 0;
-        for (const auto& channel : animation->channels()) {
-            num_samples += static_cast<int32_t>(channel->size());
-        }
-        info->numSamples = num_samples;
-        m_selectedKeyframes.resize(num_samples, false); // Initialize selection state
-        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedKeyframes.size());
         return true;
     } case ViewMode::segments: {
         info->numChannels = static_cast<int32_t>(m_segments_chan_names.size());
-        int32_t num_samples = 0;
-        for (const auto& channel : animation->channels()) {
-            num_samples += static_cast<int32_t>(channel->size() - 1); // Each segment is defined by two keyframes
-        }
-        info->numSamples = num_samples;
-        m_selectedSegments.resize(num_samples, false); // Initialize selection state
-        m_selectedStartHandles.resize(num_samples, false); // Initialize selection state
-        m_selectedEndHandles.resize(num_samples, false); // Initialize selection state
-        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedSegments.size());
         return true;
     } case ViewMode::channels: {
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
-        info->numSamples = static_cast<int32_t>(animation->size());
-        m_selectedChannels.resize(animation->size(), false); // Initialize selection state
-        m_displayedChannels.resize(animation->size(), true); // Initialize displayed state
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedChannels.size());
         return true;
     } case ViewMode::animation: {
         info->numChannels = static_cast<int32_t>(m_animation_chan_names.size());
-        info->numSamples = 1; // Single sample for animation info
+        info->numSamples = 1;
         return true;
     } default: {
         m_error = "Invalid select mode specified.";
@@ -202,20 +212,20 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
 void 
 AnimationViewCHOP::getChannelName(int32_t index, OP_String* name, const OP_Inputs* inputs, void* reserved1)
 {
-    auto animationChop = getAnimationCHOP(inputs);
-    if (!animationChop) {
-        return;
-    }
-    auto animation = animationChop->animation();
-    if (!animation) {
+
+    if (!setDataInstance(inputs)) {
         return;
     }
     switch (m_viewMode) {
     case ViewMode::samples: {
+        auto animation = animationCHOP()->animation();
+        if (!animation) {
+            return;
+        }
         if (index < 0 || index >= static_cast<int32_t>(animation->channel_names().size())) {
             return;
         }
-        name ->setString(animation->channel_names()[index].c_str());
+        name->setString(animation->channel_names()[index].c_str());
         break;
     } case ViewMode::keyframes: {
         if (index < 0 || index >= static_cast<int32_t>(m_keyframes_chan_names.size())) {
@@ -253,15 +263,15 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
     m_error = nullptr;
     m_warning = nullptr;
 
-    auto animationChop = getAnimationCHOP(inputs);
-    if (!animationChop) {
+    if (!setDataInstance(inputs)) {
         return;
     }
-
-    auto animation = animationChop->animation();
+    auto animation = animationCHOP()->animation();
     if (!animation) {
         return;
     }
+    
+    // Use existing execute logic with animation and our data members
     switch (m_viewMode) {
     case ViewMode::samples: {
         size_t num_anim_channels = animation->num_channels();
@@ -297,8 +307,8 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                     output->channels[7][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
                     output->channels[8][i] = static_cast<float>(channel.keyframe(k).function);
                     output->channels[9][i] = static_cast<float>(channel.keyframe(k).handle_mode);
-                    output->channels[10][i] = static_cast<float>(m_selectedKeyframes[i]);
-                    output->channels[11][i] = static_cast<float>(m_displayedChannels[c]); // Display
+                    output->channels[10][i] = static_cast<float>(dataInstance()->m_selectedKeyframes[i]);
+                    output->channels[11][i] = static_cast<float>(dataInstance()->m_displayedChannels[c]);
                 }
                 ++i;
             }
@@ -326,12 +336,12 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[7][i] = static_cast<float>(start_keyframe.out_handle.value); // Start handle value
                 output->channels[8][i] = static_cast<float>(end_keyframe.in_handle.time); // End handle time
                 output->channels[9][i] = static_cast<float>(end_keyframe.in_handle.value); // End handle value
-                auto display_start_handle = displayStartHandle(c, start_keyframe);
+                auto display_start_handle = dataInstance()->displayStartHandle(c, start_keyframe);
                 output->channels[10][i] = static_cast<float>(display_start_handle);
-                output->channels[11][i] = static_cast<float>(displayEndHandle(display_start_handle, end_keyframe));
-                output->channels[12][i] = static_cast<float>(m_selectedSegments[i]); // Selected
-                output->channels[13][i] = static_cast<float>(m_selectedStartHandles[i]); // Selected start handles
-                output->channels[14][i] = static_cast<float>(m_selectedEndHandles[i]); // Selected end handles
+                output->channels[11][i] = static_cast<float>(dataInstance()->displayEndHandle(display_start_handle, end_keyframe));
+                output->channels[12][i] = static_cast<float>(dataInstance()->m_selectedSegments[i]); // Selected
+                output->channels[13][i] = static_cast<float>(dataInstance()->m_selectedStartHandles[i]); // Selected start handles
+                output->channels[14][i] = static_cast<float>(dataInstance()->m_selectedEndHandles[i]); // Selected end handles
                 ++i;
             }
         }
@@ -344,7 +354,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         }
         int32_t start_index = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
-            auto& channel = animation->channel(c);
+                auto& channel = animation->channel(c);
             if (c < output->numChannels) {
                 auto num_keyframes = channel.size();
                 output->channels[0][c] = static_cast<float>(num_keyframes);
@@ -352,8 +362,8 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[2][c] = static_cast<float>(channel.end_time());
                 output->channels[3][c] = static_cast<float>(start_index);
                 start_index += static_cast<int32_t>(num_keyframes);
-                output->channels[4][c] = static_cast<float>(m_selectedChannels[c]); // Selected
-                output->channels[5][c] = static_cast<float>(m_displayedChannels[c]); // Display
+                output->channels[4][c] = static_cast<float>(dataInstance()->m_selectedChannels[c]); // Selected
+                output->channels[5][c] = static_cast<float>(dataInstance()->m_displayedChannels[c]); // Display
             }
         }
         break;
@@ -368,8 +378,6 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         double min_keyframe_value = std::numeric_limits<double>::max();
         double max_keyframe_value = std::numeric_limits<double>::lowest();
         for (const auto& channel : animation->channels()) {
-            // for (size_t k = 0; k < channel->size(); ++k) {
-            //     const auto& keyframe = channel->keyframe(k);
             for (const auto& keyframe : channel->keyframes()) {
                 min_keyframe_time = std::min(min_keyframe_time, keyframe.time());
                 max_keyframe_time = std::max(max_keyframe_time, keyframe.time());
@@ -387,8 +395,9 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         m_error = "Invalid select mode specified.";
         return;
     }
-
 }
+
+
 
 void
 AnimationViewCHOP::getWarningString(OP_String* warning, void* reserved1)
@@ -407,8 +416,8 @@ AnimationViewCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1
 {
     {
         OP_StringParameter sp;
-        sp.name = "Animationchop";
-        sp.label = "Animation CHOP";
+        sp.name = "Datasource";
+        sp.label = "Animation / Animation View CHOP";
         sp.defaultValue = "";
         manager->appendCHOP(sp);
     } {
@@ -462,36 +471,84 @@ AnimationViewCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1
 }
 
 AnimationCHOP*
-AnimationViewCHOP::getAnimationCHOP(const OP_Inputs *inputs)
+AnimationViewCHOP::animationCHOP()
 {
-    auto target = inputs->getParCHOP("Animationchop");
-    if (!target) {
-        m_warning = "No Animation CHOP specified.";
-        return nullptr;
-    } else if (!target->customOP || strcmp(target->customOP->opType, "Animation") != 0) {
-        m_error = "Invalid Animation CHOP specified.";
-        return nullptr;
-    }
-    return static_cast<AnimationCHOP*>(target->customOP->instance);
+    return m_animationCHOP;
 }
 
+AnimationViewCHOP*
+AnimationViewCHOP::dataInstance()
+{
+    return m_dataInstance;
+}
+
+const AnimationViewCHOP*
+AnimationViewCHOP::dataInstance() const
+{
+    return m_dataInstance;
+}
+
+bool
+AnimationViewCHOP::setDataInstance(const OP_Inputs *inputs)
+{
+    auto target = inputs->getParCHOP("Datasource");
+    if (!target) {
+        m_warning = "No AnimationCHOP or AnimationViewCHOP specified.";
+        m_animationCHOP = nullptr;
+        m_dataInstance = nullptr;
+        return false;
+    }
+    
+    if (target->customOP && strcmp(target->customOP->opType, "Animation") == 0) {
+        m_animationCHOP = static_cast<AnimationCHOP*>(target->customOP->instance);
+        if (!m_animationCHOP) {
+            m_error = "Invalid Animation CHOP specified.";
+            m_animationCHOP = nullptr;
+            m_dataInstance = nullptr;
+            return false;
+        }
+        m_dataInstance = this;
+        return true;
+    } else if (target->customOP && strcmp(target->customOP->opType, "Animationview") == 0) {
+        auto chainedInstance = static_cast<AnimationViewCHOP*>(target->customOP->instance);
+        m_dataInstance = chainedInstance->dataInstance();
+        if (!m_dataInstance) {
+            m_error = "Invalid AnimationView CHOP specified.";
+            m_animationCHOP = nullptr;
+            m_dataInstance = nullptr;
+            return false;
+        }
+        m_animationCHOP = chainedInstance->animationCHOP();
+        return true;
+    } else {
+        m_error = "Invalid Animation CHOP specified.";
+        m_animationCHOP = nullptr;
+        m_dataInstance = nullptr;
+        return false;
+    }
+}
 
 bool AnimationViewCHOP::displayStartHandle(size_t channel_index, const Keyframe& start_keyframe) const
 {
-    return m_displayedChannels[channel_index]
+    auto inst = dataInstance();
+    if (!inst) {
+        return false;
+    }
+    return inst->m_displayedChannels[channel_index]
         && start_keyframe.function == Function::bezier 
         && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
 }
 
 bool AnimationViewCHOP::displayEndHandle(bool display_start_handle, const Keyframe& end_keyframe) const
 {
-    // if the first keyframe is bezier we want to display the end handle unless the end keyframe is bezier and it is flat or smooth
+    auto inst = dataInstance();
+    if (!inst) {
+        return false;
+    }
     return display_start_handle
         && (static_cast<uint8_t>(end_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth)
         || end_keyframe.function != Function::bezier);
 }
-
-
 
 // Helper function to convert Python list to vector of indices
 std::vector<size_t> pyListToIndices(PyObject* list) {
@@ -563,29 +620,45 @@ PyObject* pairsToPyList(const std::vector<std::pair<size_t, size_t>>& pairs) {
 
 // AnimationViewCHOP selection methods implementation
 void AnimationViewCHOP::selectKeyframes(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedKeyframes.size()) {
-            m_selectedKeyframes[idx] = true;
+        if (idx < inst->m_selectedKeyframes.size()) {
+            inst->m_selectedKeyframes[idx] = true;
         }
     }
 }
 
 void AnimationViewCHOP::unselectKeyframes(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedKeyframes.size()) {
-            m_selectedKeyframes[idx] = false;
+        if (idx < inst->m_selectedKeyframes.size()) {
+            inst->m_selectedKeyframes[idx] = false;
         }
     }
 }
 
 void AnimationViewCHOP::unselectAllKeyframes() {
-    std::fill(m_selectedKeyframes.begin(), m_selectedKeyframes.end(), false);
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    std::fill(inst->m_selectedKeyframes.begin(), inst->m_selectedKeyframes.end(), false);
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
     std::vector<size_t> selected;
-    for (size_t i = 0; i < m_selectedKeyframes.size(); ++i) {
-        if (m_selectedKeyframes[i]) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    for (size_t i = 0; i < inst->m_selectedKeyframes.size(); ++i) {
+        if (inst->m_selectedKeyframes[i]) {
             selected.push_back(i);
         }
     }
@@ -593,29 +666,45 @@ std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
 }
 
 void AnimationViewCHOP::selectSegments(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedSegments.size()) {
-            m_selectedSegments[idx] = true;
+        if (idx < inst->m_selectedSegments.size()) {
+            inst->m_selectedSegments[idx] = true;
         }
     }
 }
 
 void AnimationViewCHOP::unselectSegments(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedSegments.size()) {
-            m_selectedSegments[idx] = false;
+        if (idx < inst->m_selectedSegments.size()) {
+            inst->m_selectedSegments[idx] = false;
         }
     }
 }
 
 void AnimationViewCHOP::unselectAllSegments() {
-    std::fill(m_selectedSegments.begin(), m_selectedSegments.end(), false);
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    std::fill(inst->m_selectedSegments.begin(), inst->m_selectedSegments.end(), false);
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
     std::vector<size_t> selected;
-    for (size_t i = 0; i < m_selectedSegments.size(); ++i) {
-        if (m_selectedSegments[i]) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    for (size_t i = 0; i < inst->m_selectedSegments.size(); ++i) {
+        if (inst->m_selectedSegments[i]) {
             selected.push_back(i);
         }
     }
@@ -623,29 +712,45 @@ std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
 }
 
 void AnimationViewCHOP::selectStartHandles(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedStartHandles.size()) {
-            m_selectedStartHandles[idx] = true;
+        if (idx < inst->m_selectedStartHandles.size()) {
+            inst->m_selectedStartHandles[idx] = true;
         }
     }
 }
 
 void AnimationViewCHOP::unselectStartHandles(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedStartHandles.size()) {
-            m_selectedStartHandles[idx] = false;
+        if (idx < inst->m_selectedStartHandles.size()) {
+            inst->m_selectedStartHandles[idx] = false;
         }
     }
 }
 
 void AnimationViewCHOP::unselectAllStartHandles() {
-    std::fill(m_selectedStartHandles.begin(), m_selectedStartHandles.end(), false);
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    std::fill(inst->m_selectedStartHandles.begin(), inst->m_selectedStartHandles.end(), false);
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
     std::vector<size_t> selected;
-    for (size_t i = 0; i < m_selectedStartHandles.size(); ++i) {
-        if (m_selectedStartHandles[i]) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    for (size_t i = 0; i < inst->m_selectedStartHandles.size(); ++i) {
+        if (inst->m_selectedStartHandles[i]) {
             selected.push_back(i);
         }
     }
@@ -653,29 +758,45 @@ std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
 }
 
 void AnimationViewCHOP::selectEndHandles(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedEndHandles.size()) {
-            m_selectedEndHandles[idx] = true;
+        if (idx < inst->m_selectedEndHandles.size()) {
+            inst->m_selectedEndHandles[idx] = true;
         }
     }
 }
 
 void AnimationViewCHOP::unselectEndHandles(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedEndHandles.size()) {
-            m_selectedEndHandles[idx] = false;
+        if (idx < inst->m_selectedEndHandles.size()) {
+            inst->m_selectedEndHandles[idx] = false;
         }
     }
 }
 
 void AnimationViewCHOP::unselectAllEndHandles() {
-    std::fill(m_selectedEndHandles.begin(), m_selectedEndHandles.end(), false);
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    std::fill(inst->m_selectedEndHandles.begin(), inst->m_selectedEndHandles.end(), false);
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
     std::vector<size_t> selected;
-    for (size_t i = 0; i < m_selectedEndHandles.size(); ++i) {
-        if (m_selectedEndHandles[i]) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    for (size_t i = 0; i < inst->m_selectedEndHandles.size(); ++i) {
+        if (inst->m_selectedEndHandles[i]) {
             selected.push_back(i);
         }
     }
@@ -683,29 +804,45 @@ std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
 }
 
 void AnimationViewCHOP::selectChannels(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedChannels.size()) {
-            m_selectedChannels[idx] = true;
+        if (idx < inst->m_selectedChannels.size()) {
+            inst->m_selectedChannels[idx] = true;
         }
     }
 }
 
 void AnimationViewCHOP::unselectChannels(const std::vector<size_t>& indices) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
     for (size_t idx : indices) {
-        if (idx < m_selectedChannels.size()) {
-            m_selectedChannels[idx] = false;
+        if (idx < inst->m_selectedChannels.size()) {
+            inst->m_selectedChannels[idx] = false;
         }
     }
 }
 
 void AnimationViewCHOP::unselectAllChannels() {
-    std::fill(m_selectedChannels.begin(), m_selectedChannels.end(), false);
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    std::fill(inst->m_selectedChannels.begin(), inst->m_selectedChannels.end(), false);
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
     std::vector<size_t> selected;
-    for (size_t i = 0; i < m_selectedChannels.size(); ++i) {
-        if (m_selectedChannels[i]) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    for (size_t i = 0; i < inst->m_selectedChannels.size(); ++i) {
+        if (inst->m_selectedChannels[i]) {
             selected.push_back(i);
         }
     }
@@ -714,8 +851,12 @@ std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
 
 void AnimationViewCHOP::setChannelDisplay(size_t index, bool display)
 {
-    if (index < m_displayedChannels.size()) {
-        m_displayedChannels[index] = display;
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    if (index < inst->m_displayedChannels.size()) {
+        inst->m_displayedChannels[index] = display;
     }
 }
 
@@ -730,13 +871,20 @@ static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
+    // Get data instance for actual data manipulation
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
     PyObject* list;
     if (!PyArg_ParseTuple(args, "O", &list)) {
         return NULL;
     }
 
     std::vector<size_t> indices = pyListToIndices(list);
-    inst->selectKeyframes(indices);
+    dataInstance->selectKeyframes(indices);
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;
@@ -752,13 +900,20 @@ static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
+    // Get data instance for actual data manipulation
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
     PyObject* list;
     if (!PyArg_ParseTuple(args, "O", &list)) {
         return NULL;
     }
 
     std::vector<size_t> indices = pyListToIndices(list);
-    inst->unselectKeyframes(indices);
+    dataInstance->unselectKeyframes(indices);
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;
@@ -774,7 +929,13 @@ static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    inst->unselectAllKeyframes();
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
+    dataInstance->unselectAllKeyframes();
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;
@@ -790,7 +951,13 @@ static PyObject* py_selected_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    std::vector<size_t> selected = inst->getSelectedKeyframes();
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
+    std::vector<size_t> selected = dataInstance->getSelectedKeyframes();
     return indicesToPyList(selected);
 }
 
