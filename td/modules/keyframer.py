@@ -797,9 +797,8 @@ class KeyframerExt:
 				offset.x = 0
 			if i == 0:
 				self.curves_viewChop.offset_selected_keyframes(offset.x, offset.y)
-			elif i == 1:
+			else:
 				self.curves_viewChop.offset_selected_end_handles(offset.x, offset.y)
-			elif i == 2:
 				self.curves_viewChop.offset_selected_start_handles(offset.x, offset.y)
 
 		self.setLabelsTy()
