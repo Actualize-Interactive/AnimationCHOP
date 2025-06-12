@@ -208,7 +208,8 @@ class KeyframerExt(Keyframer):
 		self.selectPos = tdu.Position()
 		self.selStartPos = tdu.Position()
 		self.setPos = tdu.Position()
-		self.startSetPosOffset = tdu.Position()
+		self.begin_set_pos = tdu.Position()
+		self.startSetPosOffset = tdu.Position() # deprecated
 		self.insertPos = tdu.Position()
 		self.insidePos = tdu.Position()
 		self.scaleKeysScale = tdu.Vector(1.0, 1.0, 1.0)
@@ -941,13 +942,13 @@ class KeyframerExt(Keyframer):
 	def selectItem(self, event):
 		geo = event.pickOp.parent()
 		i = geo.par.Geotype.menuIndex
-		print("selectItem", i, event.instanceId, event.custom)
+		# print("selectItem", i, event.instanceId, event.custom)
 		if i < 3:
 			instance_id = int(event.instanceId)
 			indices = event.custom['indices']
 			
 			if i == 0:
-				print("select keyframe", instance_id, indices)
+				# print("select keyframe", instance_id, indices)
 				self.keyframesChop.select_keyframes([instance_id])
 			elif i == 1:
 				# print("select end handle", instance_id, indices)
@@ -991,16 +992,17 @@ class KeyframerExt(Keyframer):
 
 	def itemIsSelected(self, event):
 		geo = event.pickOp.parent()
-		# i = geo.par.Geotype.menuIndex
-		# if i < 2:
-		# 	indices = event.custom['indices']
-		# 	chan = self.ChannelsList[indices[0]]
-		# 	_id = indices[2 + i]
-		# 	isSelected = chan.isSelectedFuncs[i](_id)	
-		# else:
-		# 	chan = self.Channels[geo.par.Channelname.eval()]
-		# 	isSelected = chan.isSelectedFuncs[i](event.pos.x)
-		# return isSelected
+		geo = event.pickOp.parent()
+		i = geo.par.Geotype.menuIndex
+		if i < 3:
+			instance_id = int(event.instanceId)
+			if i == 0:
+				return self.keyframesChop['selected'][instance_id]
+			elif i == 1:
+				return self.segmentsChop['selected_end_handles'][instance_id]
+			elif i == 2:
+				return self.segmentsChop['selected_start_handles'][instance_id]
+
 		return False
 
 	def setItem(self, event):
@@ -1042,7 +1044,9 @@ class KeyframerExt(Keyframer):
 			# print(self.setPos)
 			chan = self.AnimationChop.channels[indices[0]]
 			if i == 0:
-				chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
+				offset = self.get_item_offset(event)
+				self.curvesChop.offset_selected_keyframes(offset.x, offset.y)
+				# chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
 			elif i == 1:
 				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)	
 				chan.set_keyframe_in_handle(indices[1] + 1, point)
@@ -1126,8 +1130,21 @@ class KeyframerExt(Keyframer):
 		self.setLabelsTy()
 		self.KeyframeControlsUpdateView()
 
+	def get_item_offset(self, event):
+		new_position = tdu.Position(
+			event.u * self.keysViewComp.width,
+			event.v * self.keysViewComp.height, 0)
+		new_position = self.keysTransformComp.worldTransform * new_position
+		return new_position - self.begin_set_pos
+
+
 	def onPickSelectStart(self, event):
 		self.SetPrevStateChannels()
+		print("onPickSelectStart", event)
+		self.begin_set_pos.x = event.u * self.keysViewComp.width
+		self.begin_set_pos.y = event.v * self.keysViewComp.height
+		self.begin_set_pos = self.keysTransformComp.worldTransform * self.begin_set_pos
+
 		self.startSetPosOffset.x = event.u * self.keysViewComp.width
 		self.startSetPosOffset.y = event.v * self.keysViewComp.height
 		self.startSetPosOffset = (self.keysTransformComp.worldTransform 
@@ -1172,6 +1189,7 @@ class KeyframerExt(Keyframer):
 			self.marqueeSelectEnd()	
 		self.startSet = False
 		self.startScale = False
+		self.curvesChop.reset_begin_set_values()
 		# if didAction:
 		# 	self.SetCurStateChannels()	
 		# for chan in self.Channels.values():
@@ -1264,6 +1282,7 @@ class KeyframerExt(Keyframer):
 						and self.keyframesChop['value'][sample_index] < mCoords[1][1]):
 					selected_indices.append(sample_index)
 			self.keyframesChop.select_keyframes(selected_indices)
+			print(f"Selected keyframes: {selected_indices}")
 
 			selected_start_handles = []
 			selected_end_handles = []

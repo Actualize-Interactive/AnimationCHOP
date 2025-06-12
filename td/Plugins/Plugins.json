@@ -33,6 +33,30 @@
                     "AuthorEmail": "keith@actualize.vision"
                 }
             }
+        },
+        "e20bedff": {
+            "ComputerName": "AEON",
+            "Plugins": {
+                "D:/AnimationCHOP/td/Plugins/AnimationViewCHOP.dll": {
+                    "Hashes": [
+                        "zwvkXgL7qRsy2ypzsba5QPywtObAimaBeV6tPo+x2xpCysKUU/59z+9Kzm1TPDl52kGk1XAzljwOLp/q/r8SOEi3W44MbJ4F9i47e6A069NS7VGXk/RZOqwEgK3BdJEO",
+                        "M5tE7j2LMxcbhg7ZIVO+ux3VeGpGqN/r10NzgRrAUW/+4vfi1SFPb8WCzcVoqvYdVzEWK2fpDqQbt7Bp+u1EfeZXxQIEedh4iNNYtoeYDUzE4+qoAxn7sDby+oR7ZusW",
+                        "WvVyp17lMuMY089YEZt+mS9v7cWRV9D5pLKHZYStOfPO3i3H47s1whDL1hnKcALc3sUkQD2VXvQ3zCUwKoCIIeBhzpbb2UjeN79RehQog8QMwoJ2shLIWU+e4lLTTREY",
+                        "WhQpzrRd2lpL3/zMc2u3DddQ6E75ZunieYaHSSClzuGTfQPC2JnwRCAs+CNNq4jOffD08biEb9ZGq5t3hHBip4fcF2O8CBeIW8sO1wtCfjXITH/kaQ1wNkJFdaDfHJ62",
+                        "wuIU+Xw4TUwErmy+szCsNdzM6X2pSVq7gS+2jPV/Pr6onQvpOiLGFudqUwevPO10oJqfjgblxBRpKJuAqIV33G1IxU/JvptCCVD0vjVgNf32nEXJELKYPD0fbcWKe9YG",
+                        "uHX+cadQEqqdgWRjS8rbTADLydMvBz18umfA2FYjfzaoNLtSWhoerlyM0z19a2Kmab8RufFqFUur8dphKfd4V3T9pDY8lK6He/l/Zqo+U0ltuN4+CKeXAnVQ6Fz91JrN"
+                    ],
+                    "AuthorName": "Keith Lostracco",
+                    "AuthorEmail": "keith@actualize.vision"
+                },
+                "D:/AnimationCHOP/td/Plugins/AnimationCHOP.dll": {
+                    "Hashes": [
+                        "DuN6jdyP1QyUwWIM/OIiFPzspRD2cDf2jQkE45Vj9cswOcq0GjPuO0zx5msgGW+mRGbg7mY242Zgufc7eR4Eiv1fvzS408xpyUutHjpJUjD7aFnSJhLLKPrrfi0Lg4fv"
+                    ],
+                    "AuthorName": "Keith Lostracco",
+                    "AuthorEmail": "keith@actualize.vision"
+                }
+            }
         }
     }
 }

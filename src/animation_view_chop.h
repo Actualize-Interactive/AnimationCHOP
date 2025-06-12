@@ -53,6 +53,7 @@ public:
     void unselectAllKeyframes();
     std::vector<size_t> getSelectedKeyframes() const;
     void resetBeginSetValues();
+    void offsetSelectedKeyframes(double time_offset, double value_offset);
 
     void selectSegments(const std::vector<size_t>& indices);
     void unselectSegments(const std::vector<size_t>& indices);
@@ -128,5 +129,6 @@ protected:
 
 private:
     bool setDataInstance(const OP_Inputs* inputs);
+
 
 };

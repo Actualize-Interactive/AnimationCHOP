@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 
 #ifdef _WIN32
@@ -23,6 +24,7 @@ static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_selected_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_reset_begin_set_values(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_keyframes(PyObject* self, PyObject* args);
 
 static PyObject* py_select_segments(PyObject* self, PyObject* args);
 static PyObject* py_unselect_segments(PyObject* self, PyObject* args);
@@ -52,6 +54,7 @@ static PyMethodDef viewMethods[] = {
     {"unselect_all_keyframes", (PyCFunction)py_unselect_all_keyframes, METH_NOARGS, "Unselect all keyframes."},
     {"selected_keyframes", (PyCFunction)py_selected_keyframes, METH_NOARGS, "Get selected keyframe indices."},
     {"reset_begin_set_values", (PyCFunction)py_reset_begin_set_values, METH_NOARGS, "Reset begin set values for all selected keyframes."},
+    {"offset_selected_keyframes", (PyCFunction)py_offset_selected_keyframes, METH_VARARGS, "Offset selected keyframes by time and value offsets."},
     
     {"select_segments", (PyCFunction)py_select_segments, METH_VARARGS, "Select segments by indices."},
     {"unselect_segments", (PyCFunction)py_unselect_segments, METH_VARARGS, "Unselect segments by indices."},
@@ -157,7 +160,6 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         }
         
         // Initialize keyframe views with proper indices
-        m_keyframeViews.clear();
         m_keyframeViews.resize(total_keyframes, {0, 0, false, 0.0, 0.0});
         size_t keyframe_index = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
@@ -664,6 +666,11 @@ void AnimationViewCHOP::selectKeyframes(const std::vector<size_t>& indices) {
             auto& keyframe = channel.keyframe(kv.keyframe_index);
             kv.begin_set_time = keyframe.time();
             kv.begin_set_value = keyframe.value();
+            // std::cout << "Selected keyframe sample index: " << idx
+                    //   << ", at channel " << kv.channel_index
+                    //   << ", index " << kv.keyframe_index
+                    //   << ", time " << kv.begin_set_time
+                    //   << ", value " << kv.begin_set_value << std::endl;
         }
     }
 }
@@ -710,6 +717,29 @@ void AnimationViewCHOP::resetBeginSetValues() {
         }
     }
 }
+
+void AnimationViewCHOP::offsetSelectedKeyframes(double time_offset, double value_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+    
+    for (auto& kv : inst->m_keyframeViews) {
+        if (kv.selected) {
+            auto& channel = animation->channel(kv.channel_index);
+            channel.set_keyframe_position(kv.keyframe_index, 
+                anim::Point(
+                    kv.begin_set_time + time_offset, 
+                    kv.begin_set_value + value_offset
+            ));
+        }
+    }
+}
+
 
 void AnimationViewCHOP::selectSegments(const std::vector<size_t>& indices) {
     auto inst = dataInstance();
@@ -1387,5 +1417,26 @@ static PyObject* py_set_channel_display(PyObject* self, PyObject* args) {
     bool display = (display_int != 0);
     inst->setChannelDisplay(index, display); 
     me->context->makeNodeDirty(); 
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_keyframes(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double time_offset, value_offset;
+    if (!PyArg_ParseTuple(args, "dd", &time_offset, &value_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedKeyframes(time_offset, value_offset);
+    me->context->makeNodeDirty();
+    
     Py_RETURN_NONE;
 }
