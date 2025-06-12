@@ -5,32 +5,26 @@ import colorsys
 TD_CHOP_CHANNEL = Channel
 from pprint import pprint
 
-class Keyframer:
-	""" Inherited  by KeyframerExt, Channel and Segment classes"""
-	def __init__(self, owner, ownerComp):
-		self.owner = owner
+class KeyframerExt:
+	def __init__(self, ownerComp):
 		self.ownerComp = ownerComp
 		self.iParsComp = ownerComp.op('iPars')
 		self.default_animationChop = self.ownerComp.op('default_animation')
-		self.curvesChop = iop.curves
-		self.keyframesChop = iop.keyframes
-		self.segmentsChop = iop.segments
-		self.channelsChop = iop.channels
-		self.animation_infoChop = iop.animation_info
 
+		self.curves_viewChop = iop.curves_view
+		self.keyframes_viewChop = iop.keyframes_view
+		self.segments_viewChop = iop.segments_view
+		self.channels_viewChop = iop.channels_view
+		self.animation_viewChop = iop.animation_view
 
 		self.viewComp = ownerComp.op('view')
 		self.keysViewComp = self.viewComp.op('keysView')
-
 		self.keysPanel = self.keysViewComp.panel
 		self.keysCamComp = self.keysViewComp.op('cam')
 		self.keysTransformComp = self.keysViewComp.op('transform')
 		self.keysRenderPickDat = self.keysViewComp.op('renderpick')
 		self.switchMarqueeTop = self.keysViewComp.op('switchMarquee')
-		self.keysViewKeysJoinChop = self.keysViewComp.op('keys/join')
-		self.keysViewHandlesJoinChop = self.keysViewComp.op('handles/join')	
-		self.keysViewLabelsComp = self.keysViewComp.op('labels')
-		self.keysViewLabelsJoinChop = self.keysViewLabelsComp.op('join')
+
 		self.MasterKeyboardChop = self.viewComp.op('MasterKeyboard')
 		self.keysRenderPickComp = self.viewComp.op('timeGraph')
 		self.channelControlsComp = self.viewComp.op('channelControls')
@@ -48,63 +42,8 @@ class Keyframer:
 		self.kshift = self.MasterKeyboardChop['kshift']
 		self.kd = self.MasterKeyboardChop['kd']
 		self.kf = self.MasterKeyboardChop['kf']
-		
-	@property
-	def AnimationChop(self): return self.ownerComp.par.Animationchop.eval()
-	@AnimationChop.setter
-	def AnimationChop(self, value):
-		if isinstance(value, AnimationCHOP):
-			self.ownerComp.par.Animationchop = value
-			self.animCompComp.UpdateView(value)
-
-	@property
-	def AnimationRangeStart(self):
-		return self.AnimationChop.par.Range1.eval()
-	@AnimationRangeStart.setter
-	def AnimationRangeStart(self, value):
-		self.AnimationChop.par.Range1 = value
-
-	@property
-	def AnimationRangeEnd(self):
-		return self.AnimationChop.par.Range2.eval()
-	@AnimationRangeEnd.setter
-	def AnimationRangeEnd(self, value):
-		self.AnimationChop.par.Range2 = value
-
-	@property
-	def KeysViewHorzRange(self):
-		return [self.keysViewComp.par.Horzrange1.eval(), 
-				self.keysViewComp.par.Horzrange2.eval()]
-	@KeysViewHorzRange.setter
-	def KeysViewHorzRange(self, value):
-		self.keysViewComp.par.Horzrange1 = value[0]
-		self.keysViewComp.par.Horzrange2 = value[1]
-		self.curvesChop.par.Range1 = value[0]
-		self.curvesChop.par.Range2 = value[1]
-
-	@property
-	def KeysViewVertRange(self):
-		return [self.keysViewComp.par.Vertrange1.eval(), 
-				self.keysViewComp.par.Vertrange2.eval()]
-	@KeysViewVertRange.setter
-	def KeysViewVertRange(self, value):
-		self.keysViewComp.par.Vertrange1 = value[0]
-		self.keysViewComp.par.Vertrange2 = value[1]
-
-	@property
-	def LengthSeconds(self):
-		if self.AnimationChop is not None:
-			animStart = self.AnimationRangeStart	
-			animEnd = self.AnimationRangeEnd
-			numFrames = animEnd - animStart
-			return numFrames / self.AnimationChop.time.rate
-		else:
-			return 10
 
 
-class KeyframerExt(Keyframer):
-	def __init__(self, ownerComp):
-		super().__init__(self, ownerComp)
 		self.labelStartTx = 30
 		self.navHomeMargins = [30, 10, 20, 20] # l,r,b,t
 		self.navHomeMarginSums = [
@@ -114,7 +53,7 @@ class KeyframerExt(Keyframer):
 		self.undoStateChannelsName = 'Keyframer Channels State'
 		self.undoStateAnimCompName = 'Keyframer Animation Comp State'
 		self.undoNavName = 'Keyframer Navigate'
-		self.init()
+
 		self.selectFuncs = [
 			self.SelectKey,
 			self.SelectHandle, 
@@ -153,7 +92,62 @@ class KeyframerExt(Keyframer):
 					}				
 				]
 			}
-		}
+		}	
+
+		self.init()
+
+
+	@property
+	def AnimationChop(self): return self.ownerComp.par.Animationchop.eval()
+	@AnimationChop.setter
+	def AnimationChop(self, value):
+		if isinstance(value, AnimationCHOP):
+			self.ownerComp.par.Animationchop = value
+			self.animCompComp.UpdateView(value)
+
+	@property
+	def AnimationRangeStart(self):
+		return self.AnimationChop.par.Range1.eval()
+	@AnimationRangeStart.setter
+	def AnimationRangeStart(self, value):
+		self.AnimationChop.par.Range1 = value
+
+	@property
+	def AnimationRangeEnd(self):
+		return self.AnimationChop.par.Range2.eval()
+	@AnimationRangeEnd.setter
+	def AnimationRangeEnd(self, value):
+		self.AnimationChop.par.Range2 = value
+
+	@property
+	def KeysViewHorzRange(self):
+		return [self.keysViewComp.par.Horzrange1.eval(), 
+				self.keysViewComp.par.Horzrange2.eval()]
+	@KeysViewHorzRange.setter
+	def KeysViewHorzRange(self, value):
+		self.keysViewComp.par.Horzrange1 = value[0]
+		self.keysViewComp.par.Horzrange2 = value[1]
+		self.curves_viewChop.par.Range1 = value[0]
+		self.curves_viewChop.par.Range2 = value[1]
+
+	@property
+	def KeysViewVertRange(self):
+		return [self.keysViewComp.par.Vertrange1.eval(), 
+				self.keysViewComp.par.Vertrange2.eval()]
+	@KeysViewVertRange.setter
+	def KeysViewVertRange(self, value):
+		self.keysViewComp.par.Vertrange1 = value[0]
+		self.keysViewComp.par.Vertrange2 = value[1]
+
+	@property
+	def LengthSeconds(self):
+		if self.AnimationChop is not None:
+			animStart = self.AnimationRangeStart	
+			animEnd = self.AnimationRangeEnd
+			numFrames = animEnd - animStart
+			return numFrames / self.AnimationChop.time.rate
+		else:
+			return 10		
 
 	@property
 	def channels(self):
@@ -206,19 +200,10 @@ class KeyframerExt(Keyframer):
 		self.startPickOP = None
 		self.keysRenderPickDat.par.strategy = 'holdfirst'
 		self.selectPos = tdu.Position()
-		self.selStartPos = tdu.Position()
 		self.setPos = tdu.Position()
 		self.begin_set_pos = tdu.Position()
-		self.startSetPosOffset = tdu.Position() # deprecated
 		self.insertPos = tdu.Position()
 		self.insidePos = tdu.Position()
-		self.scaleKeysScale = tdu.Vector(1.0, 1.0, 1.0)
-		self.scaleStartPos = tdu.Position()
-		self.curMarqKeys = []
-		self.curMarqHandles = []
-		self.startSet = False
-		self.startScale = False
-		self.copiedKeys = {}
 
 		try:
 			if newAnimComp:
@@ -227,7 +212,7 @@ class KeyframerExt(Keyframer):
 					if channelComp:
 						channelComp.destroy()				
 			self.SetChannels()
-			self.unSelectAll()
+			self.curves_viewChop.unselect_all()
 			self.AnimationChop.cook(force=True, recurse=True)
 			if newAnimComp:
 				self.keysNavHome()
@@ -278,7 +263,7 @@ class KeyframerExt(Keyframer):
 		# self.GetKeyHandlesActive()
 
 	def refreshChannelList(self):
-		channels_display = self.channelsChop['display'].vals
+		channels_display = self.channels_viewChop['display'].vals
 		channel_names = self.AnimationChop.channel_names
 		self.channelListComp.Refresh(channels_display, channel_names)
 
@@ -292,12 +277,12 @@ class KeyframerExt(Keyframer):
 					self.startPickOP = event.pickOp
 					if event.pickOp == None:	
 						if not self.kshift and not self.kctrl:
-							self.unSelectAll()
+							self.curves_viewChop.unselect_all()
 						self.marqueeSelectStart(event)
 					elif (event.pickOp is not None 
 								and not self.kshift
 								and not self.itemIsSelected(event)):	
-						self.unSelectAll()				
+						self.curves_viewChop.unselect_all()				
 						self.selectItem(event)
 					elif event.pickOp is not None:			
 						self.selectItem(event)
@@ -314,7 +299,7 @@ class KeyframerExt(Keyframer):
 								and event.pickOp == self.startPickOP
 								and not self.marqueeSelecting):			
 					if not self.kd and not self.kf:
-						self.setItem(event)
+						self.offset_selected(event)
 					else:
 						self.scaleKeys(event)
 				elif event.select:
@@ -488,11 +473,11 @@ class KeyframerExt(Keyframer):
 		self.keysViewComp.par.cursor = index
 
 	def unSelectAll(self):
-		self.keyframesChop.unselect_all_keyframes()
-		self.segmentsChop.unselect_all_segments()
-		self.segmentsChop.unselect_all_start_handles()
-		self.segmentsChop.unselect_all_end_handles()
-		self.channelsChop.unselect_all_channels()
+		self.keyframes_viewChop.unselect_all_keyframes()
+		self.segments_viewChop.unselect_all_segments()
+		self.segments_viewChop.unselect_all_start_handles()
+		self.segments_viewChop.unselect_all_end_handles()
+		self.channels_viewChop.unselect_all_channels()
 		pass
 
 	def transformPos(self, event):
@@ -506,100 +491,62 @@ class KeyframerExt(Keyframer):
 			self.selectedChannels.append(chan)
 
 	def SelectAllKeys(self):
-		firstSelected = False
-		for chan in self.Channels.values():
-			if chan.display:
-				self.SelectChannel(chan)
-				for i in range(chan.numSegments + 1):
-					chan.selectKey(i, 1)
-					if not firstSelected:
-						self.updateViewKeySegment = chan.segments[i]
-						firstSelected = True					
-
-		self.keyframeControlsComp.ActiveAll(*self.GetKeyHandlesActive())			
+		indices = [i for i in range(self.keyframes_viewChop.numSamples)]
+		self.keyframes_viewChop.select_keyframes(indices)		
 		self.KeyframeControlsUpdateView(updateFunction=True)	
 
 	def SelectAdjacentItem(self, dir):
-		keyChannels = []
-		handleChannels = []
-		for channel in self.Channels.values():
-			if channel.display:
-				if channel.selectedKeys != []:
-					keyChannels.append(channel)
-				if channel.selectedHandles != []:
-					handleChannels.append(channel)
-		if keyChannels != []:
-			for channel in keyChannels:
-				if dir == 1:
-					selected = reversed(sorted(channel.selectedKeys))
-					for i in selected:
-						channel.selectKey(i, 0)
-						channel.selectKey(min(i + 1, channel.numSegments), 1)
-				if dir == -1:
-					selected = sorted(channel.selectedKeys)
-					for i in selected:
-						channel.selectKey(i, 0)
-						channel.selectKey(max(i - 1, 0), 1)				
-		if handleChannels != []:
-			for channel in handleChannels:
-				handleStep = -1 * (len(channel.selectedHandles) % 2) + 2	
-				if dir == 1:
-					selected = reversed(sorted(channel.selectedHandles))
-					for i in selected:
-						channel.selectHandle(i, 0)
-						channel.selectHandle(min(i + handleStep, 
-											channel.numSegments * 2 - 1), 1)
-				if dir == -1:
-					selected = sorted(channel.selectedHandles)
-					for i in selected:
-						channel.selectHandle(i, 0)
-						channel.selectHandle(max(i - handleStep, 0), 1)	
+		selected_keys = [i for i, val in enumerate(self.keyframes_viewChop['selected'].vals) if val]
+		if len(selected_keys) == 1:
+			if dir == 1: # right	
+				new_idx = (selected_keys[0] + 1) % self.keyframes_viewChop.numSamples
+			elif dir == -1: # left
+				new_idx = (selected_keys[0] - 1) % self.keyframes_viewChop.numSamples
+			self.curves_viewChop.unselect_all_keyframes()
+			self.curves_viewChop.select_keyframes([new_idx])
+		elif len(selected_keys) > 1:
+			return
+		else: # check if one handle is selected and step through handles if so
+			selected_start_handles = [i for i, val in enumerate(self.segments_viewChop['selected_start_handles'].vals) if val]
+			selected_end_handles = [i for i, val in enumerate(self.segments_viewChop['selected_end_handles'].vals) if val]
+			if len(selected_start_handles) + len(selected_end_handles) == 1:
+				self.curves_viewChop.unselect_all_start_handles()
+				self.curves_viewChop.unselect_all_end_handles()
+				if dir == 1: # right
+					if len(selected_start_handles) == 1:
+						# next handle is the end handle of this segment
+						self.curves_viewChop.select_end_handles(selected_start_handles)
+					else: # len(selected_end_handles) must be 1
+						# next handle is the start handle of next segment
+						self.curves_viewChop.select_start_handles([(selected_end_handles[0] + 1) % self.segments_viewChop.numSamples])
+				elif dir == -1: # left
+					if len(selected_end_handles) == 1:
+						# next handle is the start handle of this segment
+						self.curves_viewChop.select_start_handles(selected_end_handles)
+					else: # len(selected_start_handles) must be 1
+						# next handle is the end handle of previous segment
+						self.curves_viewChop.select_end_handles([(selected_start_handles[0] - 1) % self.segments_viewChop.numSamples])
 
-		if len(keyChannels) > 0:
-			chan = keyChannels[0]
-			segmentIndex = chan.selectedKeys[0]		
-			if segmentIndex < chan.numSegments:
-				segment = chan.segments[segmentIndex]
-			else:
-				segment = (chan.segments[segmentIndex - 1], 1)		
-			self.updateViewKeySegment = segment
-		elif len(handleChannels) > 0:
-			chan = handleChannels[0]
-			handleIndex = chan.selectedHandles[0]
-			segmentIndex = math.floor(handleIndex / 2.0)
-			isOutHandle = handleIndex % 2	
-			if isOutHandle == 1:
-				self.updateViewOutHandleSegment = chan.segments[segmentIndex]
-			else:
-				self.updateViewInHandleSegment = chan.segments[segmentIndex]			
+		self.KeyframeControlsUpdateView(updateFunction=True)	
 
-		self.keyframeControlsComp.ActiveAll(*self.GetKeyHandlesActive())			
-		self.KeyframeControlsUpdateView(updateFunction=True)					
+
 
 	def NudgeItem(self, nudge):
-		x = nudge.x * 1
-		y = nudge.y * self.keysTransformComp.par.sy
-		keyPos = tdu.Position(math.copysign(x, nudge.x) 
-							* int(abs(nudge.x) > 0), y, 0)
-		numSelectedKeys = 0
-		for channel in self.Channels.values():
-			if channel.display:
-				numSelectedKeys += len(channel.selectedKeys)
-				if numSelectedKeys > 0:
-					for channel in self.Channels.values():
-						if channel.display:
-							channel.setKeysRelXY(keyPos)
-					break
-		if numSelectedKeys == 0:
-			x = nudge.x * self.keysTransformComp.par.sx
-			keyPos = tdu.Position(math.copysign(x, nudge.x) 
-							* int(abs(nudge.x) > 0), y, 0)
-			for channel in self.Channels.values():
-				if channel.display:	
-					channel.setHandlesRelXY(keyPos)
+
+		offset = tdu.Position(
+			nudge.x / self.keysViewComp.width,
+			nudge.y/ self.keysViewComp.height,
+			0)
+
+		if len(self.curves_viewChop.selected_keyframes()) > 0:
+			self.curves_viewChop.offset_selected_keyframes(offset.x, offset.y)
 		else:
-			for chan in self.Channels.values():
-				chan.setStartSetKeys()
+			if len(self.curves_viewChop.selected_start_handles()) > 0 or len(self.curves_viewChop.selected_end_handles()) > 0:
+				self.curves_viewChop.offset_selected_start_handles(offset.x, offset.y)
+				self.curves_viewChop.offset_selected_end_handles(offset.x, offset.y)
+		
+		self.curves_viewChop.reset_begin_set_values()
+
 
 	def InsertKey(self, chanName, x, y=None, expr='bezier()'):
 		chan = self.Channels[chanName]
@@ -613,14 +560,14 @@ class KeyframerExt(Keyframer):
 		self.insertPos.x = event.u * self.keysViewComp.width
 		self.insertPos.y = event.v * self.keysViewComp.height
 		self.insertPos = self.keysTransformComp.worldTransform * self.insertPos		
-		lastSampleIndex = self.curvesChop.numSamples - 1
+		lastSampleIndex = self.curves_viewChop.numSamples - 1
 		x = self.insertPos.x
 		i = max(0, 
-			min(lastSampleIndex, math.floor((x - self.KeysViewHorzRange[0]) * self.curvesChop.rate)))
+			min(lastSampleIndex, math.floor((x - self.KeysViewHorzRange[0]) * self.curves_viewChop.rate)))
 		nearestChopChan = None
 		nearestValue = None
-		for chopChan in self.curvesChop.chans():	
-			if self.channelsChop['display'][chopChan.index]:	
+		for chopChan in self.curves_viewChop.chans():	
+			if self.channels_viewChop['display'][chopChan.index]:	
 				if nearestChopChan == None:
 					nearestChopChan = chopChan
 					nearestValue = chopChan[i]
@@ -638,7 +585,7 @@ class KeyframerExt(Keyframer):
 		self.insertPos.x = event.u * self.keysViewComp.width
 		self.insertPos.y = event.v * self.keysViewComp.height
 		self.insertPos = self.keysTransformComp.worldTransform * self.insertPos	
-		self.unSelectAll()
+		self.curves_viewChop.unselect_all()
 		insertInfos = {}
 		for chan in self.Channels.values():
 			if chan.display:
@@ -721,7 +668,7 @@ class KeyframerExt(Keyframer):
 
 	def drawKeyframes(self, event):
 		# needs update to function properly
-		self.unSelectAll()
+		self.curves_viewChop.unselect_all()
 		channel = list(self.Channels.values())[0]
 		if event.selectStart:
 			self.drawPrevPos = self.transformPos(event)
@@ -753,191 +700,24 @@ class KeyframerExt(Keyframer):
 			self.Channels[chanName].deleteKey(i)
 
 	def DeleteSelectedKeys(self):
-		for n in range(self.keyframesChop.numSamples, 0, -1):
+		for n in range(self.keyframes_viewChop.numSamples, 0, -1):
 			i = n - 1
-			selected = self.keyframesChop['selected'][i]
+			selected = self.keyframes_viewChop['selected'][i]
 			if selected:
-				channel_index = round(self.keyframesChop['channel_index'][i])
-				keyframe_index = round(self.keyframesChop['keyframe_index'][i])
+				channel_index = round(self.keyframes_viewChop['channel_index'][i])
+				keyframe_index = round(self.keyframes_viewChop['keyframe_index'][i])
 				channel = self.AnimationChop.channels[channel_index]
 				channel.delete_keyframe(keyframe_index)
 
-
-		# for channel in self.Channels.values():
-		# 	if channel.numSegments > 1:
-		# 		channel.selectedKeys.sort()
-		# 		channel.selectedKeys.reverse()
-		# 		for i in channel.selectedKeys:
-		# 			channel.deleteKey(i)
-		
-		# self.unSelectAll()
-		# self.SetChannels()
-
 	def scaleKeys(self, event):	
-		self.setPos = self.transformPos(event)
-		self.setPos.x -= event.pos.x
-		self.setPos.y -= event.pos.y
+		offset = get_item_offset = self.get_item_offset(event)
+		scale_x = offset.x / self.keysTransformComp.par.sx
+		scale_y = offset.y / self.keysTransformComp.par.sy
 
-		geo = event.pickOp.parent()
-		i = geo.par.Geotype.menuIndex
-		if i == 0:
-			indices = event.custom['indices']
-			pickChan = self.ChannelsList[indices[0]]
-			clickId = indices[2]			
-
-			if clickId < pickChan.numSegments:
-				pickSegment = pickChan.segments[clickId]
-			else:
-				pickSegment = pickChan.segments[clickId - 1]
-			if not self.startScale:
-				self.startScale = True
-				self.scaleKeysScale = self.scaleKeysScale * .0 + 1
-				self.scaleStartPos.x = self.setPos.x
-				self.scaleStartPos.y = self.setPos.y
-				for chan in self.Channels.values():
-					if len(chan.selectedKeys) > 0:
-						minId = min(chan.selectedKeys)
-					else:
-						minId = 0
-					for _id in chan.selectedKeys:
-						if _id < chan.numSegments:
-							segment = chan.segments[_id]
-							segment.scaleDeltas[0][0] = (
-													segment.x0 - event.pos.x)
-							segment.scaleDeltas[0][1] = (
-													segment.y0 - event.pos.y)														
-						else:
-							segment = chan.segments[_id - 1]
-							segment.scaleDeltas[1][0] = (
-													segment.x1 - event.pos.x)
-							segment.scaleDeltas[1][1] = (
-													segment.y1 - event.pos.y)
-						if segment.hasHandles:
-							relX, relY = self.getHandleRelXY(
-								segment.inslope, segment.inaccel
-							)
-							segment.scaleDeltas[2][0] = (relX)
-							segment.scaleDeltas[2][1] = (relY)
-							relX, relY = self.getHandleRelXY(
-								segment.outslope, -segment.outaccel
-							)															
-							segment.scaleDeltas[3][0] = (relX)
-							segment.scaleDeltas[3][1] = (relY)
-					if minId != 0:
-						segment = chan.segments[minId - 1]
-						if segment.hasHandles:
-							relX, relY = self.getHandleRelXY(
-								segment.inslope, segment.inaccel
-							)
-							segment.scaleDeltas[2][0] = (relX)
-							segment.scaleDeltas[2][1] = (relY)
-							relX, relY = self.getHandleRelXY(
-								segment.outslope, -segment.outaccel
-							)															
-							segment.scaleDeltas[3][0] = (relX)
-							segment.scaleDeltas[3][1] = (relY)
-
-			if self.kd and not self.kf:
-				self.scaleKeysScale.x = (1 
-					+ (self.setPos.x - self.scaleStartPos.x) 
-					/ (self.KeysViewHorzRange[1] - self.KeysViewHorzRange[0]))
-				self.scaleKeysScale.y = 1
-			elif self.kf and not self.kd:
-				self.scaleKeysScale.x = 1
-				self.scaleKeysScale.y = (1 
-					+ (self.setPos.y - self.scaleStartPos.y)
-					/ (self.KeysViewVertRange[1] - self.KeysViewVertRange[0]))
-			else:
-				self.scaleKeysScale.x = (1 
-					+ (self.setPos.x - self.scaleStartPos.x) 
-					/ (self.KeysViewHorzRange[1] - self.KeysViewHorzRange[0]))
-				self.scaleKeysScale.y = (1 
-					+ (self.setPos.y - self.scaleStartPos.y)
-					/ (self.KeysViewVertRange[1] - self.KeysViewVertRange[0]))
-
-			for chan in self.Channels.values():
-				if chan.display:
-					if len(chan.selectedKeys) > 0:
-						minId = min(chan.selectedKeys)
-						maxId = max(chan.selectedKeys)
-					else:
-						minId = -1
-					for _id in chan.selectedKeys:				
-						if _id < chan.numSegments:
-							segment = chan.segments[_id]
-							if segment.hasHandles:
-								if _id == maxId and clickId != _id:
-									sx = 1 / self.scaleKeysScale.x
-									sy = self.scaleKeysScale.y
-								elif _id == clickId and _id == maxId:
-									sx = 1
-									sy = 1							
-								else:
-									sx = self.scaleKeysScale.x
-									sy = self.scaleKeysScale.y							
-								inHandleX = (segment.scaleDeltas[2][0] 
-											* sx)
-								inHandleY = (segment.scaleDeltas[2][1] 
-											* sy)
-								outHandleX = (segment.scaleDeltas[3][0] 
-											* sx)
-								outHandleY = (segment.scaleDeltas[3][1] 
-											* sy)
-								segment.setInHandleRelXY(
-									inHandleX, inHandleY, True)
-								segment.setOutHandleRelXY(
-									outHandleX, outHandleY, True)
-							deltaX = (segment.scaleDeltas[0][0] 
-										* self.scaleKeysScale.x)
-							deltaY = (segment.scaleDeltas[0][1] 
-										* self.scaleKeysScale.y)
-							x = deltaX + event.pos.x
-							y = deltaY + event.pos.y
-							segment.setInXY(x, y)			
-						else:
-							segment = chan.segments[_id - 1]
-							if segment.hasHandles:
-								inHandleX = (segment.scaleDeltas[2][0] 
-											* self.scaleKeysScale.x)
-								inHandleY = (segment.scaleDeltas[2][1] 
-											* self.scaleKeysScale.y)
-								outHandleX = (segment.scaleDeltas[3][0] 
-											* self.scaleKeysScale.x)
-								outHandleY = (segment.scaleDeltas[3][1] 
-											* self.scaleKeysScale.y)
-								segment.setInHandleRelXY(
-									inHandleX, inHandleY, True)
-								segment.setOutHandleRelXY(
-									outHandleX, outHandleY, True)						
-							deltaX = (segment.scaleDeltas[1][0] 
-										* self.scaleKeysScale.x)
-							deltaY = (segment.scaleDeltas[1][1] 
-										* self.scaleKeysScale.y)
-							x = deltaX + event.pos.x
-							y = deltaY + event.pos.y
-							segment.setOutXY(x, y)
-					if minId > 0:
-						segment = chan.segments[minId - 1]
-						if segment.hasHandles:
-							if minId == clickId:
-								sx = 1
-								sy = 1
-							else:
-								sx = 1 / self.scaleKeysScale.x
-								sy = self.scaleKeysScale.y																
-							inHandleX = (segment.scaleDeltas[2][0] 
-										* sx)
-							inHandleY = (segment.scaleDeltas[2][1] 
-										* sy)
-							outHandleX = (segment.scaleDeltas[3][0] 
-										* sx)
-							outHandleY = (segment.scaleDeltas[3][1] 
-										* sy)
-							segment.setInHandleRelXY(
-								inHandleX, inHandleY, True)
-							segment.setOutHandleRelXY(
-								outHandleX, outHandleY, True)	
-					self.setLabelsTy()						
+		# TODO: implement scale_selected_keys
+		# self.curves_viewChop.scale_selected_keys(scale_x, scale_y)
+		
+		self.setLabelsTy()						
 
 	def selectItem(self, event):
 		geo = event.pickOp.parent()
@@ -949,13 +729,13 @@ class KeyframerExt(Keyframer):
 			
 			if i == 0:
 				# print("select keyframe", instance_id, indices)
-				self.keyframesChop.select_keyframes([instance_id])
+				self.keyframes_viewChop.select_keyframes([instance_id])
 			elif i == 1:
 				# print("select end handle", instance_id, indices)
-				self.segmentsChop.select_end_handles([instance_id])
+				self.segments_viewChop.select_end_handles([instance_id])
 			elif i == 2:
 				# print("select start handle", instance_id, indices)
-				self.segmentsChop.select_start_handles([instance_id])
+				self.segments_viewChop.select_start_handles([instance_id])
 
 
 	def SelectKey(self, chan, _id, state):
@@ -997,135 +777,30 @@ class KeyframerExt(Keyframer):
 		if i < 3:
 			instance_id = int(event.instanceId)
 			if i == 0:
-				return self.keyframesChop['selected'][instance_id]
+				return self.keyframes_viewChop['selected'][instance_id]
 			elif i == 1:
-				return self.segmentsChop['selected_end_handles'][instance_id]
+				return self.segments_viewChop['selected_end_handles'][instance_id]
 			elif i == 2:
-				return self.segmentsChop['selected_start_handles'][instance_id]
+				return self.segments_viewChop['selected_start_handles'][instance_id]
 
 		return False
 
-	def setItem(self, event):
+	def offset_selected(self, event):
 		geo = event.pickOp.parent()
 		i = geo.par.Geotype.menuIndex
-		if i < 3:
-			indices = event.custom['indices']
-			# print(i, indices)
-			# chan = self.ChannelsList[indices[0]]
-			# clickId = indices[2 + i]			
-		else:
-			# chan = self.Channels[geo.par.Channelname.eval()]
-			clickId = event.instanceId
-			# print(i, clickId)
-
-		# if not self.startSet:
-		# 	self.startSet = True						
-		# 	self.keyframeControlsComp.ActiveAll(*self.GetKeyHandlesActive())
-
-		self.setPos = self.transformPos(event)
-
-		if self.kshift == 0:
-			self.setPos.x -= event.pos.x
-			self.setPos.y -= event.pos.y
-		else:
-			if self.kctrl == 0:	
-				self.setPos.x -= event.pos.x
-				self.setPos.y = self.startSetPosOffset.y
-			else:
-				self.setPos.x = self.startSetPosOffset.x
-				self.setPos.y -= event.pos.y	
 
 		if i < 3:
-			self.setPos.x = self.setPos.x
-
-			self.setPos.x += self.start_item_pos.x - self.startSetPosOffset.x
-			self.setPos.y += self.start_item_pos.y - self.startSetPosOffset.y
-			
-			# print(self.setPos)
-			chan = self.AnimationChop.channels[indices[0]]
+			offset = self.get_item_offset(event)
+			if self.kshift:
+				offset.y = 0
+			elif self.kctrl:
+				offset.x = 0
 			if i == 0:
-				offset = self.get_item_offset(event)
-				self.curvesChop.offset_selected_keyframes(offset.x, offset.y)
-				# chan.set_keyframe_position(indices[1], self.setPos.x, self.setPos.y)
+				self.curves_viewChop.offset_selected_keyframes(offset.x, offset.y)
 			elif i == 1:
-				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)	
-				chan.set_keyframe_in_handle(indices[1] + 1, point)
+				self.curves_viewChop.offset_selected_end_handles(offset.x, offset.y)
 			elif i == 2:
-				point = self.AnimationChop.Point(self.setPos.x, self.setPos.y)
-				chan.set_keyframe_out_handle(indices[1], point)
-
-		
-			
-
-
-		# for chan in self.selectedChannels:
-		# 	chan.setFuncs[i](
-		# 		clickId,
-		# 		self.setPos, 
-		# 		self.startSetPosOffset,
-		# 		event.selectStart
-		# 	)
-		## Alternate method for setting handles using relative 
-		## slope and accel rather than x, y
-		## needs to be relative angle not slope for better results at
-		## small vertical scale (high vert zoom ie -1 to 1) since slope 
-		## is a relation of distance - y/x.....
-		## need to update for new geo rendering method
-		# clickIds = [-2, clickId]
-		# if i != 1:
-		# for chan in self.selectedChannels:
-		# 	chan.setFuncs[i](
-		# 		clickIds[chan == pickChan],
-		# 		self.setPos, 
-		# 		self.startSetPosOffset,
-		# 		event.selectStart
-		# 	)
-		# else:
-		# 	segmentIndex = math.floor(clickId / 2.0)
-		# 	pickSeg = pickChan.segments[segmentIndex]
-		# 	outClicked = clickId % 2
-		# 	if outClicked and pickSeg.lockHandles:
-		# 		if segmentIndex + 1 < pickChan.numSegments:	
-		# 			nextSegment = pickChan.segments[segmentIndex + 1]
-		# 			i = nextSegment.handlesChopInIndex
-		# 			if nextSegment.handlesChopSelected[i]:
-		# 				self.setPos.x = (
-		# 							self.startSetPosOffset.x - self.setPos.x)
-		# 				self.setPos.y = (
-		# 							self.startSetPosOffset.y - self.setPos.y)
-		# 	if event.selectStart:
-		# 		if outClicked == 0:
-		# 			offsetX = (pickSeg.points[1].x - pickSeg.points[0].x)
-		# 			offsetY = (pickSeg.points[1].y - pickSeg.points[0].y)
-		# 		else:
-		# 			offsetX = (pickSeg.points[2].x - pickSeg.points[3].x)
-		# 			offsetY = (pickSeg.points[2].y - pickSeg.points[3].y)
-		# 		self.handleOffsetX = self.setPos.x - offsetX
-		# 		self.handleOffsetY = self.setPos.y - offsetY
-		# 	self.setPos.x -= self.handleOffsetX
-		# 	self.setPos.y -= self.handleOffsetY	 
-		# 	getSlopeAccel = pickSeg.getSlopeAccelFromRelXY[outClicked]
-		# 	slope, accel = getSlopeAccel(self.setPos.x, self.setPos.y)		
-		# 	pickSeg.setSlopeAccel[outClicked](slope, accel)
-		# 	if event.selectStart:
-		# 		self.startSlope = slope	
-		# 		self.startAccel = accel
-
-		# 	relSlope = slope - self.startSlope		
-		# 	relSlopes = [relSlope, -relSlope]
-		# 	relAccel = (accel - self.startAccel)
-
-		# 	for chan in self.selectedChannels:
-		# 		for _id in chan.selectedHandles:
-		# 			segmentIndex = math.floor(_id / 2.0)
-		# 			segment = chan.segments[segmentIndex]
-		# 			if chan != pickChan or _id != clickId:
-		# 				isOut = _id % 2	
-		# 				segment.setRelSlopeAccel[isOut](
-		# 					relSlopes[isOut != outClicked],
-		# 					relAccel,
-		# 					event.selectStart
-		# 				)					
+				self.curves_viewChop.offset_selected_start_handles(offset.x, offset.y)
 
 		self.setLabelsTy()
 		self.KeyframeControlsUpdateView()
@@ -1140,47 +815,16 @@ class KeyframerExt(Keyframer):
 
 	def onPickSelectStart(self, event):
 		self.SetPrevStateChannels()
-		print("onPickSelectStart", event)
+		# print("onPickSelectStart", event)
 		self.begin_set_pos.x = event.u * self.keysViewComp.width
 		self.begin_set_pos.y = event.v * self.keysViewComp.height
 		self.begin_set_pos = self.keysTransformComp.worldTransform * self.begin_set_pos
-
-		self.startSetPosOffset.x = event.u * self.keysViewComp.width
-		self.startSetPosOffset.y = event.v * self.keysViewComp.height
-		self.startSetPosOffset = (self.keysTransformComp.worldTransform 
-												* self.startSetPosOffset)
-		self.startSetPosOffset.x = self.startSetPosOffset.x - event.pos.x
-		self.startSetPosOffset.y = self.startSetPosOffset.y - event.pos.y
-
-		self.startPos = tdu.Position(
-			event.u * self.keysViewComp.width,
-			event.v * self.keysViewComp.height, 0)
-
-		# print("Start Set Pos Offset:", self.startSetPosOffset)
 
 		self.pickStartVals = {}
 		self.pickStartVals['uv'] = (event.u, event.v)
 		self.pickStartVals['shift'] = self.keysViewComp.panel.shift.val
 		self.pickStartVals['ctrl'] = self.keysViewComp.panel.ctrl.val
 		self.pickStartVals['alt'] = self.keysViewComp.panel.alt.val
-
-		if event.pickOp is not None:
-			geo = event.pickOp.parent()
-			i = geo.par.Geotype.menuIndex
-			if i < 3:
-				indices = event.custom['indices']
-				chan = self.AnimationChop.channels[indices[0]]
-				if i == 0:
-					keyframe = chan.keyframe(indices[1])
-					self.start_item_pos = tdu.Position(keyframe.time, keyframe.value, 0)
-				elif i == 1:
-					keyframe = chan.keyframe(indices[1] + 1)
-					self.start_item_pos = tdu.Position(keyframe.in_handle.time, 
-														keyframe.in_handle.value, 0)
-				elif i == 2:
-					keyframe = chan.keyframe(indices[1])
-					self.start_item_pos = tdu.Position(keyframe.out_handle.time, 
-														keyframe.out_handle.value, 0)
 
 
 	def onPickEnd(self, didAction=True):
@@ -1189,7 +833,7 @@ class KeyframerExt(Keyframer):
 			self.marqueeSelectEnd()	
 		self.startSet = False
 		self.startScale = False
-		self.curvesChop.reset_begin_set_values()
+		self.curves_viewChop.reset_begin_set_values()
 		# if didAction:
 		# 	self.SetCurStateChannels()	
 		# for chan in self.Channels.values():
@@ -1252,141 +896,50 @@ class KeyframerExt(Keyframer):
 		self.keysViewComp.par.Marqueeselectstartu = event.u
 		self.keysViewComp.par.Marqueeselectstartv = event.v
 		self.switchMarqueeTop.par.index = 1
-		self.selStartPos.x = event.u * self.keysViewComp.width
-		self.selStartPos.y = event.v * self.keysViewComp.height
-		self.selStartPos = self.keysTransformComp.worldTransform * self.selStartPos
-		if self.kshift == 0:
-			self.curMarqKeys = []
-			self.curMarqHandles = []
-			self.selectedChannels = []			
-			# for chan in self.Channels.values():
-			# 	chan.selectedKeys = []
-			# 	chan.selectedHandles = []
-			# 	chan.selectedSegments = []
 
 	def marqueeSelect(self, event):
 		self.selectPos = self.transformPos(event)
 
 	def marqueeSelectEnd(self):
 		if self.marqueeSelecting:
-			mCoords = [[self.selStartPos.x, self.selectPos.x], 
-						[self.selStartPos.y, self.selectPos.y]]
+			mCoords = [[self.begin_set_pos.x, self.selectPos.x], 
+						[self.begin_set_pos.y, self.selectPos.y]]
 			mCoords[0].sort()
 			mCoords[1].sort()
 
 			selected_indices = [] # sample_index
-			for sample_index in range(self.keyframesChop.numSamples):
-				if (self.keyframesChop['time'][sample_index] >= mCoords[0][0]
-						and self.keyframesChop['time'][sample_index] < mCoords[0][1]
-						and self.keyframesChop['value'][sample_index] >= mCoords[1][0]
-						and self.keyframesChop['value'][sample_index] < mCoords[1][1]):
+			for sample_index in range(self.keyframes_viewChop.numSamples):
+				if (self.keyframes_viewChop['time'][sample_index] >= mCoords[0][0]
+						and self.keyframes_viewChop['time'][sample_index] < mCoords[0][1]
+						and self.keyframes_viewChop['value'][sample_index] >= mCoords[1][0]
+						and self.keyframes_viewChop['value'][sample_index] < mCoords[1][1]
+						and self.keyframes_viewChop['display'][sample_index]):
 					selected_indices.append(sample_index)
-			self.keyframesChop.select_keyframes(selected_indices)
-			print(f"Selected keyframes: {selected_indices}")
+			self.keyframes_viewChop.select_keyframes(selected_indices)
+			# print(f"Selected keyframes: {selected_indices}")
 
 			selected_start_handles = []
 			selected_end_handles = []
-			for sample_index in range(self.segmentsChop.numSamples):
-				if (self.segmentsChop['start_handle_time'][sample_index] >= mCoords[0][0]
-						and self.segmentsChop['start_handle_time'][sample_index] < mCoords[0][1]
-						and self.segmentsChop['start_handle_value'][sample_index] >= mCoords[1][0]
-						and self.segmentsChop['start_handle_value'][sample_index] < mCoords[1][1]):
+			for sample_index in range(self.segments_viewChop.numSamples):
+				if (self.segments_viewChop['start_handle_time'][sample_index] >= mCoords[0][0]
+						and self.segments_viewChop['start_handle_time'][sample_index] < mCoords[0][1]
+						and self.segments_viewChop['start_handle_value'][sample_index] >= mCoords[1][0]
+						and self.segments_viewChop['start_handle_value'][sample_index] < mCoords[1][1]
+						and self.segments_viewChop['display_start_handle'][sample_index]):
 					selected_start_handles.append(sample_index)
 				
-				if (self.segmentsChop['end_handle_time'][sample_index] >= mCoords[0][0]
-						and self.segmentsChop['end_handle_time'][sample_index] < mCoords[0][1]
-						and self.segmentsChop['end_handle_value'][sample_index] >= mCoords[1][0]
-						and self.segmentsChop['end_handle_value'][sample_index] < mCoords[1][1]):
+				if (self.segments_viewChop['end_handle_time'][sample_index] >= mCoords[0][0]
+						and self.segments_viewChop['end_handle_time'][sample_index] < mCoords[0][1]
+						and self.segments_viewChop['end_handle_value'][sample_index] >= mCoords[1][0]
+						and self.segments_viewChop['end_handle_value'][sample_index] < mCoords[1][1]
+						and self.segments_viewChop['display_end_handle'][sample_index]):
 					selected_end_handles.append(sample_index)
 
-			self.segmentsChop.select_start_handles(selected_start_handles)
-			self.segmentsChop.select_end_handles(selected_end_handles)
+			self.segments_viewChop.select_start_handles(selected_start_handles)
+			self.segments_viewChop.select_end_handles(selected_end_handles)
 
-			# for chan in self.Channels.values():
-			# 	if chan.display:
-			# 		for segment in chan.segments:
-			# 			k = segment.index
-			# 			if (mCoords[0][0] <= segment.x0 <= mCoords[0][1]
-			# 					and mCoords[1][0] <= segment.y0 
-			# 						<= mCoords[1][1]):
-			# 				chan.selectKey(k, 1)
-			# 				self.SelectChannel(chan)
-			# 				if (chan, k) not in self.curMarqKeys:
-			# 					self.curMarqKeys.append((chan, k))
-			# 					self.updateViewKeySegment = segment
-			# 			k += 1
-			# 			if segment.isLastSegment:
-			# 				if (mCoords[0][0] <= segment.x1 <= mCoords[0][1]
-			# 						and mCoords[1][0] 
-			# 							<= segment.y1 <= mCoords[1][1]):
-			# 					chan.selectKey(k, 1)
-			# 					self.SelectChannel(chan)
-			# 					if (chan, k) not in self.curMarqKeys:
-			# 						self.curMarqKeys.append((chan, k))
-			# 						self.updateViewKeySegment = (segment, 1)
-			# 			if segment.hasHandles:
-			# 				h = segment.index * 2
-			# 				if (mCoords[0][0] 
-			# 						<= segment.inHandlePos[0] <= mCoords[0][1]
-			# 							and mCoords[1][0] 
-			# 								<= segment.inHandlePos[1] 
-			# 								<= mCoords[1][1]):
-			# 					chan.selectHandle(h, 1)
-			# 					self.SelectChannel(chan)
-			# 					if (chan, h) not in self.curMarqHandles:
-			# 						self.curMarqHandles.append((chan, h))
-			# 						self.updateViewInHandleSegment = segment									
-			# 				h = segment.index * 2 + 1		
-			# 				if (mCoords[0][0] 
-			# 					<= segment.outHandlePos[0] <= mCoords[0][1]
-			# 						and mCoords[1][0] <= segment.outHandlePos[1] 
-			# 							<= mCoords[1][1]):
-			# 					chan.selectHandle(h, 1)
-			# 					self.SelectChannel(chan)
-			# 					if (chan, h) not in self.curMarqHandles:
-			# 						self.curMarqHandles.append((chan, h))
-			# 						self.updateViewOutHandleSegment = segment
-
-			chan = None
-			if (self.curMarqKeys == [] and self.curMarqHandles == []):
-				# start = int(math.floor(mCoords[0][0]))
-				# end = int(math.ceil(mCoords[0][1]))
-				# try:
-				# 	self.curvesChop.par.Range1 = start
-				# 	self.curvesChop.par.Range2 = end
-				# 	self.KeyframeLookupChop.cook(force=True)
-				# 	for chopChan in self.KeyframeLookupChop.chans():
-				# 		chan = self.Channels[chopChan.name]
-				# 		if chan.display:
-				# 			selected = []
-				# 			for i in range(end - start): 
-				# 				x = i + start
-				# 				if (mCoords[1][0] <= chopChan[i] 
-				# 						<= mCoords[1][1]):
-				# 					for segment in chan.segments:
-				# 						if segment not in selected:
-				# 							seg = chan.selectSegment(x, 1)
-				# 							if seg is not None:
-				# 								selected.append(segment)
-				# 								self.SelectChannel(chan)
-				# 				else:
-				# 					for segment in chan.segments:
-				# 						if (segment.segmentType == 'constant()'	
-				# 								and x == round(segment.x1)
-				# 								and segment.y0 < mCoords[1][0]
-				# 								and segment.y1 > mCoords[1][1]):
-				# 							chan.selectSegment(x, 1)
-				# 	if len(self.selectedChannels) > 0:
-				# 		chan = self.selectedChannels[0]
-				# 		segmentIndex = chan.selectedKeys[0]		
-				# 		self.updateViewKeySegment = chan.segments[segmentIndex]
-				# except Exception as e:
-				# 	traceback.print_exc()
-
-				self.curvesChop.par.Range1 = (
-					self.keysViewComp.par.Horzrange1)
-				self.curvesChop.par.Range2 = (
-					self.keysViewComp.par.Horzrange2)				
+			self.curves_viewChop.par.Range1 = self.keysViewComp.par.Horzrange1
+			self.curves_viewChop.par.Range2 = self.keysViewComp.par.Horzrange2			
 
 		# self.GetKeyHandlesActive()
 		self.KeyframeControlsUpdateView(updateFunction=True)
@@ -1453,35 +1006,6 @@ class KeyframerExt(Keyframer):
 		xBounds = [None, None]
 		yBounds = [None, None]
 		chansDisplayed = False
-		# for chan in self.Channels.values():
-		# 	if chan.display:
-		# 		chansDisplayed = True
-		# 		for segment in chan.segments:
-		# 			if xBounds[0] == None:
-		# 				xBounds[0] = segment.x0
-		# 				xBounds[1] = segment.x0
-		# 				yBounds[0] = segment.y0
-		# 				yBounds[1] = segment.y0
-		# 			xBounds[0] = min(segment.x0, xBounds[0])
-		# 			xBounds[1] = max(segment.x0, xBounds[1])
-		# 			yBounds[0] = min(segment.y0, yBounds[0])
-		# 			yBounds[1] = max(segment.y0, yBounds[1])
-		# 			if segment.hasHandles:
-		# 				relX, relY = self.getHandleRelXY(
-		# 									segment.inslope, segment.inaccel)
-		# 				y = segment.y0 + relY
-		# 				yBounds[0] = min(y, yBounds[0])
-		# 				yBounds[1] = max(y, yBounds[1])	
-		# 				relX, relY = self.getHandleRelXY(
-		# 									segment.outslope, -segment.outaccel)
-		# 				y = segment.y1 + relY
-		# 				yBounds[0] = min(y, yBounds[0])
-		# 				yBounds[1] = max(y, yBounds[1])												
-		# 			if segment.isLastSegment:
-		# 				xBounds[0] = min(segment.x1, xBounds[0])
-		# 				xBounds[1] = max(segment.x1, xBounds[1])
-		# 				yBounds[0] = min(segment.y1, yBounds[0])
-		# 				yBounds[1] = max(segment.y1, yBounds[1])
 
 		if chansDisplayed:
 			xRange = (xBounds[1] - xBounds[0])
@@ -1492,10 +1016,10 @@ class KeyframerExt(Keyframer):
 				yRange = 2
 				yStart -= 1
 		else:
-			xRange = self.animation_infoChop['max_keyframe_time'] - self.animation_infoChop['min_keyframe_time']
-			yRange = self.animation_infoChop['max_keyframe_value'] - self.animation_infoChop['min_keyframe_value']
-			xStart = self.animation_infoChop['min_keyframe_time']
-			yStart = self.animation_infoChop['min_keyframe_value']
+			xRange = self.animation_viewChop['max_keyframe_time'] - self.animation_viewChop['min_keyframe_time']
+			yRange = self.animation_viewChop['max_keyframe_value'] - self.animation_viewChop['min_keyframe_value']
+			xStart = self.animation_viewChop['min_keyframe_time']
+			yStart = self.animation_viewChop['min_keyframe_value']
 
 		sx = xRange / (self.keysViewComp.width - self.navHomeMarginSums[0])
 		tx = xStart - sx * self.navHomeMargins[0]
@@ -1559,10 +1083,6 @@ class KeyframerExt(Keyframer):
 			self.insidePos.x = self.keysPanel.insideu.val * self.keysViewComp.width
 			self.insidePos.y = self.keysPanel.insidev.val * self.keysViewComp.height
 			self.insidePos = self.keysTransformComp.worldTransform * self.insidePos
-
-			if self.keysPanel.lselect.val:
-				self.insidePos.x -= self.startSetPosOffset.x
-				self.insidePos.y -= self.startSetPosOffset.y	
 		except:
 			pass
 		return self.insidePos
@@ -1578,7 +1098,6 @@ class KeyframerExt(Keyframer):
 		y1 = y0 + size.y
 		self.KeysViewHorzRange = (x0, x1)
 		self.KeysViewVertRange = (y0, y1)
-		self.keysRenderPickComp.SetView()
 		self.setLabelsTy()
 
 	def setLabelsTy(self):
@@ -1607,45 +1126,6 @@ class KeyframerExt(Keyframer):
 		# 	par.val = ty[i]
 
 	def updateKeysView(self, init=False):
-		# self.curvesChop.cook(force=True, recurse=True)
-		# if init:
-		# 	numChans = len(self.Channels.values())
-		# 	self.channelLabelsPos = np.ndarray((2, numChans))
-		# 	self.channelLabelTyPars = []
-		# pos = self.labelStartTx
-		# viewWidth = self.keysViewComp.width - self.labelStartTx
-		# displayed = [chan for chan in self.Channels.values() if chan.display]
-		# numDisplayed = len(displayed)
-		# maxLabelWidth = viewWidth / (numDisplayed + 1)
-	
-		# keys = []
-		# handles = []
-		# labelTops = []
-		# labelValues = []
-		# root = self.ChannelsComp.path
-		# replace1 = '../../channels'
-		# replace2 = '../../../channels'
-
-		# for i, chan in enumerate(self.Channels.values()):
-		# 	if chan.display:
-		# 		chan.labelComp.par.Tx = pos
-		# 		pos += min(maxLabelWidth, chan.labelTop.width)
-		# 		keys.append(chan.keysChop.path.replace(root, replace2))
-		# 		handles.append(chan.handlesChop.path.replace(root, replace2))
-		# 		labelTops.append(chan.labelTop.path.replace(root, replace1))
-		# 		labelValues.append(
-		# 			chan.labelValuesChop.path.replace(root, replace2))
-
-		# 	self.channelLabelsPos[0][i] = pos
-		# 	if init:
-		# 		self.channelLabelTyPars.append(chan.labelComp.par.Ty)
-		# 	else:
-		# 		self.channelLabelTyPars[i] = chan.labelComp.par.Ty
-		
-		# self.keysViewKeysJoinChop.par.chops = ' '.join(keys)
-		# self.keysViewHandlesJoinChop.par.chops = ' '.join(handles)
-		# self.keysViewLabelsComp.par.instancetexs = ' '.join(labelTops)
-		# self.keysViewLabelsJoinChop.par.chops = ' '.join(labelValues)
 		self.setLabelsTy()
 
 	def toggleSelectedLockHandles(self):
@@ -1771,29 +1251,29 @@ class KeyframerExt(Keyframer):
 	def KeyframeControlsUpdateView(self, updateFunction=True):
 		first_kf_sel_index = -1
 		keyframe = None
-		for i in range(self.keyframesChop.numSamples):
-			if self.keyframesChop['selected'][i]:
+		for i in range(self.keyframes_viewChop.numSamples):
+			if self.keyframes_viewChop['selected'][i]:
 				first_kf_sel_index = i
 				break
 
 		if first_kf_sel_index >= 0:
 			channel = self.AnimationChop.channels[int(
-				self.keyframesChop['channel_index'][first_kf_sel_index])]
+				self.keyframes_viewChop['channel_index'][first_kf_sel_index])]
 			keyframe = channel.keyframe(int(
-				self.keyframesChop['keyframe_index'][first_kf_sel_index]))
+				self.keyframes_viewChop['keyframe_index'][first_kf_sel_index]))
 		else:
-			for i in range(self.segmentsChop.numSamples):
-				if self.segmentsChop['selected_start_handles'][i]:
+			for i in range(self.segments_viewChop.numSamples):
+				if self.segments_viewChop['selected_start_handles'][i]:
 					channel_index = int(
-						self.segmentsChop['channel_index'][i])
-					segment_index = int(self.segmentsChop['segment_index'][i])
+						self.segments_viewChop['channel_index'][i])
+					segment_index = int(self.segments_viewChop['segment_index'][i])
 					keyframe = self.AnimationChop.channels[channel_index].keyframe(
 						segment_index)
 
-				elif self.segmentsChop['selected_end_handles'][i]:
+				elif self.segments_viewChop['selected_end_handles'][i]:
 					channel_index = int(
-						self.segmentsChop['channel_index'][i])
-					segment_index = int(self.segmentsChop['segment_index'][i]) + 1
+						self.segments_viewChop['channel_index'][i])
+					segment_index = int(self.segments_viewChop['segment_index'][i]) + 1
 					keyframe = self.AnimationChop.channels[channel_index].keyframe(
 						segment_index)	
 					break
@@ -1847,17 +1327,9 @@ class KeyframerExt(Keyframer):
 							self.updateViewOutHandleSegment = selectedHandle						
 		return self.keysSelected, self.inHandlesSelected, self.outHandlesSelected
 	
-	def display_channel(self, index, display):
-		self.keyframesChop.set_channel_display(index, display)
-		self.segmentsChop.set_channel_display(index, display)
-		self.channelsChop.set_channel_display(index, display)
-
 	def OnChannelListSetValue(self, element, value):
-		# print(f"OnChannelListSetValue: {element}, {value}")
-		self.display_channel(value[0], value[2])
-		# chanName = element.cellAttribs[value[0], 0].text
-		# self.Channels[chanName].display = value[2]
-		# self.updateKeysView()
+		self.curves_viewChop.set_channel_display(value[0], value[2])
+		self.updateKeysView()
 
 	def SetFrameSelectedKeyframes(self, frame):
 		for chan in self.Channels.values():
@@ -1987,7 +1459,7 @@ class KeyframerExt(Keyframer):
 					prevSegment = chan.segments[segmentIndex - 1]
 					if segment.segmentType != prevSegment.segmentType:
 						prevSegment.lockHandles = False	
-		self.unSelectAll()
+		self.curves_viewChop.unselect_all()
 		self.setLabelsTy()
 		for chanName, _ids in selectedKeys.items():
 			chan = self.Channels[chanName]
@@ -2010,269 +1482,10 @@ class KeyframerExt(Keyframer):
 		elif start > end:
 			self.channelsDat.deleteRow(start)
 			self.channelsDat.insertRow(rowVals, end)	
-		self.unSelectAll()
+		self.curves_viewChop.unselect_all()
 		self.SetChannels()
 		self.updateKeysView(init=True)
 		self.SetCurStateChannels(force=True)	
 
 	def convertToKeyframerAnimComp(self, comp):
-		try:
-			channelsDat = comp.op('channels')
-			keysDat = comp.op('keys')
-			chans = {}
-			for row in channelsDat.rows()[1:]:
-				chanName = row[0].val
-				chans[chanName] = {}
-				chans[chanName]['chan'] = [c.val for c in row]
-				chans[chanName]['keys'] = keysDat.rows(row[1].val)
-				for i, r in enumerate(chans[chanName]['keys']):
-					chans[chanName]['keys'][i] = [c.val for c in r]
-					chans[chanName]['keys'][i] += [0, '', 0]
-
-			x = keysDat.nodeX
-			y = keysDat.nodeY
-			keysDat.destroy()
-			keysComp = comp.create(baseCOMP)
-			keysComp.name = 'keys'
-			keysComp.nodeX = x
-			keysComp.nodeY = y - 60
-			templateFirstRow = [c.val for c in self.keysTemplateDat.row(0)]
-			y = 0
-			for i, chan in enumerate(chans.values()):
-				keysDat = keysComp.create(tableDAT)
-				name = chan['chan'][0]
-				keysDat.name = name
-				keysDat.nodeY = y				
-				keysDat.clear()
-				keysDat.appendRow(templateFirstRow)
-				keysDat.appendRows(chan['keys'])
-				channelsDat[name, 'keys'] = f"keys/{name}"
-				y -= 120
-
-			if comp.par.startunit == 'samples':
-				comp.par.startunit = 'frames'
-				comp.par.start = comp.par.start + 1
-			elif comp.par.startunit == 'seconds':
-				comp.par.startunit = 'frames'
-				comp.par.start = comp.par.start * comp.time.rate + 1
-			if comp.par.endunit == 'samples':
-				comp.par.endunit = 'frames'
-				comp.par.end = comp.par.end + 1
-			elif comp.par.endunit == 'seconds':
-				comp.par.endunit = 'frames'
-				comp.par.end = comp.par.end * comp.time.rate 
-
-			comp.tags = ['KEYFRAMER_ANIM_COMP']
-			return comp
-		except:
-			return
-
-class TimeGraph:
-	# TODO implement better method - use Numpy and consolidate TimerBarExt
-	def __init__(self, ownerComp):
-		self.ownerComp = ownerComp
-		self.keyframerComp = ownerComp.parent.Keyframer
-		self.viewComp = ownerComp.parent()
-		self.keysViewComp = self.viewComp.op('keysView')
-		self.timerBarComp = ownerComp.op('timerBar')
-		self.valueLabelsComp = self.keysViewComp.op('valueLabels')
-		self.valueLabelComps = self.valueLabelsComp.findChildren(name='label*')
-		self.valueLabelComps.sort(key=lambda x: x.name)
-		self.valueLabelPars = [(c.op('text').par.text, c.par.y, c.par.display) 
-								for c in self.valueLabelComps]
-		self.numValueLabelComps = len(self.valueLabelComps)
-		self.GetDim()
-	
-	@property
-	def Animrangeend(self):
-		return self.ownerComp.par.Animrangeend.eval()
-
-	@property
-	def Animrangestart(self):
-		return self.ownerComp.par.Animrangestart.eval()
-
-	@property
-	def numValueLabels(self):
-		return self.ownerComp.storage.get('numValueLabels', 0)
-	@numValueLabels.setter
-	def numValueLabels(self, value):
-		self.ownerComp.storage['numValueLabels'] = value
-
-	def GetDim(self):
-		self.h = self.keysViewComp.width
-		self.w = self.keysViewComp.height
-		self.graphH = self.h # - 15
-		self.graphW = self.w
-
-	def SetView(self):
-		# self.SetTime()
-		# self.SetValue()
-		# TODO implement graph in with geometry instancing in keysView/render
-		# below is a temp workaround due to the transform being behind 1 frame
-		run("args[0]()", self.setView, delayFrames=1)
-
-	def setView(self):
-		self.SetTime()
-		self.SetValue()	
-
-	def SetTime(self):
-		animStart = self.keyframerComp.AnimationRangeStart	
-		animEnd = self.keyframerComp.AnimationRangeEnd
-		horzRange = self.keyframerComp.KeysViewHorzRange
-		start = vMath.rangeValue(animStart, *horzRange, 
-								0, self.keysViewComp.width)
-		end = vMath.rangeValue(animEnd, *horzRange, 0, self.keysViewComp.width)
-		length = abs(end - start)
-		timeWidth = length / 4 * (60 / animEnd)
-		timeWidthMin = self.ownerComp.par.Timewidthmin.eval()
-		minRatio = timeWidthMin / timeWidth
-		minRatio = math.pow(2, math.ceil(math.log(minRatio) / math.log(2)))
-
-		self.ownerComp.par.Timeoffset = start
-		self.ownerComp.par.Endbound = length
-		self.ownerComp.par.Timewidth = timeWidth * minRatio
-
-	def SetValue(self):
-		vRangeMin = self.keyframerComp.KeysViewVertRange[0]
-		vRangeMax = self.keyframerComp.KeysViewVertRange[1]
-		valueOffset = vMath.rangeValue(0, vRangeMin, vRangeMax, 
-										0, self.keysViewComp.height)
-		vRange = vRangeMax - vRangeMin
-		scaleFactor = self.ownerComp.par.Valuelinesscalefactor.eval()
-		vRangeRound = self.ArbRound(vRange, scaleFactor, vRangeMin)
-		vRange = 1.0 / vRange * self.keysViewComp.height * .5 * vRangeRound
-		self.ownerComp.par.Valueoffset = valueOffset
-		self.ownerComp.par.Valueheight = vRange
-
-	def arbRound(self, x, prec=2, base=.05):
-		return round(base * round(float(x) / base), prec)
-
-	def ArbRound(self, val, scale, minVal):
-		if val < 1.0: 
-			p = 4
-			dPos = str(1 / val).index('.')	
-			b = round(math.pow(.1, dPos), 10)		
-		elif val < 2.0: 
-			p = 2
-			b = .25
-		elif val < 5.0: 
-			p =  1
-			b = 1			
-		elif val < 10.0: 
-			p = 1
-			b = 1
-		else:
-			p = 1
-			dPos = str(val).index('.')	
-			b = math.pow(10, dPos - 1)
-	
-		vRange = self.arbRound(val, p, b)
-		minVal = self.arbRound(minVal, p, b)
-
-		lessThanOne = False	
-		if val < 1.0:
-			val = 1.0 / val
-			lessThanOne = True
-
-		intLessThanOne = int(lessThanOne)
-		# scale the value from 1. to 10.
-		decPos = str(val).index('.')	
-		decMult = math.pow(10, decPos + [0, 1][intLessThanOne])
-		decMult *= .1
-		val = val / decMult
-
-		# get the scale factor
-		if val < 2.0: val = .1
-		elif val < 5.0: val =  .2
-		elif val < 10.0: val =  .4
-
-		if lessThanOne: 
-			val /= decMult
-			val *= scale *  4
-			self.setValueLabels(minVal, val, vRange)
-			return val
-
-		val *= decMult
-		val *= scale
-
-		self.setValueLabels(minVal, val, vRange)
-
-		return val
-
-	def setValueLabels(self, minVal, val, vRange):
-		self.labelVals = []
-		self.numValueLabels = int((vRange * 2) / val + 2)
-		for i in range(self.numValueLabels):
-			posY = vMath.rangeValue(
-				minVal,
-				*self.keyframerComp.KeysViewVertRange,
-				0,
-				self.keysViewComp.height	
-			)
-			minVal = round(minVal, 4)
-			self.labelVals.append((minVal, posY))
-			minVal += val * .5
-
-		for i, labelComp in enumerate(self.valueLabelComps):
-			if i < self.numValueLabels:
-				self.valueLabelPars[i][0].val = self.labelVals[i][0]
-				self.valueLabelPars[i][1].val = self.labelVals[i][1]
-				self.valueLabelPars[i][2].val = True
-			else:
-				self.valueLabelPars[i][2].val = False
-
-
-class TimerBarExt(object):
-	# TODO implement better method - bring into TimeGraph
-	# get all values in one step in Numpy	
-	def __init__(self, ownerComp):
-		self.ownerComp = ownerComp
-		self.keyframerComp = ownerComp.parent.Keyframer
-		self.viewComp = self.keyframerComp.op('view')
-		self.timeGraphComp = self.viewComp.op('timeGraph')
-		self.MinRatio = 1.0
-		self.PrevMinRatio = 1.0
-		self.Setup()
-		self.Position()
-
-	def Position(self):
-		try:
-			self.NumBeats = math.ceil(self.keyframerComp.LengthSeconds * 2)
-
-			totalWidth = self.timeGraphComp.par.Endbound
-			width = totalWidth / self.NumBeats
-			widthMin = 20 * self.timeGraphComp.par.Beatlinesscalefactor
-			self.MinRatio = widthMin / width
-			self.MinRatio = math.pow(2, 
-								math.ceil(math.log(self.MinRatio) / math.log(2)))
-			self.MinRatio = max(1, self.MinRatio)
-			for beat in range(int(self.NumBeats / self.MinRatio) + 1):
-				pos = width * self.MinRatio * beat
-				self.ownerComp.op('label' + str(beat)).par.x = pos
-			if self.MinRatio != self.PrevMinRatio:
-				self.Setup()
-			self.PrevMinRatio = self.MinRatio
-		except:
-			pass
-
-	def Setup(self):
-		self.SetupSeconds()
-
-	def SetupSeconds(self):
-		try:
-			self.NumBeats = math.ceil(self.keyframerComp.LengthSeconds * 2)
-			for beat in range(self.NumBeats + 1):
-				Beat = beat * self.MinRatio	
-				label = str(Beat / 2)
-				labelOP = self.ownerComp.op('label' + str(beat))
-				labelOP.op('text').par.text = label
-				if Beat <= self.NumBeats:
-					labelOP.par.display = 1
-				else:
-					labelOP.par.display = 0
-		except:
-			pass
-
-	def Scrub(self):
-		me.fetch('AnimCOMP').par.cuepoint = (self.ownerComp.panel.u * 4 *
-						op.LM.fetch('TICKS_PER_BEAT') * me.fetch('LengthBars'))
+		print(F"Conversion of Animation Comp not implemented yet: {comp.path}")

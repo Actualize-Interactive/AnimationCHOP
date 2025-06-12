@@ -13,14 +13,19 @@ struct KeyframeView {
     size_t channel_index;
     size_t keyframe_index;
     bool selected;
-    double begin_set_time;
-    double begin_set_value;
+    anim::Point begin_set_position;
 };
 
 struct SegmentView {
+    size_t channel_index;
+    size_t keyframe_index;
     bool selected;
+    anim::Point begin_set_start_position;
+    anim::Point begin_set_end_position;
     bool start_handle_selected;
+    anim::Point begin_set_start_handle;
     bool end_handle_selected;
+    anim::Point begin_set_end_handle;
 };
 struct ChannelView {
     bool selected;
@@ -52,29 +57,33 @@ public:
     void unselectKeyframes(const std::vector<size_t>& indices);
     void unselectAllKeyframes();
     std::vector<size_t> getSelectedKeyframes() const;
-    void resetBeginSetValues();
     void offsetSelectedKeyframes(double time_offset, double value_offset);
 
     void selectSegments(const std::vector<size_t>& indices);
     void unselectSegments(const std::vector<size_t>& indices);
     void unselectAllSegments();
     std::vector<size_t> getSelectedSegments() const;
+    void offsetSelectedSegments(double time_offset, double value_offset);
 
     void selectStartHandles(const std::vector<size_t>& indices);
     void unselectStartHandles(const std::vector<size_t>& indices);
     void unselectAllStartHandles();
     std::vector<size_t> getSelectedStartHandles() const;
+    void offsetSelectedStartHandles(double time_offset, double value_offset);
 
     void selectEndHandles(const std::vector<size_t>& indices);
     void unselectEndHandles(const std::vector<size_t>& indices);
     void unselectAllEndHandles();
     std::vector<size_t> getSelectedEndHandles() const;
+    void offsetSelectedEndHandles(double time_offset, double value_offset);
 
     void selectChannels(const std::vector<size_t>& indices);
     void unselectChannels(const std::vector<size_t>& indices);
     void unselectAllChannels();
     std::vector<size_t> getSelectedChannels() const;
     void setChannelDisplay(size_t index, bool display);
+
+    void resetBeginSetValues();
 
     const std::vector<KeyframeView>& keyframeViews() const { return m_keyframeViews; }
     const std::vector<SegmentView>& segmentViews() const { return m_segmentViews; }
