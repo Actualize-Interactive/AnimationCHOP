@@ -310,30 +310,6 @@ class KeyframerExt:
 				self.keysNavEnd(event)	
 				self.onPickEnd				
 
-	def Appendchannel(self):
-		# par callback
-		name = self.iParsComp.par.Channelname.eval()
-		self.AppendChannel(name)
-
-	def Deletechannel(self):
-		# par callback
-		name = self.iParsComp.par.Channelname.eval()
-		self.DeleteChannel(name)
-
-	def Insertkey(self):
-		# par callback		
-		x = self.iParsComp.par.Insertposx.eval()
-		chanName = self.iParsComp.par.Channelname.eval()
-		y = None
-		expr = self.iParsComp.par.Insertfunction.eval()
-		self.InsertKey(chanName, x, y, expr)
-
-	def Deletekey(self):
-		# par callback
-		i = self.iParsComp.par.Selectkeyframe.eval()
-		chanName = self.iParsComp.par.Channelname.eval()
-		self.DeleteKey(chanName, i)
-
 	def Defaultchancol(self):
 		# par callback
 		if self.iParsComp.par.Chancolmode.eval() == 'DEFAULT_COL':
@@ -594,44 +570,14 @@ class KeyframerExt:
 		return insertInfos
 
 	def copyKeys(self):
-		self.copiedKeys = {}
-		offsetX = None
-		for name, chan in self.Channels.items():
-			if chan.display:		
-				selKeys = sorted(chan.selectedKeys)
-				for i, _id in enumerate(selKeys):
-					if _id < chan.numSegments:
-						segment = chan.segments[_id]
-						if offsetX is None:
-							offsetX = segment.x0
-						else:
-							offsetX = min(offsetX, segment.x0)
-					else:
-						segment = chan.segments[_id - 1]
-						if offsetX is None:
-							offsetX = segment.x1
-						else:
-							offsetX = min(offsetX, segment.x1)
-		if offsetX is not None:
-			for name, chan in self.Channels.items():
-				if chan.display:
-					self.copiedKeys[name] = []
-					selKeys = sorted(chan.selectedKeys)
-					for i, _id in enumerate(selKeys):
-						if _id < chan.numSegments:
-							segment = chan.segments[_id]
-							x = segment.x0 - offsetX
-							keyData = (segment.segmentType, x, segment.y0,
-									segment.inslope, segment.inaccel,
-									segment.outslope, segment.outaccel)
-						else:
-							segment = chan.segments[_id - 1]
-							x = segment.x1 - offsetX
-							keyData = (segment.segmentType, x, segment.y1,
-									segment.inslope, segment.inaccel,
-									segment.outslope, segment.outaccel)
-						self.copiedKeys[name].append(keyData)
-		pprint(self.copiedKeys)
+		self.copiedKeys = []
+		for kv in self.keyframes_viewChop.selected_keyframes():
+			c = kv['channel_index']
+			k = kv['keyframe_index']
+			kf = self.AnimationChop.channels[c][k]
+			state = kf.state
+			state['channel_index'] = c
+			self.copiedKeys.append(state)
 
 	def cutKeys(self):
 		self.copyKeys()
@@ -643,62 +589,21 @@ class KeyframerExt:
 			self.insertPos.y = self.keysPanel.insidev * self.keysViewComp.height
 			self.insertPos = (self.keysTransformComp.worldTransform 
 							* self.insertPos)
-			insertIndices = {}			
-			for chanName, chanKeysData in self.copiedKeys.items():
-				if chanName in self.ChannelNames.val:
-					chan = self.Channels[chanName]
-					insertIndices[chan.name] = []
-					if chan.display:
-						for keyData in chanKeysData:
-							x = self.insertPos.x + keyData[1]
-							insertIndex = chan.insertKey(x, keyData[2], 
-													funcName=keyData[0])
-							insertIndices[chan.name].append(
-								(insertIndex, *keyData[3:])
-							)
-					insertIndices[chan.name].sort()
+			
+			# find the minimum time value
+			minTime = min(kf_state['position']['time'] for kf_state in self.copiedKeys)
+			offset = self.insertPos.x - minTime
 
-			for chanName, insertData in insertIndices.items():
-				chan = self.Channels[chanName]
-				for data in insertData:
-					segment = chan.segments[data[0]]
-					if segment.hasHandles:
-						segment.setInSlopeAccel(data[1], data[2])
-						segment.setOutSlopeAccel(data[3], data[4])
+			for kf_state in self.copiedKeys:
+				c = kf_state['channel_index']
+				if c < len(self.AnimationChop.channels):
+					chan = self.AnimationChop.channels[c]
+					# kf_state.pop('channel_index', None)
+					kf_state['position']['time'] += offset
+					chan.create_keyframe_from_state(kf_state)
 
-	def drawKeyframes(self, event):
-		# needs update to function properly
-		self.curves_viewChop.unselect_all()
-		channel = list(self.Channels.values())[0]
-		if event.selectStart:
-			self.drawPrevPos = self.transformPos(event)
-			self.drawPos = self.drawPrevPos.copy()
-			self.drawPrevVector = self.drawPrevPos - self.drawPos
-			self.drawPrevVector.normalize()	
-			self.drawVector = self.drawPrevVector.copy()
-			insertIndex = channel.insertKey(self.drawPos.x, 
-								self.drawPos.y,
-								self.iParsComp.par.Insertfunction.eval())
-		
-		else: 
-			self.drawPos = self.transformPos(event)
-			self.drawVector = self.drawPrevPos - self.drawPos
-			self.drawVector.normalize()
-			dot = self.drawPrevVector.dot(self.drawVector)
-			dotThreshold = .88
-			# #if self.drawPrevVector != self.drawVector:
-			if dot < dotThreshold:
-				insertIndex = channel.insertKey(self.drawPos.x, 
-								self.drawPos.y,
-								self.iParsComp.par.Insertfunction.eval())
-			self.drawPrevPos = self.drawPos.copy()
-			self.drawPrevVector = self.drawVector.copy()
-			self.drawPrevVector.normalize()		
-
-	def DeleteKey(self, chanName, i):
-		if self.Channels[chanName].numSegments > 1:
-			self.Channels[chanName].deleteKey(i)
-
+		self.unSelectAll()
+			
 	def DeleteSelectedKeys(self):
 		for n in range(self.keyframes_viewChop.numSamples, 0, -1):
 			i = n - 1
