@@ -941,12 +941,13 @@ class KeyframerExt(Keyframer):
 	def selectItem(self, event):
 		geo = event.pickOp.parent()
 		i = geo.par.Geotype.menuIndex
+		print("selectItem", i, event.instanceId, event.custom)
 		if i < 3:
-			instance_id = event.instanceId
+			instance_id = int(event.instanceId)
 			indices = event.custom['indices']
 			
 			if i == 0:
-				# print("select keyframe", instance_id, indices)
+				print("select keyframe", instance_id, indices)
 				self.keyframesChop.select_keyframes([instance_id])
 			elif i == 1:
 				# print("select end handle", instance_id, indices)

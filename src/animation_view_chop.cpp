@@ -22,6 +22,7 @@ static PyObject* py_select_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_selected_keyframes(PyObject* self, PyObject* args);
+static PyObject* py_reset_begin_set_values(PyObject* self, PyObject* args);
 
 static PyObject* py_select_segments(PyObject* self, PyObject* args);
 static PyObject* py_unselect_segments(PyObject* self, PyObject* args);
@@ -50,6 +51,7 @@ static PyMethodDef viewMethods[] = {
     {"unselect_keyframes", (PyCFunction)py_unselect_keyframes, METH_VARARGS, "Unselect keyframes by indices."},
     {"unselect_all_keyframes", (PyCFunction)py_unselect_all_keyframes, METH_NOARGS, "Unselect all keyframes."},
     {"selected_keyframes", (PyCFunction)py_selected_keyframes, METH_NOARGS, "Get selected keyframe indices."},
+    {"reset_begin_set_values", (PyCFunction)py_reset_begin_set_values, METH_NOARGS, "Reset begin set values for all selected keyframes."},
     
     {"select_segments", (PyCFunction)py_select_segments, METH_VARARGS, "Select segments by indices."},
     {"unselect_segments", (PyCFunction)py_unselect_segments, METH_VARARGS, "Unselect segments by indices."},
@@ -154,12 +156,21 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
             total_segments += static_cast<int32_t>(channel->size() - 1);
         }
         
-        m_selectedKeyframes.resize(total_keyframes, false);
-        m_selectedSegments.resize(total_segments, false);
-        m_selectedStartHandles.resize(total_segments, false);
-        m_selectedEndHandles.resize(total_segments, false);
-        m_selectedChannels.resize(animation->size(), false);
-        m_displayedChannels.resize(animation->size(), true);
+        // Initialize keyframe views with proper indices
+        m_keyframeViews.clear();
+        m_keyframeViews.resize(total_keyframes, {0, 0, false, 0.0, 0.0});
+        size_t keyframe_index = 0;
+        for (size_t c = 0; c < animation->size(); ++c) {
+            auto& channel = animation->channel(c);
+            for (size_t k = 0; k < channel.size(); ++k) {
+                m_keyframeViews[keyframe_index].channel_index = c;
+                m_keyframeViews[keyframe_index].keyframe_index = k;
+                ++keyframe_index;
+            }
+        }
+        
+        m_segmentViews.resize(total_segments, {false, false, false});
+        m_channelViews.resize(animation->size(), {false, true});
     }
 
     // Set output info based on current view mode
@@ -187,15 +198,15 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         return true;
     } case ViewMode::keyframes: {
         info->numChannels = static_cast<int32_t>(m_keyframes_chan_names.size());
-        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedKeyframes.size());
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_keyframeViews.size());
         return true;
     } case ViewMode::segments: {
         info->numChannels = static_cast<int32_t>(m_segments_chan_names.size());
-        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedSegments.size());
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_segmentViews.size());
         return true;
     } case ViewMode::channels: {
         info->numChannels = static_cast<int32_t>(m_channels_chan_names.size());
-        info->numSamples = static_cast<int32_t>(dataInstance()->m_selectedChannels.size());
+        info->numSamples = static_cast<int32_t>(dataInstance()->m_channelViews.size());
         return true;
     } case ViewMode::animation: {
         info->numChannels = static_cast<int32_t>(m_animation_chan_names.size());
@@ -307,8 +318,8 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                     output->channels[7][i] = static_cast<float>(channel.keyframe(k).out_handle.value);
                     output->channels[8][i] = static_cast<float>(channel.keyframe(k).function);
                     output->channels[9][i] = static_cast<float>(channel.keyframe(k).handle_mode);
-                    output->channels[10][i] = static_cast<float>(dataInstance()->m_selectedKeyframes[i]);
-                    output->channels[11][i] = static_cast<float>(dataInstance()->m_displayedChannels[c]);
+                    output->channels[10][i] = static_cast<float>(dataInstance()->m_keyframeViews[i].selected);
+                    output->channels[11][i] = static_cast<float>(dataInstance()->m_channelViews[c].displayed);
                 }
                 ++i;
             }
@@ -339,9 +350,9 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 auto display_start_handle = dataInstance()->displayStartHandle(c, start_keyframe);
                 output->channels[10][i] = static_cast<float>(display_start_handle);
                 output->channels[11][i] = static_cast<float>(dataInstance()->displayEndHandle(display_start_handle, end_keyframe));
-                output->channels[12][i] = static_cast<float>(dataInstance()->m_selectedSegments[i]); // Selected
-                output->channels[13][i] = static_cast<float>(dataInstance()->m_selectedStartHandles[i]); // Selected start handles
-                output->channels[14][i] = static_cast<float>(dataInstance()->m_selectedEndHandles[i]); // Selected end handles
+                output->channels[12][i] = static_cast<float>(dataInstance()->m_segmentViews[i].selected);
+                output->channels[13][i] = static_cast<float>(dataInstance()->m_segmentViews[i].start_handle_selected);
+                output->channels[14][i] = static_cast<float>(dataInstance()->m_segmentViews[i].end_handle_selected);
                 ++i;
             }
         }
@@ -362,8 +373,8 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                 output->channels[2][c] = static_cast<float>(channel.end_time());
                 output->channels[3][c] = static_cast<float>(start_index);
                 start_index += static_cast<int32_t>(num_keyframes);
-                output->channels[4][c] = static_cast<float>(dataInstance()->m_selectedChannels[c]); // Selected
-                output->channels[5][c] = static_cast<float>(dataInstance()->m_displayedChannels[c]); // Display
+                output->channels[4][c] = static_cast<float>(dataInstance()->m_channelViews[c].selected);
+                output->channels[5][c] = static_cast<float>(dataInstance()->m_channelViews[c].displayed);
             }
         }
         break;
@@ -534,7 +545,7 @@ bool AnimationViewCHOP::displayStartHandle(size_t channel_index, const Keyframe&
     if (!inst) {
         return false;
     }
-    return inst->m_displayedChannels[channel_index]
+    return inst->m_channelViews[channel_index].displayed
         && start_keyframe.function == Function::bezier 
         && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
 }
@@ -618,15 +629,41 @@ PyObject* pairsToPyList(const std::vector<std::pair<size_t, size_t>>& pairs) {
     return list;
 }
 
+// Helper function to convert KeyframeView to Python dict
+PyObject* keyframeViewToPyDict(const KeyframeView& kv) {
+    PyObject* dict = PyDict_New();
+    if (!dict) return nullptr;
+    
+    PyDict_SetItemString(dict, "channel_index", PyLong_FromSize_t(kv.channel_index));
+    PyDict_SetItemString(dict, "keyframe_index", PyLong_FromSize_t(kv.keyframe_index));
+    PyDict_SetItemString(dict, "selected", PyBool_FromLong(kv.selected));
+    PyDict_SetItemString(dict, "begin_set_time", PyFloat_FromDouble(kv.begin_set_time));
+    PyDict_SetItemString(dict, "begin_set_value", PyFloat_FromDouble(kv.begin_set_value));
+    
+    return dict;
+}
+
 // AnimationViewCHOP selection methods implementation
 void AnimationViewCHOP::selectKeyframes(const std::vector<size_t>& indices) {
     auto inst = dataInstance();
     if (!inst) {
         return;
     }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+    
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedKeyframes.size()) {
-            inst->m_selectedKeyframes[idx] = true;
+        if (idx < inst->keyframeViews().size()) {
+            auto& kv = inst->m_keyframeViews[idx];
+            kv.selected = true;
+            
+            // Set begin_set values using the stored indices
+            auto& channel = animation->channel(kv.channel_index);
+            auto& keyframe = channel.keyframe(kv.keyframe_index);
+            kv.begin_set_time = keyframe.time();
+            kv.begin_set_value = keyframe.value();
         }
     }
 }
@@ -637,8 +674,8 @@ void AnimationViewCHOP::unselectKeyframes(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedKeyframes.size()) {
-            inst->m_selectedKeyframes[idx] = false;
+        if (idx < inst->keyframeViews().size()) {
+            inst->m_keyframeViews[idx].selected = false;
         }
     }
 }
@@ -648,21 +685,30 @@ void AnimationViewCHOP::unselectAllKeyframes() {
     if (!inst) {
         return;
     }
-    std::fill(inst->m_selectedKeyframes.begin(), inst->m_selectedKeyframes.end(), false);
+    for (auto& kv : inst->m_keyframeViews) {
+        kv.selected = false;
+    }
 }
 
-std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
-    std::vector<size_t> selected;
+void AnimationViewCHOP::resetBeginSetValues() {
     auto inst = dataInstance();
     if (!inst) {
-        return selected;
+        return;
     }
-    for (size_t i = 0; i < inst->m_selectedKeyframes.size(); ++i) {
-        if (inst->m_selectedKeyframes[i]) {
-            selected.push_back(i);
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+    
+    // Reset begin_set values for all selected keyframes
+    for (auto& kv : inst->m_keyframeViews) {
+        if (kv.selected) {
+            auto& channel = animation->channel(kv.channel_index);
+            auto& keyframe = channel.keyframe(kv.keyframe_index);
+            kv.begin_set_time = keyframe.time();
+            kv.begin_set_value = keyframe.value();
         }
     }
-    return selected;
 }
 
 void AnimationViewCHOP::selectSegments(const std::vector<size_t>& indices) {
@@ -671,8 +717,8 @@ void AnimationViewCHOP::selectSegments(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedSegments.size()) {
-            inst->m_selectedSegments[idx] = true;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].selected = true;
         }
     }
 }
@@ -683,8 +729,8 @@ void AnimationViewCHOP::unselectSegments(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedSegments.size()) {
-            inst->m_selectedSegments[idx] = false;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].selected = false;
         }
     }
 }
@@ -694,7 +740,24 @@ void AnimationViewCHOP::unselectAllSegments() {
     if (!inst) {
         return;
     }
-    std::fill(inst->m_selectedSegments.begin(), inst->m_selectedSegments.end(), false);
+    for (auto& sv : inst->m_segmentViews) {
+        sv.selected = false;
+    }
+}
+
+std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
+    std::vector<size_t> selected;
+    auto inst = dataInstance();
+    if (!inst) {
+        return selected;
+    }
+    const auto& keyframeViews = inst->keyframeViews();
+    for (size_t i = 0; i < keyframeViews.size(); ++i) {
+        if (keyframeViews[i].selected) {
+            selected.push_back(i);
+        }
+    }
+    return selected;
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
@@ -703,8 +766,9 @@ std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
     if (!inst) {
         return selected;
     }
-    for (size_t i = 0; i < inst->m_selectedSegments.size(); ++i) {
-        if (inst->m_selectedSegments[i]) {
+    const auto& segmentViews = inst->segmentViews();
+    for (size_t i = 0; i < segmentViews.size(); ++i) {
+        if (segmentViews[i].selected) {
             selected.push_back(i);
         }
     }
@@ -717,8 +781,8 @@ void AnimationViewCHOP::selectStartHandles(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedStartHandles.size()) {
-            inst->m_selectedStartHandles[idx] = true;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].start_handle_selected = true;
         }
     }
 }
@@ -729,8 +793,8 @@ void AnimationViewCHOP::unselectStartHandles(const std::vector<size_t>& indices)
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedStartHandles.size()) {
-            inst->m_selectedStartHandles[idx] = false;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].start_handle_selected = false;
         }
     }
 }
@@ -740,7 +804,9 @@ void AnimationViewCHOP::unselectAllStartHandles() {
     if (!inst) {
         return;
     }
-    std::fill(inst->m_selectedStartHandles.begin(), inst->m_selectedStartHandles.end(), false);
+    for (auto& sv : inst->m_segmentViews) {
+        sv.start_handle_selected = false;
+    }
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
@@ -749,8 +815,9 @@ std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
     if (!inst) {
         return selected;
     }
-    for (size_t i = 0; i < inst->m_selectedStartHandles.size(); ++i) {
-        if (inst->m_selectedStartHandles[i]) {
+    const auto& segmentViews = inst->segmentViews();
+    for (size_t i = 0; i < segmentViews.size(); ++i) {
+        if (segmentViews[i].start_handle_selected) {
             selected.push_back(i);
         }
     }
@@ -763,8 +830,8 @@ void AnimationViewCHOP::selectEndHandles(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedEndHandles.size()) {
-            inst->m_selectedEndHandles[idx] = true;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].end_handle_selected = true;
         }
     }
 }
@@ -775,8 +842,8 @@ void AnimationViewCHOP::unselectEndHandles(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedEndHandles.size()) {
-            inst->m_selectedEndHandles[idx] = false;
+        if (idx < inst->segmentViews().size()) {
+            inst->m_segmentViews[idx].end_handle_selected = false;
         }
     }
 }
@@ -786,7 +853,9 @@ void AnimationViewCHOP::unselectAllEndHandles() {
     if (!inst) {
         return;
     }
-    std::fill(inst->m_selectedEndHandles.begin(), inst->m_selectedEndHandles.end(), false);
+    for (auto& sv : inst->m_segmentViews) {
+        sv.end_handle_selected = false;
+    }
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
@@ -795,8 +864,9 @@ std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
     if (!inst) {
         return selected;
     }
-    for (size_t i = 0; i < inst->m_selectedEndHandles.size(); ++i) {
-        if (inst->m_selectedEndHandles[i]) {
+    const auto& segmentViews = inst->segmentViews();
+    for (size_t i = 0; i < segmentViews.size(); ++i) {
+        if (segmentViews[i].end_handle_selected) {
             selected.push_back(i);
         }
     }
@@ -809,8 +879,8 @@ void AnimationViewCHOP::selectChannels(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedChannels.size()) {
-            inst->m_selectedChannels[idx] = true;
+        if (idx < inst->channelViews().size()) {
+            inst->m_channelViews[idx].selected = true;
         }
     }
 }
@@ -821,8 +891,8 @@ void AnimationViewCHOP::unselectChannels(const std::vector<size_t>& indices) {
         return;
     }
     for (size_t idx : indices) {
-        if (idx < inst->m_selectedChannels.size()) {
-            inst->m_selectedChannels[idx] = false;
+        if (idx < inst->channelViews().size()) {
+            inst->m_channelViews[idx].selected = false;
         }
     }
 }
@@ -832,7 +902,9 @@ void AnimationViewCHOP::unselectAllChannels() {
     if (!inst) {
         return;
     }
-    std::fill(inst->m_selectedChannels.begin(), inst->m_selectedChannels.end(), false);
+    for (auto& cv : inst->m_channelViews) {
+        cv.selected = false;
+    }
 }
 
 std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
@@ -841,8 +913,9 @@ std::vector<size_t> AnimationViewCHOP::getSelectedChannels() const {
     if (!inst) {
         return selected;
     }
-    for (size_t i = 0; i < inst->m_selectedChannels.size(); ++i) {
-        if (inst->m_selectedChannels[i]) {
+    const auto& channelViews = inst->channelViews();
+    for (size_t i = 0; i < channelViews.size(); ++i) {
+        if (channelViews[i].selected) {
             selected.push_back(i);
         }
     }
@@ -855,12 +928,11 @@ void AnimationViewCHOP::setChannelDisplay(size_t index, bool display)
     if (!inst) {
         return;
     }
-    if (index < inst->m_displayedChannels.size()) {
-        inst->m_displayedChannels[index] = display;
+    if (index < inst->channelViews().size()) {
+        inst->m_channelViews[index].displayed = display;
     }
 }
 
-// Python binding implementations
 static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
@@ -871,20 +943,13 @@ static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    // Get data instance for actual data manipulation
-    auto dataInstance = inst->dataInstance();
-    if (!dataInstance) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
-        return NULL;
-    }
-
     PyObject* list;
     if (!PyArg_ParseTuple(args, "O", &list)) {
         return NULL;
     }
 
     std::vector<size_t> indices = pyListToIndices(list);
-    dataInstance->selectKeyframes(indices);
+    inst->selectKeyframes(indices);
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;
@@ -957,8 +1022,50 @@ static PyObject* py_selected_keyframes(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    std::vector<size_t> selected = dataInstance->getSelectedKeyframes();
-    return indicesToPyList(selected);
+    // Get selected keyframes and return as list of dicts
+    const auto& keyframeViews = dataInstance->keyframeViews();
+    std::vector<KeyframeView> selectedKeyframes;
+    for (const auto& kv : keyframeViews) {
+        if (kv.selected) {
+            selectedKeyframes.push_back(kv);
+        }
+    }
+    
+    PyObject* list = PyList_New(selectedKeyframes.size());
+    if (!list) return nullptr;
+    
+    for (size_t i = 0; i < selectedKeyframes.size(); ++i) {
+        PyObject* dict = keyframeViewToPyDict(selectedKeyframes[i]);
+        if (!dict) {
+            Py_DECREF(list);
+            return nullptr;
+        }
+        PyList_SET_ITEM(list, i, dict);
+    }
+    
+    return list;
+}
+
+static PyObject* py_reset_begin_set_values(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
+    dataInstance->resetBeginSetValues();
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
 }
 
 static PyObject* py_select_segments(PyObject* self, PyObject* args) {
@@ -1274,14 +1381,11 @@ static PyObject* py_set_channel_display(PyObject* self, PyObject* args) {
     }
     if (index_ssize < 0) {
         PyErr_SetString(PyExc_ValueError, "Channel index must be non-negative");
-        return NULL;
+        return NULL; 
     }
-    
     size_t index = static_cast<size_t>(index_ssize);
     bool display = (display_int != 0);
-    inst->setChannelDisplay(index, display);
-
-    me->context->makeNodeDirty();
-    
+    inst->setChannelDisplay(index, display); 
+    me->context->makeNodeDirty(); 
     Py_RETURN_NONE;
 }

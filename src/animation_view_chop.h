@@ -9,6 +9,25 @@
 using namespace TD;
 using namespace anim;
 
+struct KeyframeView {
+    size_t channel_index;
+    size_t keyframe_index;
+    bool selected;
+    double begin_set_time;
+    double begin_set_value;
+};
+
+struct SegmentView {
+    bool selected;
+    bool start_handle_selected;
+    bool end_handle_selected;
+};
+struct ChannelView {
+    bool selected;
+    bool displayed;
+};
+
+
 class AnimationViewCHOP : public CHOP_CPlusPlusBase
 {
 public:
@@ -33,6 +52,7 @@ public:
     void unselectKeyframes(const std::vector<size_t>& indices);
     void unselectAllKeyframes();
     std::vector<size_t> getSelectedKeyframes() const;
+    void resetBeginSetValues();
 
     void selectSegments(const std::vector<size_t>& indices);
     void unselectSegments(const std::vector<size_t>& indices);
@@ -55,13 +75,10 @@ public:
     std::vector<size_t> getSelectedChannels() const;
     void setChannelDisplay(size_t index, bool display);
 
-    const std::vector<bool>& selectedKeyframes() const { return m_selectedKeyframes; }
-    const std::vector<bool>& selectedSegments() const { return m_selectedSegments; }
-    const std::vector<bool>& selectedStartHandles() const { return m_selectedStartHandles; }
-    const std::vector<bool>& selectedEndHandles() const { return m_selectedEndHandles; }
-    const std::vector<bool>& selectedChannels() const { return m_selectedChannels; }
-    const std::vector<bool>& displayedChannels() const { return m_displayedChannels; }
-
+    const std::vector<KeyframeView>& keyframeViews() const { return m_keyframeViews; }
+    const std::vector<SegmentView>& segmentViews() const { return m_segmentViews; }
+    const std::vector<ChannelView>& channelViews() const { return m_channelViews; }
+    
 protected:
     enum class ViewMode {
         samples,
@@ -71,10 +88,7 @@ protected:
         animation
     };
 
-    struct SelectedKeyframe {
-        size_t channel_index;
-        size_t keyframe_index;
-    };
+
 
     const char* m_warning;
     const char* m_error;
@@ -82,12 +96,9 @@ protected:
     double m_samplesStartTime;
     double m_samplesEndTime;
 
-    std::vector<bool> m_selectedKeyframes;
-    std::vector<bool> m_selectedSegments;
-    std::vector<bool> m_selectedStartHandles;
-    std::vector<bool> m_selectedEndHandles;
-    std::vector<bool> m_selectedChannels;
-    std::vector<bool> m_displayedChannels;
+    std::vector<KeyframeView> m_keyframeViews;
+    std::vector<SegmentView> m_segmentViews;
+    std::vector<ChannelView> m_channelViews;
 
     std::array<const char*, 12> m_keyframes_chan_names {
         "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",
