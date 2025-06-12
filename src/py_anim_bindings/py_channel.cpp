@@ -780,17 +780,8 @@ int PY_Channel_set_state(PY_Channel *self, PyObject *value, void *closure) {
                     Py_DECREF(temp_kf);
                     return -1;
                 }
-                
-                // Create keyframe in channel
-                channelData.channel->create_keyframe(
-                    temp_kf->keyframe.position.time,
-                    temp_kf->keyframe.position.value,
-                    temp_kf->keyframe.in_handle,
-                    temp_kf->keyframe.out_handle,
-                    temp_kf->keyframe.function,
-                    temp_kf->keyframe.handle_mode
-                );
-                
+                channelData.channel->create_keyframe(temp_kf->keyframe);
+
                 Py_DECREF(temp_kf);
             }
         }
