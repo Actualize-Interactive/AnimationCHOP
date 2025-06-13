@@ -24,24 +24,32 @@ static PyObject* py_unselect_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_selected_keyframes(PyObject* self, PyObject* args);
 static PyObject* py_offset_selected_keyframes(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_keyframes_by_time(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_keyframes_by_value(PyObject* self, PyObject* args);
 
 static PyObject* py_select_segments(PyObject* self, PyObject* args);
 static PyObject* py_unselect_segments(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_segments(PyObject* self, PyObject* args);
 static PyObject* py_selected_segments(PyObject* self, PyObject* args);
 static PyObject* py_offset_selected_segments(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_segments_by_time(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_segments_by_value(PyObject* self, PyObject* args);
 
 static PyObject* py_select_start_handles(PyObject* self, PyObject* args);
 static PyObject* py_unselect_start_handles(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_start_handles(PyObject* self, PyObject* args);
 static PyObject* py_selected_start_handles(PyObject* self, PyObject* args);
 static PyObject* py_offset_selected_start_handles(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_start_handles_by_time(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_start_handles_by_value(PyObject* self, PyObject* args);
 
 static PyObject* py_select_end_handles(PyObject* self, PyObject* args);
 static PyObject* py_unselect_end_handles(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all_end_handles(PyObject* self, PyObject* args);
 static PyObject* py_selected_end_handles(PyObject* self, PyObject* args);
 static PyObject* py_offset_selected_end_handles(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_end_handles_by_time(PyObject* self, PyObject* args);
+static PyObject* py_offset_selected_end_handles_by_value(PyObject* self, PyObject* args);
 
 static PyObject* py_select_channels(PyObject* self, PyObject* args);
 static PyObject* py_unselect_channels(PyObject* self, PyObject* args);
@@ -59,25 +67,33 @@ static PyMethodDef viewMethods[] = {
     {"unselect_all_keyframes", (PyCFunction)py_unselect_all_keyframes, METH_NOARGS, "Unselect all keyframes."},
     {"selected_keyframes", (PyCFunction)py_selected_keyframes, METH_NOARGS, "Get selected keyframe indices."},
     {"offset_selected_keyframes", (PyCFunction)py_offset_selected_keyframes, METH_VARARGS, "Offset selected keyframes by time and value offsets."},
-    
+    {"offset_selected_keyframes_by_time", (PyCFunction)py_offset_selected_keyframes_by_time, METH_VARARGS, "Offset selected keyframes by time offset."},
+    {"offset_selected_keyframes_by_value", (PyCFunction)py_offset_selected_keyframes_by_value, METH_VARARGS, "Offset selected keyframes by value offset."},
+
     {"select_segments", (PyCFunction)py_select_segments, METH_VARARGS, "Select segments by indices."},
     {"unselect_segments", (PyCFunction)py_unselect_segments, METH_VARARGS, "Unselect segments by indices."},
     {"unselect_all_segments", (PyCFunction)py_unselect_all_segments, METH_NOARGS, "Unselect all segments."},
     {"selected_segments", (PyCFunction)py_selected_segments, METH_NOARGS, "Get selected segment indices."},
     {"offset_selected_segments", (PyCFunction)py_offset_selected_segments, METH_VARARGS, "Offset selected segments by time and value offsets."},
-    
+    {"offset_selected_segments_by_time", (PyCFunction)py_offset_selected_segments_by_time, METH_VARARGS, "Offset selected segments by time offset."},
+    {"offset_selected_segments_by_value", (PyCFunction)py_offset_selected_segments_by_value, METH_VARARGS, "Offset selected segments by value offset."},
+
     {"select_start_handles", (PyCFunction)py_select_start_handles, METH_VARARGS, "Select start handles by indices."},
     {"unselect_start_handles", (PyCFunction)py_unselect_start_handles, METH_VARARGS, "Unselect start handles by indices."},
     {"unselect_all_start_handles", (PyCFunction)py_unselect_all_start_handles, METH_NOARGS, "Unselect all start handles."},
     {"selected_start_handles", (PyCFunction)py_selected_start_handles, METH_NOARGS, "Get selected start handle indices."},
     {"offset_selected_start_handles", (PyCFunction)py_offset_selected_start_handles, METH_VARARGS, "Offset selected start handles by time and value offsets."},
-    
+    {"offset_selected_start_handles_by_time", (PyCFunction)py_offset_selected_start_handles_by_time, METH_VARARGS, "Offset selected start handles by time offset."},
+    {"offset_selected_start_handles_by_value", (PyCFunction)py_offset_selected_start_handles_by_value, METH_VARARGS, "Offset selected start handles by value offset."},
+
     {"select_end_handles", (PyCFunction)py_select_end_handles, METH_VARARGS, "Select end handles by indices."},
     {"unselect_end_handles", (PyCFunction)py_unselect_end_handles, METH_VARARGS, "Unselect end handles by indices."},
     {"unselect_all_end_handles", (PyCFunction)py_unselect_all_end_handles, METH_NOARGS, "Unselect all end handles."},
     {"selected_end_handles", (PyCFunction)py_selected_end_handles, METH_NOARGS, "Get selected end handle indices."},
     {"offset_selected_end_handles", (PyCFunction)py_offset_selected_end_handles, METH_VARARGS, "Offset selected end handles by time and value offsets."},
-    
+    {"offset_selected_end_handles_by_time", (PyCFunction)py_offset_selected_end_handles_by_time, METH_VARARGS, "Offset selected end handles by time offset."},
+    {"offset_selected_end_handles_by_value", (PyCFunction)py_offset_selected_end_handles_by_value, METH_VARARGS, "Offset selected end handles by value offset."},
+
     {"select_channels", (PyCFunction)py_select_channels, METH_VARARGS, "Select channels by indices."},
     {"unselect_channels", (PyCFunction)py_unselect_channels, METH_VARARGS, "Unselect channels by indices."},
     {"unselect_all_channels", (PyCFunction)py_unselect_all_channels, METH_NOARGS, "Unselect all channels."},
@@ -430,8 +446,6 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
     }
 }
 
-
-
 void
 AnimationViewCHOP::getWarningString(OP_String* warning, void* reserved1)
 {
@@ -716,21 +730,6 @@ void AnimationViewCHOP::unselectAllKeyframes() {
     }
 }
 
-std::vector<size_t> AnimationViewCHOP::getSelectedKeyframes() const {
-    std::vector<size_t> selected;
-    auto inst = dataInstance();
-    if (!inst) {
-        return selected;
-    }
-    const auto& keyframeViews = inst->keyframeViews();
-    for (size_t i = 0; i < keyframeViews.size(); ++i) {
-        if (keyframeViews[i].selected) {
-            selected.push_back(i);
-        }
-    }
-    return selected;
-}
-
 void AnimationViewCHOP::offsetSelectedKeyframes(double time_offset, double value_offset) {
     auto inst = dataInstance();
     if (!inst) {
@@ -747,6 +746,46 @@ void AnimationViewCHOP::offsetSelectedKeyframes(double time_offset, double value
 
             channel.set_keyframe_position(kv.keyframe_index, 
                 kv.begin_set_position + anim::Point(time_offset, value_offset)
+            );
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedKeyframesByTime(double time_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+    
+    for (auto& kv : inst->m_keyframeViews) {
+        if (kv.selected) {
+            auto& channel = animation->channel(kv.channel_index);
+            channel.set_keyframe_time(kv.keyframe_index, 
+                kv.begin_set_position.time + time_offset
+            );
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedKeyframesByValue(double value_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+    
+    for (auto& kv : inst->m_keyframeViews) {
+        if (kv.selected) {
+            auto& channel = animation->channel(kv.channel_index);
+            channel.set_keyframe_value(kv.keyframe_index, 
+                kv.begin_set_position.value + value_offset
             );
         }
     }
@@ -797,19 +836,30 @@ void AnimationViewCHOP::unselectAllSegments() {
     }
 }
 
-std::vector<size_t> AnimationViewCHOP::getSelectedSegments() const {
-    std::vector<size_t> selected;
-    auto inst = dataInstance();
-    if (!inst) {
-        return selected;
-    }
-    const auto& segmentViews = inst->segmentViews();
-    for (size_t i = 0; i < segmentViews.size(); ++i) {
-        if (segmentViews[i].selected) {
-            selected.push_back(i);
-        }
-    }
-    return selected;
+// Helper function to convert SegmentView to Python dict
+PyObject* segmentViewToPyDict(const SegmentView& sv) {
+    PyObject* dict = PyDict_New();
+    if (!dict) return nullptr;
+
+    PyDict_SetItemString(dict, "channel_index", PyLong_FromSize_t(sv.channel_index));
+    PyDict_SetItemString(dict, "keyframe_index", PyLong_FromSize_t(sv.keyframe_index));
+    PyDict_SetItemString(dict, "selected", PyBool_FromLong(sv.selected));
+
+    PyDict_SetItemString(dict, "begin_set_start_time", PyFloat_FromDouble(sv.begin_set_start_position.time));
+    PyDict_SetItemString(dict, "begin_set_start_value", PyFloat_FromDouble(sv.begin_set_start_position.value));
+
+    PyDict_SetItemString(dict, "begin_set_end_time", PyFloat_FromDouble(sv.begin_set_end_position.time));
+    PyDict_SetItemString(dict, "begin_set_end_value", PyFloat_FromDouble(sv.begin_set_end_position.value));
+
+    PyDict_SetItemString(dict, "start_handle_selected", PyBool_FromLong(sv.start_handle_selected));
+    PyDict_SetItemString(dict, "begin_set_start_handle_time", PyFloat_FromDouble(sv.begin_set_start_handle.time));
+    PyDict_SetItemString(dict, "begin_set_start_handle_value", PyFloat_FromDouble(sv.begin_set_start_handle.value));
+
+    PyDict_SetItemString(dict, "end_handle_selected", PyBool_FromLong(sv.end_handle_selected));
+    PyDict_SetItemString(dict, "begin_set_end_handle_time", PyFloat_FromDouble(sv.begin_set_end_handle.time));
+    PyDict_SetItemString(dict, "begin_set_end_handle_value", PyFloat_FromDouble(sv.begin_set_end_handle.value));
+
+    return dict;
 }
 
 void AnimationViewCHOP::offsetSelectedSegments(double time_offset, double value_offset)
@@ -836,7 +886,56 @@ void AnimationViewCHOP::offsetSelectedSegments(double time_offset, double value_
             );
         }
     }
-    
+}
+
+void AnimationViewCHOP::offsetSelectedSegmentsByTime(double time_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.selected) {
+            auto& channel = animation->channel(sv.channel_index);
+
+            channel.set_keyframe_position(sv.keyframe_index,
+                sv.begin_set_start_position + anim::Point(time_offset, 0)
+            );
+
+            channel.set_keyframe_position(sv.keyframe_index + 1,
+                sv.begin_set_end_position + anim::Point(time_offset, 0)
+            );
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedSegmentsByValue(double value_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.selected) {
+            auto& channel = animation->channel(sv.channel_index);
+
+            channel.set_keyframe_position(sv.keyframe_index,
+                sv.begin_set_start_position + anim::Point(0, value_offset)
+            );
+
+            channel.set_keyframe_position(sv.keyframe_index + 1,
+                sv.begin_set_end_position + anim::Point(0, value_offset)
+            );
+        }
+    }
 }
 
 void AnimationViewCHOP::selectStartHandles(const std::vector<size_t>& indices) {
@@ -882,21 +981,6 @@ void AnimationViewCHOP::unselectAllStartHandles() {
     }
 }
 
-std::vector<size_t> AnimationViewCHOP::getSelectedStartHandles() const {
-    std::vector<size_t> selected;
-    auto inst = dataInstance();
-    if (!inst) {
-        return selected;
-    }
-    const auto& segmentViews = inst->segmentViews();
-    for (size_t i = 0; i < segmentViews.size(); ++i) {
-        if (segmentViews[i].start_handle_selected) {
-            selected.push_back(i);
-        }
-    }
-    return selected;
-}
-
 void AnimationViewCHOP::offsetSelectedStartHandles(double time_offset, double value_offset)
 {
     auto inst = dataInstance();
@@ -913,6 +997,46 @@ void AnimationViewCHOP::offsetSelectedStartHandles(double time_offset, double va
             auto& channel = animation->channel(sv.channel_index);
             channel.set_keyframe_out_handle(sv.keyframe_index, 
                 sv.begin_set_start_handle + anim::Point(time_offset, value_offset)
+            );  // Set the out handle position for the keyframe
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedStartHandlesByTime(double time_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.start_handle_selected) {
+            auto& channel = animation->channel(sv.channel_index);
+            channel.set_keyframe_out_handle(sv.keyframe_index,
+                sv.begin_set_start_handle + anim::Point(time_offset, 0)
+            );  // Set the out handle position for the keyframe
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedStartHandlesByValue(double value_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.start_handle_selected) {
+            auto& channel = animation->channel(sv.channel_index);
+            channel.set_keyframe_out_handle(sv.keyframe_index,
+                sv.begin_set_start_handle + anim::Point(0, value_offset)
             );  // Set the out handle position for the keyframe
         }
     }
@@ -961,21 +1085,6 @@ void AnimationViewCHOP::unselectAllEndHandles() {
     }
 }
 
-std::vector<size_t> AnimationViewCHOP::getSelectedEndHandles() const {
-    std::vector<size_t> selected;
-    auto inst = dataInstance();
-    if (!inst) {
-        return selected;
-    }
-    const auto& segmentViews = inst->segmentViews();
-    for (size_t i = 0; i < segmentViews.size(); ++i) {
-        if (segmentViews[i].end_handle_selected) {
-            selected.push_back(i);
-        }
-    }
-    return selected;
-}
-
 void AnimationViewCHOP::offsetSelectedEndHandles(double time_offset, double value_offset)
 {
     auto inst = dataInstance();
@@ -992,6 +1101,46 @@ void AnimationViewCHOP::offsetSelectedEndHandles(double time_offset, double valu
             auto& channel = animation->channel(sv.channel_index);
             channel.set_keyframe_in_handle(sv.keyframe_index + 1, 
                 sv.begin_set_end_handle + anim::Point(time_offset, value_offset)
+            );  // Set the in handle position for the next keyframe
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedEndHandlesByTime(double time_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.end_handle_selected) {
+            auto& channel = animation->channel(sv.channel_index);
+            channel.set_keyframe_in_handle(sv.keyframe_index + 1,
+                sv.begin_set_end_handle + anim::Point(time_offset, 0)
+            );  // Set the in handle position for the next keyframe
+        }
+    }
+}
+
+void AnimationViewCHOP::offsetSelectedEndHandlesByValue(double value_offset) {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animation = animationCHOP()->animation();
+    if (!animation) {
+        return;
+    }
+
+    for (auto& sv : inst->m_segmentViews) {
+        if (sv.end_handle_selected) {
+            auto& channel = animation->channel(sv.channel_index);
+            channel.set_keyframe_in_handle(sv.keyframe_index + 1,
+                sv.begin_set_end_handle + anim::Point(0, value_offset)
             );  // Set the in handle position for the next keyframe
         }
     }
@@ -1057,7 +1206,6 @@ void AnimationViewCHOP::setChannelDisplay(size_t index, bool display)
     }
 }
 
-
 void AnimationViewCHOP::resetBeginSetValues() {
     auto inst = dataInstance();
     if (!inst) {
@@ -1094,7 +1242,6 @@ void AnimationViewCHOP::resetBeginSetValues() {
         }
     }
 }
-
 
 static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
     PY_Struct* me = (PY_Struct*)self;
@@ -1230,6 +1377,48 @@ static PyObject* py_offset_selected_keyframes(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_offset_selected_keyframes_by_time(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double time_offset;
+    if (!PyArg_ParseTuple(args, "d", &time_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedKeyframesByTime(time_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_keyframes_by_value(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double value_offset;
+    if (!PyArg_ParseTuple(args, "d", &value_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedKeyframesByValue(value_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_select_segments(PyObject* self, PyObject* args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
@@ -1300,8 +1489,34 @@ static PyObject* py_selected_segments(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    std::vector<size_t> selected = inst->getSelectedSegments();
-    return indicesToPyList(selected);
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+
+    // Get selected segments and return as list of dicts
+    const auto& segmentViews = dataInstance->segmentViews();
+    std::vector<SegmentView> selectedSegments;
+    for (const auto& sv : segmentViews) {
+        if (sv.selected) {
+            selectedSegments.push_back(sv);
+        }
+    }
+
+    PyObject* result = PyList_New(selectedSegments.size());
+    if (!result) return NULL;
+
+    for (size_t i = 0; i < selectedSegments.size(); ++i) {
+        PyObject* dict = segmentViewToPyDict(selectedSegments[i]);
+        if (!dict) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SetItem(result, i, dict);
+    }
+
+    return result;
 }
 
 static PyObject* py_offset_selected_segments(PyObject* self, PyObject* args) {
@@ -1320,6 +1535,48 @@ static PyObject* py_offset_selected_segments(PyObject* self, PyObject* args) {
     }
 
     inst->offsetSelectedSegments(time_offset, value_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_segments_by_time(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double time_offset;
+    if (!PyArg_ParseTuple(args, "d", &time_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedSegmentsByTime(time_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_segments_by_value(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double value_offset;
+    if (!PyArg_ParseTuple(args, "d", &value_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedSegmentsByValue(value_offset);
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;
@@ -1395,8 +1652,34 @@ static PyObject* py_selected_start_handles(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    std::vector<size_t> selected = inst->getSelectedStartHandles();
-    return indicesToPyList(selected);
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+    
+    // Get selected start handles and return a list of dicts
+    const auto& segmentViews = dataInstance->segmentViews();
+    std::vector<SegmentView> selectedStartHandles;
+    for (const auto& sv : segmentViews) {
+        if (sv.start_handle_selected) {
+            selectedStartHandles.push_back(sv);
+        }
+    }
+
+    PyObject* result = PyList_New(selectedStartHandles.size());
+    if (!result) return NULL;
+
+    for (size_t i = 0; i < selectedStartHandles.size(); ++i) {
+        PyObject* dict = segmentViewToPyDict(selectedStartHandles[i]);
+        if (!dict) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SetItem(result, i, dict);
+    }
+
+    return result;
 }
 
 static PyObject* py_offset_selected_start_handles(PyObject* self, PyObject* args) {
@@ -1417,6 +1700,48 @@ static PyObject* py_offset_selected_start_handles(PyObject* self, PyObject* args
     inst->offsetSelectedStartHandles(time_offset, value_offset);
     me->context->makeNodeDirty();
 
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_start_handles_by_time(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double time_offset;
+    if (!PyArg_ParseTuple(args, "d", &time_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedStartHandlesByTime(time_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_start_handles_by_value(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double value_offset;
+    if (!PyArg_ParseTuple(args, "d", &value_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedStartHandlesByValue(value_offset);
+    me->context->makeNodeDirty();
+    
     Py_RETURN_NONE;
 }
 
@@ -1490,8 +1815,34 @@ static PyObject* py_selected_end_handles(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    std::vector<size_t> selected = inst->getSelectedEndHandles();
-    return indicesToPyList(selected);
+    auto dataInstance = inst->dataInstance();
+    if (!dataInstance) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get data instance");
+        return NULL;
+    }
+    
+    // Get selected end handles and return a list of dicts
+    const auto& segmentViews = dataInstance->segmentViews();
+    std::vector<SegmentView> selectedEndHandles;
+    for (const auto& sv : segmentViews) {
+        if (sv.end_handle_selected) {
+            selectedEndHandles.push_back(sv);
+        }
+    }
+
+    PyObject* result = PyList_New(selectedEndHandles.size());
+    if (!result) return NULL;
+
+    for (size_t i = 0; i < selectedEndHandles.size(); ++i) {
+        PyObject* dict = segmentViewToPyDict(selectedEndHandles[i]);
+        if (!dict) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SetItem(result, i, dict);
+    }
+
+    return result;
 }
 
 static PyObject* py_offset_selected_end_handles(PyObject* self, PyObject* args) {
@@ -1510,6 +1861,48 @@ static PyObject* py_offset_selected_end_handles(PyObject* self, PyObject* args) 
     }
 
     inst->offsetSelectedEndHandles(time_offset, value_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_end_handles_by_time(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double time_offset;
+    if (!PyArg_ParseTuple(args, "d", &time_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedEndHandlesByTime(time_offset);
+    me->context->makeNodeDirty();
+    
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_offset_selected_end_handles_by_value(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    double value_offset;
+    if (!PyArg_ParseTuple(args, "d", &value_offset)) {
+        return NULL;
+    }
+
+    inst->offsetSelectedEndHandlesByValue(value_offset);
     me->context->makeNodeDirty();
     
     Py_RETURN_NONE;

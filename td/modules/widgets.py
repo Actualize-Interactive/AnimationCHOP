@@ -726,7 +726,10 @@ class Droplist(Element):
 
 	def UpdateView(self, itemIndex):
 		self.curState = itemIndex
-		buttonLabel = self.ListItems[itemIndex, 0].val
+		if self.ListItems[itemIndex, 0] is None:
+			buttonLabel = ''
+		else:
+			buttonLabel = self.ListItems[itemIndex, 0].val
 		self.button.par.Offtext = buttonLabel
 		self.button.par.Ontext = buttonLabel
 
@@ -767,11 +770,12 @@ class DroplistListView(Element):
 		height = min(maxHeight, compH)
 		width = self.DroplistWidget.ListWidth
 		self.listContainer.par.w = width
-		if self.listContainer.par.pvscrollbar:
+		if self.listContainer.par.pvscrollbar.eval():
 			w2 = width - 12
 			self.list.par.w = w2
 		else:
 			self.list.par.w = width
+		# self.list.par.w = width
 		self.listContainer.par.h = height
 
 		if opened == False:
@@ -857,6 +861,7 @@ class MultiButton(Element):
 				value = pars[0].eval()
 				setattr(self.Settings, name, value)
 		
+
 	def GetToggles(self, init=False):
 		prevToggles = self.ownerComp.storage.get('Toggles', [[]])
 		default = []

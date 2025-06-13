@@ -56,26 +56,30 @@ public:
     void selectKeyframes(const std::vector<size_t>& indices);
     void unselectKeyframes(const std::vector<size_t>& indices);
     void unselectAllKeyframes();
-    std::vector<size_t> getSelectedKeyframes() const;
     void offsetSelectedKeyframes(double time_offset, double value_offset);
+    void offsetSelectedKeyframesByTime(double time_offset);
+    void offsetSelectedKeyframesByValue(double value_offset);
 
     void selectSegments(const std::vector<size_t>& indices);
     void unselectSegments(const std::vector<size_t>& indices);
     void unselectAllSegments();
-    std::vector<size_t> getSelectedSegments() const;
     void offsetSelectedSegments(double time_offset, double value_offset);
+    void offsetSelectedSegmentsByTime(double time_offset);
+    void offsetSelectedSegmentsByValue(double value_offset);
 
     void selectStartHandles(const std::vector<size_t>& indices);
     void unselectStartHandles(const std::vector<size_t>& indices);
     void unselectAllStartHandles();
-    std::vector<size_t> getSelectedStartHandles() const;
     void offsetSelectedStartHandles(double time_offset, double value_offset);
+    void offsetSelectedStartHandlesByTime(double time_offset);
+    void offsetSelectedStartHandlesByValue(double value_offset);
 
     void selectEndHandles(const std::vector<size_t>& indices);
     void unselectEndHandles(const std::vector<size_t>& indices);
     void unselectAllEndHandles();
-    std::vector<size_t> getSelectedEndHandles() const;
     void offsetSelectedEndHandles(double time_offset, double value_offset);
+    void offsetSelectedEndHandlesByTime(double time_offset);
+    void offsetSelectedEndHandlesByValue(double value_offset);
 
     void selectChannels(const std::vector<size_t>& indices);
     void unselectChannels(const std::vector<size_t>& indices);
