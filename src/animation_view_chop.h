@@ -95,7 +95,7 @@ public:
     void redo();
     void resetUndo();
     void cacheState();
-    void setUndo();
+    bool setUndo();
 
     const std::vector<KeyframeView>& keyframeViews() const { return m_keyframeViews; }
     const std::vector<SegmentView>& segmentViews() const { return m_segmentViews; }

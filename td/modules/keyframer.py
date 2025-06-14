@@ -24,6 +24,7 @@ class KeyframerExt:
 		self.keysTransformComp = self.keysViewComp.op('transform')
 		self.keysRenderPickDat = self.keysViewComp.op('renderpick')
 		self.switchMarqueeTop = self.keysViewComp.op('switchMarquee')
+		self.channels_replicatorComp = self.keysViewComp.op('channels/replicator1')
 
 		self.MasterKeyboardChop = self.viewComp.op('MasterKeyboard')
 		self.keysRenderPickComp = self.viewComp.op('timeGraph')
@@ -252,6 +253,7 @@ class KeyframerExt:
 		channels_display = self.channels_viewChop['display'].vals
 		channel_names = self.AnimationChop.channel_names
 		self.channelListComp.Refresh(channels_display, channel_names)
+		self.channels_replicatorComp.cook(force=True)
 
 	def OnPickEvents(self, allEvents):
 		for event in allEvents:
@@ -651,7 +653,10 @@ class KeyframerExt:
 
 	def onPickEnd(self, event):
 		if self.switchMarqueeTop.par.index:	
-			self.marqueeSelectEnd()	
+			self.marqueeSelectEnd()
+		else:
+			self.set_undo()
+			
 		self.startSet = False
 		self.startScale = False
 		self.set_item_offset.x = 0
@@ -663,7 +668,7 @@ class KeyframerExt:
 			self.set_item_info = None
 
 
-		self.set_undo()
+		
 		self.update_active_controls()
 		self.KeyframeControlsUpdateView()
 
@@ -676,26 +681,27 @@ class KeyframerExt:
 
 	def undo_callback(self, isUndo, info):
 		if isUndo:
-			print("undo_callback")
+			# print("undo_callback")
 			self.curves_viewChop.undo()
 			self.refreshChannelList()
 		else:
-			print("redo_callback")
+			# print("redo_callback")
 			self.curves_viewChop.redo()
 			self.refreshChannelList()
 
 	def cache_state(self):
-		print("cache_state")
+		# print("cache_state")
 		self.curves_viewChop.reset_begin_set_values()
 		self.curves_viewChop.cache_state()
 		pass
 
 	def set_undo(self, message='Animation Editor: Update Keyframes'):
 		# print("set_undo")
-		self.curves_viewChop.set_undo()
-		ui.undo.startBlock(message)
-		ui.undo.addCallback(self.undo_callback)
-		ui.undo.endBlock()
+		if self.curves_viewChop.set_undo():
+			# print("set_undo: True")
+			ui.undo.startBlock(message)
+			ui.undo.addCallback(self.undo_callback)
+			ui.undo.endBlock()
 
 	def marqueeSelectStart(self, event):
 		pass
@@ -1046,7 +1052,6 @@ class KeyframerExt:
 	def append_channels(self, names):
 		if len(names) == 0:
 			return
-		print(f"Appending channels: {names}")
 		self.curves_viewChop.cache_state()
 		for i, name in enumerate(names):
 			self.AppendChannel(name)
@@ -1143,7 +1148,7 @@ class KeyframerExt:
 		return self.keysSelected, self.inHandlesSelected, self.outHandlesSelected
 	
 	def OnChannelListSetValue(self, element, value):
-		print(f"OnChannelListSetValue: {element}, {value}")
+		# print(f"OnChannelListSetValue: {element}, {value}")
 		self.curves_viewChop.set_channel_display(value[0], value[2])
 		self.updateKeysView()
 

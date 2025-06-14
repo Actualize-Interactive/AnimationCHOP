@@ -1333,14 +1333,22 @@ void AnimationViewCHOP::cacheState() {
     // std::cout << "AnimationViewCHOP: Cached current animation state for undo." << std::endl;
 }
 
-void AnimationViewCHOP::setUndo() {
+bool AnimationViewCHOP::setUndo() {
     auto inst = dataInstance();
     if (!inst) {
-        return;
+        return false;
     }
     auto animationCHOP = inst->animationCHOP();
     if (!animationCHOP || !animationCHOP->animation()) {
-        return;
+        return false;
+    }
+    auto& cache = *inst->m_stateCache.get();
+    auto& currentAnimation = *animationCHOP->animation();
+
+    if (cache == currentAnimation) {
+        // No changes since last cache, nothing to do
+        // std::cout << "AnimationViewCHOP: No changes detected, skipping undo." << std::endl;
+        return false;
     }
     
     // Remove all redo entries (everything after current index)
@@ -1355,6 +1363,7 @@ void AnimationViewCHOP::setUndo() {
         //           << inst->m_undoStack.size() - 1 << std::endl;
     }
 
+    return true;
 }
 
 static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
@@ -2239,8 +2248,12 @@ static PyObject* py_set_undo(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    inst->setUndo();
-    Py_RETURN_NONE;
+    auto result = inst->setUndo();
+    if (result) {
+        Py_RETURN_TRUE;
+    } else {
+        Py_RETURN_FALSE;
+    }
 }
 
 // ...existing code...
