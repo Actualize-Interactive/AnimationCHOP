@@ -254,6 +254,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
         break;
     }
     }
+    m_sampleRate = info->sampleRate;
     return true;
 }
 
@@ -514,6 +515,7 @@ void
 AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
 }
+
 
 // --- Channel creation and insertion ---
 static PyObject* py_create_channel(PyObject *self, PyObject *args) {

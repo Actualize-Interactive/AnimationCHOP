@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <string>
+#include <memory>
 
 
 using namespace TD;
@@ -89,6 +90,13 @@ public:
 
     void resetBeginSetValues();
 
+    // Undo/Redo functionality
+    void undo();
+    void redo();
+    void resetUndo();
+    void cacheState();
+    void setUndo();
+
     const std::vector<KeyframeView>& keyframeViews() const { return m_keyframeViews; }
     const std::vector<SegmentView>& segmentViews() const { return m_segmentViews; }
     const std::vector<ChannelView>& channelViews() const { return m_channelViews; }
@@ -102,8 +110,6 @@ protected:
         animation
     };
 
-
-
     const char* m_warning;
     const char* m_error;
     ViewMode m_viewMode;
@@ -113,6 +119,11 @@ protected:
     std::vector<KeyframeView> m_keyframeViews;
     std::vector<SegmentView> m_segmentViews;
     std::vector<ChannelView> m_channelViews;
+
+    // Undo/Redo stack
+    std::vector<std::unique_ptr<anim::Animation>> m_undoStack;
+    std::vector<std::unique_ptr<anim::Animation>> m_redoStack;
+    std::unique_ptr<anim::Animation> m_stateCache;
 
     std::array<const char*, 12> m_keyframes_chan_names {
         "channel_index", "keyframe_index", "time", "value", "in_handle_time", "in_handle_value",

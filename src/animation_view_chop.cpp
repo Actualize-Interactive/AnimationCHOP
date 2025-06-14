@@ -1,4 +1,5 @@
 #include "animation_view_chop.h"
+#include "animation_chop.h"
 
 #include <cstring>
 #include <algorithm>
@@ -60,6 +61,13 @@ static PyObject* py_set_channel_display(PyObject* self, PyObject* args);
 static PyObject* py_reset_begin_set_values(PyObject* self, PyObject* args);
 static PyObject* py_unselect_all(PyObject* self, PyObject* args);
 
+// Undo/Redo Python bindings
+static PyObject* py_undo(PyObject* self, PyObject* args);
+static PyObject* py_redo(PyObject* self, PyObject* args);
+static PyObject* py_reset_undo(PyObject* self, PyObject* args);
+static PyObject* py_cache_state(PyObject* self, PyObject* args);
+static PyObject* py_set_undo(PyObject* self, PyObject* args);
+
 // Python method table for AnimationViewCHOP
 static PyMethodDef viewMethods[] = {
     {"select_keyframes", (PyCFunction)py_select_keyframes, METH_VARARGS, "Select keyframes by indices."},
@@ -104,8 +112,15 @@ static PyMethodDef viewMethods[] = {
     {"reset_begin_set_values", (PyCFunction)py_reset_begin_set_values, METH_NOARGS, "Reset begin set values for all selected items."},
     {"unselect_all", (PyCFunction)py_unselect_all, METH_NOARGS, "Unselect all selected items."},
 
+    {"undo", (PyCFunction)py_undo, METH_NOARGS, "Undo the last operation."},
+    {"redo", (PyCFunction)py_redo, METH_NOARGS, "Redo the next operation."},
+    {"reset_undo", (PyCFunction)py_reset_undo, METH_NOARGS, "Reset the undo stack."},
+    {"cache_state", (PyCFunction)py_cache_state, METH_NOARGS, "Cache the current state for undo/redo."},
+    {"set_undo", (PyCFunction)py_set_undo, METH_NOARGS, "Set an undo point."},
+
     {nullptr, nullptr, 0, nullptr}
 };
+
 
 DLLEXPORT void 
 FillCHOPPluginInfo(CHOP_PluginInfo* info)
@@ -1243,6 +1258,115 @@ void AnimationViewCHOP::resetBeginSetValues() {
     }
 }
 
+void AnimationViewCHOP::undo() {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animationCHOP = inst->animationCHOP();
+    if (!animationCHOP) {
+        return;
+    }
+    
+    // animationCHOP->newAnimation();
+
+    if (inst->m_undoStack.empty()) {
+        return; // Nothing to undo
+    }
+
+    auto lastUndo = std::move(inst->m_undoStack.back());
+    inst->m_undoStack.pop_back();
+    inst->m_redoStack.push_back(std::make_unique<anim::Animation>(
+        animationCHOP->animation()->copy()
+    ));
+    animationCHOP->replaceAnimation(std::move(lastUndo));
+
+    // animationCHOP->replaceAnimation(std::make_unique<anim::Animation>(
+    //     lastUndo->copy()
+    // ));
+
+    // inst->m_redoStack.push_back(std::move(lastUndo));
+
+    std::cout << "AnimationViewCHOP: Undo items left on stack: " 
+              << inst->m_undoStack.size() << std::endl;
+}
+void AnimationViewCHOP::redo() {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animationCHOP = inst->animationCHOP();
+    if (!animationCHOP) {
+        return;
+    }
+    
+    if (inst->m_redoStack.empty()) {
+        return; // Nothing to redo
+    }
+
+    auto lastRedo = std::move(inst->m_redoStack.back());
+    inst->m_redoStack.pop_back();
+    inst->m_undoStack.push_back(std::make_unique<anim::Animation>(
+        animationCHOP->animation()->copy()
+    ));
+    animationCHOP->replaceAnimation(std::move(lastRedo));
+
+
+    // animationCHOP->replaceAnimation(std::make_unique<anim::Animation>(
+    //     lastRedo->copy()
+    // ));
+
+    // inst->m_undoStack.push_back(std::move(lastRedo));
+
+    std::cout << "AnimationViewCHOP: Redo items left on stack: " 
+              << inst->m_redoStack.size() << std::endl;
+}
+
+void AnimationViewCHOP::resetUndo() {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    
+    inst->m_undoStack.clear();
+    inst->m_redoStack.clear();
+    inst->m_stateCache = nullptr;
+}
+
+void AnimationViewCHOP::cacheState() {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+
+    inst->m_stateCache = std::make_unique<anim::Animation>(inst->m_animationCHOP->animation()->copy());
+    std::cout << "AnimationViewCHOP: Cached current animation state for undo." << std::endl;
+}
+
+void AnimationViewCHOP::setUndo() {
+    auto inst = dataInstance();
+    if (!inst) {
+        return;
+    }
+    auto animationCHOP = inst->animationCHOP();
+    if (!animationCHOP || !animationCHOP->animation()) {
+        return;
+    }
+    
+    // Remove all redo entries (everything after current index)
+    inst->m_redoStack.clear();
+    // If we have a cached state, use it    
+    // Add current animation state to undo stack
+    if (inst->m_stateCache) {
+        // If we have a cached state, use it
+        inst->m_undoStack.push_back(std::move(inst->m_stateCache));
+        inst->m_stateCache = nullptr; // Clear cache after using it
+        std::cout << "AnimationViewCHOP: Added state to undo stack, index: " 
+                  << inst->m_undoStack.size() - 1 << std::endl;
+    }
+
+}
+
 static PyObject* py_select_keyframes(PyObject* self, PyObject* args) {
     PY_Struct* me = (PY_Struct*)self;
     PY_GetInfo info;
@@ -1824,7 +1948,7 @@ static PyObject* py_selected_end_handles(PyObject* self, PyObject* args) {
     // Get selected end handles and return a list of dicts
     const auto& segmentViews = dataInstance->segmentViews();
     std::vector<SegmentView> selectedEndHandles;
-    for (const auto& sv : segmentViews) {
+    for ( const auto& sv : segmentViews) {
         if (sv.end_handle_selected) {
             selectedEndHandles.push_back(sv);
         }
@@ -2056,3 +2180,77 @@ static PyObject* py_unselect_all(PyObject* self, PyObject* args) {
     
     Py_RETURN_NONE;
 }
+
+static PyObject* py_undo(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->undo();
+    me->context->makeNodeDirty();
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_redo(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->redo();
+    me->context->makeNodeDirty();
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_reset_undo(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->resetUndo();
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_cache_state(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->cacheState();
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_undo(PyObject* self, PyObject* args) {
+    PY_Struct* me = (PY_Struct*)self;
+    PY_GetInfo info;
+    info.autoCook = false;
+    AnimationViewCHOP* inst = (AnimationViewCHOP*)me->context->getNodeInstance(info);
+    if (!inst) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to get AnimationViewCHOP instance");
+        return NULL;
+    }
+
+    inst->setUndo();
+    Py_RETURN_NONE;
+}
+
+// ...existing code...
