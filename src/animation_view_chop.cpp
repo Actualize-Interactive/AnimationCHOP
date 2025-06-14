@@ -217,6 +217,9 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         size_t segment_index = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
             auto& channel = animation->channel(c);
+			if (channel.size() < 2) {
+				continue; // Skip channels with less than 2 keyframes
+			}
             for (size_t k = 0; k < channel.size() - 1; ++k) {
                 m_segmentViews[segment_index].channel_index = c;
                 m_segmentViews[segment_index].keyframe_index = k;
@@ -1281,14 +1284,8 @@ void AnimationViewCHOP::undo() {
     ));
     animationCHOP->replaceAnimation(std::move(lastUndo));
 
-    // animationCHOP->replaceAnimation(std::make_unique<anim::Animation>(
-    //     lastUndo->copy()
-    // ));
-
-    // inst->m_redoStack.push_back(std::move(lastUndo));
-
-    std::cout << "AnimationViewCHOP: Undo items left on stack: " 
-              << inst->m_undoStack.size() << std::endl;
+    // std::cout << "AnimationViewCHOP: Undo items left on stack: " 
+    //           << inst->m_undoStack.size() << std::endl;
 }
 void AnimationViewCHOP::redo() {
     auto inst = dataInstance();
@@ -1311,15 +1308,8 @@ void AnimationViewCHOP::redo() {
     ));
     animationCHOP->replaceAnimation(std::move(lastRedo));
 
-
-    // animationCHOP->replaceAnimation(std::make_unique<anim::Animation>(
-    //     lastRedo->copy()
-    // ));
-
-    // inst->m_undoStack.push_back(std::move(lastRedo));
-
-    std::cout << "AnimationViewCHOP: Redo items left on stack: " 
-              << inst->m_redoStack.size() << std::endl;
+    // std::cout << "AnimationViewCHOP: Redo items left on stack: " 
+    //           << inst->m_redoStack.size() << std::endl;
 }
 
 void AnimationViewCHOP::resetUndo() {
@@ -1340,7 +1330,7 @@ void AnimationViewCHOP::cacheState() {
     }
 
     inst->m_stateCache = std::make_unique<anim::Animation>(inst->m_animationCHOP->animation()->copy());
-    std::cout << "AnimationViewCHOP: Cached current animation state for undo." << std::endl;
+    // std::cout << "AnimationViewCHOP: Cached current animation state for undo." << std::endl;
 }
 
 void AnimationViewCHOP::setUndo() {
@@ -1361,8 +1351,8 @@ void AnimationViewCHOP::setUndo() {
         // If we have a cached state, use it
         inst->m_undoStack.push_back(std::move(inst->m_stateCache));
         inst->m_stateCache = nullptr; // Clear cache after using it
-        std::cout << "AnimationViewCHOP: Added state to undo stack, index: " 
-                  << inst->m_undoStack.size() - 1 << std::endl;
+        // std::cout << "AnimationViewCHOP: Added state to undo stack, index: " 
+        //           << inst->m_undoStack.size() - 1 << std::endl;
     }
 
 }

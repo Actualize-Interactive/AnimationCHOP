@@ -1024,12 +1024,11 @@ class KeyframerExt:
 		# prevState = self.getAnimationCompState()		
 		names = self.newChannelNamesComp.par.Value.eval().split(' ')
 		print(f"Appending channels: {names}")
-		# self.curves_viewChop.cache_state()
+		self.curves_viewChop.cache_state()
 		for i, name in enumerate(names):
 			self.AppendChannel(name)
 		
-		# self.set_undo(f'Keyframer: Append Channels: {", ".join(names)}')
-
+		self.set_undo(f'Keyframer: Append Channels: {", ".join(names)}')
 
 	def OpenContextMenu(self, fromComp, *args):
 		info = self.contextMenuLookup[fromComp.name]
