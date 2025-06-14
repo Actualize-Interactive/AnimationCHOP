@@ -30,17 +30,17 @@ class WidgetExt(WIDGETS.Widget):
 				
 	def OnRSelectOffToOn(self, startrow, startcol, startcoords, 
 					endrow, endcol, endcoords, start, end):
-		chanName = self.listComp.cellAttribs[endrow, 0].text
-		KEYFRAMER.OpenContextMenu(self.ownerComp, chanName)
+		attribs = self.listComp.cellAttribs[endrow, 0]
+		if attribs is not None:
+			chanName = attribs.text
+			KEYFRAMER.OpenContextMenu(self.ownerComp, chanName)
 		pass
 		
-	def StartEditCell(self, chanName):
-		# self.row = KEYFRAMER.ChannelNames.val.index(chanName)
-		self.listComp.StartEditCell(self.row, 0)
+	def StartEditCell(self, row):
+		self.listComp.StartEditCell(row, 0)
 		
 	def OnEditCell(self, row, col, value):
-		# chanName = KEYFRAMER.ChannelNames.val[row]
-		KEYFRAMER.RenameChannel(chanName, value)
+		KEYFRAMER.RenameChannel(row, value)
 
 	def OnMSelectOffToOn(self, startrow, startcol, startcoords, 
 						endrow, endcol, endcoords, start, end):

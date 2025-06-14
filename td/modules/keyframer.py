@@ -33,6 +33,8 @@ class KeyframerExt:
 		self.keyframeControlsComp = self.editControlsComp.op('keyframeControls')
 		self.contextMenuComp = self.viewComp.op('ContextMenu')	
 		self.globalControlsComp = self.viewComp.op('globalControls')
+		self.display_keys_active = self.globalControlsComp.op('displayKeysHandles').par.Valuekeys
+		self.display_handles_active = self.globalControlsComp.op('displayKeysHandles').par.Valuehandles
 		self.newAnimNameComp = self.globalControlsComp.op('newAnimName')
 		self.animCompComp = self.globalControlsComp.op('animComp')	
 		self.newChannelNamesComp = self.globalControlsComp.op('newChannelNames')
@@ -96,7 +98,11 @@ class KeyframerExt:
 		self.init()
 
 	@property
-	def AnimationChop(self): return self.ownerComp.par.Animationchop.eval()
+	def AnimationChop(self): 
+		if self.ownerComp.par.Animationchop.eval() is not None:
+			return self.ownerComp.par.Animationchop.eval()
+		else:
+			return self.default_animationChop
 	@AnimationChop.setter
 	def AnimationChop(self, value):
 		if isinstance(value, AnimationCHOP):
@@ -161,6 +167,10 @@ class KeyframerExt:
 	@property
 	def ChannelNames(self):
 		return tdu.Dependency(list(self.AnimationChop.channel_names))
+
+	@property
+	def NumChannels(self):
+		return tdu.Dependency(self.AnimationChop.num_channels)
 
 	@property
 	def currentChannelIds(self):
@@ -364,26 +374,27 @@ class KeyframerExt:
 			self.set_undo('Keyframer: Delete Channels')
 
 	def EditChannelName(self, chanName):
-		self.channelListComp.StartEditCell(chanName)
+		idx = None
+		for i, name in enumerate(self.AnimationChop.channel_names):
+			if name == chanName:
+				idx = i
+				break
+		if idx is not None:
+			self.channelListComp.StartEditCell(idx)
 
-	def RenameChannel(self, chanName, newName):
-		if newName in self.ChannelNames.val:
+	def RenameChannel(self, channel_index, new_name):
+		if new_name in self.AnimationChop.channel_names:
 			ui.messageBox('Warning', 
-				f"{newName} already exists! Please use another name.",
+				f"{new_name} already exists! Please use another name.",
 				buttons=['Close'])
 			return
-		prevState = self.getAnimationCompState()
-		self.Channels[chanName].setName(newName)		
-		run("args[0]()", self.refreshChannelList(), delayFrames=1)
-		run("args[0](args[1])", self.postRenameChannel, prevState, 
-			delayFrames=2)
+		self.curves_viewChop.cache_state()
+		self.AnimationChop.channels[channel_index].name = new_name
+		self.set_undo(f'Keyframer: Rename Channel {self.AnimationChop.channels[channel_index].name} to {new_name}')
+		self.refreshChannelList()
 
-	def postRenameChannel(self, prevState):
-		curState = self.getAnimationCompState()
-		ui.undo.startBlock(self.undoStateAnimCompName)
-		ui.undo.addCallback(self.undoDeleteAppendChannels, 
-							[prevState, curState])
-		ui.undo.endBlock()
+	def ReorderChannels(self, start, end):
+		print(f"Reorder Channels not implemented")
 
 	def Toolmode(self):
 		index = 6 if self.iParsComp.par.Toolmode.eval() == 'draw' else 0
@@ -667,9 +678,11 @@ class KeyframerExt:
 		if isUndo:
 			print("undo_callback")
 			self.curves_viewChop.undo()
+			self.refreshChannelList()
 		else:
 			print("redo_callback")
 			self.curves_viewChop.redo()
+			self.refreshChannelList()
 
 	def cache_state(self):
 		print("cache_state")
@@ -678,13 +691,11 @@ class KeyframerExt:
 		pass
 
 	def set_undo(self, message='Animation Editor: Update Keyframes'):
-		print("set_undo")
+		# print("set_undo")
 		self.curves_viewChop.set_undo()
 		ui.undo.startBlock(message)
 		ui.undo.addCallback(self.undo_callback)
 		ui.undo.endBlock()
-
-
 
 	def marqueeSelectStart(self, event):
 		pass
@@ -704,32 +715,34 @@ class KeyframerExt:
 			mCoords[1].sort()
 
 			selected_indices = [] # sample_index
-			for sample_index in range(self.keyframes_viewChop.numSamples):
-				if (self.keyframes_viewChop['time'][sample_index] >= mCoords[0][0]
-						and self.keyframes_viewChop['time'][sample_index] < mCoords[0][1]
-						and self.keyframes_viewChop['value'][sample_index] >= mCoords[1][0]
-						and self.keyframes_viewChop['value'][sample_index] < mCoords[1][1]
-						and self.keyframes_viewChop['display'][sample_index]):
-					selected_indices.append(sample_index)
-			self.keyframes_viewChop.select_keyframes(selected_indices)
+			if self.display_keys_active.eval():
+				for sample_index in range(self.keyframes_viewChop.numSamples):
+					if (self.keyframes_viewChop['time'][sample_index] >= mCoords[0][0]
+							and self.keyframes_viewChop['time'][sample_index] < mCoords[0][1]
+							and self.keyframes_viewChop['value'][sample_index] >= mCoords[1][0]
+							and self.keyframes_viewChop['value'][sample_index] < mCoords[1][1]
+							and self.keyframes_viewChop['display'][sample_index]):
+						selected_indices.append(sample_index)
+				self.keyframes_viewChop.select_keyframes(selected_indices)
 			# print(f"Selected keyframes: {selected_indices}")
 
 			selected_start_handles = []
 			selected_end_handles = []
-			for sample_index in range(self.segments_viewChop.numSamples):
-				if (self.segments_viewChop['start_handle_time'][sample_index] >= mCoords[0][0]
-						and self.segments_viewChop['start_handle_time'][sample_index] < mCoords[0][1]
-						and self.segments_viewChop['start_handle_value'][sample_index] >= mCoords[1][0]
-						and self.segments_viewChop['start_handle_value'][sample_index] < mCoords[1][1]
-						and self.segments_viewChop['display_start_handle'][sample_index]):
-					selected_start_handles.append(sample_index)
-				
-				if (self.segments_viewChop['end_handle_time'][sample_index] >= mCoords[0][0]
-						and self.segments_viewChop['end_handle_time'][sample_index] < mCoords[0][1]
-						and self.segments_viewChop['end_handle_value'][sample_index] >= mCoords[1][0]
-						and self.segments_viewChop['end_handle_value'][sample_index] < mCoords[1][1]
-						and self.segments_viewChop['display_end_handle'][sample_index]):
-					selected_end_handles.append(sample_index)
+			if self.display_handles_active.eval():
+				for sample_index in range(self.segments_viewChop.numSamples):
+					if (self.segments_viewChop['start_handle_time'][sample_index] >= mCoords[0][0]
+							and self.segments_viewChop['start_handle_time'][sample_index] < mCoords[0][1]
+							and self.segments_viewChop['start_handle_value'][sample_index] >= mCoords[1][0]
+							and self.segments_viewChop['start_handle_value'][sample_index] < mCoords[1][1]
+							and self.segments_viewChop['display_start_handle'][sample_index]):
+						selected_start_handles.append(sample_index)
+					
+					if (self.segments_viewChop['end_handle_time'][sample_index] >= mCoords[0][0]
+							and self.segments_viewChop['end_handle_time'][sample_index] < mCoords[0][1]
+							and self.segments_viewChop['end_handle_value'][sample_index] >= mCoords[1][0]
+							and self.segments_viewChop['end_handle_value'][sample_index] < mCoords[1][1]
+							and self.segments_viewChop['display_end_handle'][sample_index]):
+						selected_end_handles.append(sample_index)
 
 			self.segments_viewChop.select_start_handles(selected_start_handles)
 			self.segments_viewChop.select_end_handles(selected_end_handles)
@@ -925,6 +938,11 @@ class KeyframerExt:
 		for chan in self.selectedChannels:
 			chan.toggleSelectedLockHandles()
 
+	def OnAnimationChopChanged(self):
+		self.refreshChannelList()
+		self.update_active_controls()
+		self.KeyframeControlsUpdateView()
+
 	def OnDropView(self, comp, info):
 		for item in info['dragItems']:
 			_type = type(item)
@@ -1023,6 +1041,11 @@ class KeyframerExt:
 	def OnAppendChannels(self):
 		# prevState = self.getAnimationCompState()		
 		names = self.newChannelNamesComp.par.Value.eval().split(' ')
+		self.append_channels(names)
+
+	def append_channels(self, names):
+		if len(names) == 0:
+			return
 		print(f"Appending channels: {names}")
 		self.curves_viewChop.cache_state()
 		for i, name in enumerate(names):
@@ -1206,21 +1229,5 @@ class KeyframerExt:
 			self.AnimationChop.channels[c].set_keyframe_handle_mode(k, i)
 		pass
 
-	def ReorderChannels(self, start, end):
-		self.cache_state()		
-		start += 1
-		end += 1
-		rowVals = [cell.val for cell in self.channelsDat.row(start)]
-		if start < end:
-			self.channelsDat.appendRow(rowVals, end)
-			self.channelsDat.deleteRow(start)
-		elif start > end:
-			self.channelsDat.deleteRow(start)
-			self.channelsDat.insertRow(rowVals, end)	
-		self.curves_viewChop.unselect_all()
-		self.refreshChannelList()
-		self.updateKeysView(init=True)
-		self.set_undo(force=True)	
-
 	def convertToKeyframerAnimComp(self, comp):
-		print(F"Conversion of Animation Comp not implemented yet: {comp.path}")
+		print(F"Conversion of Animation Comp not implemented")
