@@ -419,7 +419,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         int32_t start_index = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
                 auto& channel = animation->channel(c);
-            if (c < output->numChannels) {
+            if (c < output->numSamples) {
                 auto num_keyframes = channel.size();
                 output->channels[0][c] = static_cast<float>(num_keyframes);
                 output->channels[1][c] = static_cast<float>(channel.start_time());
