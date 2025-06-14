@@ -186,6 +186,47 @@ static PyObject* PY_Channel_create_keyframe(PY_Channel *self, PyObject *args, Py
     return NULL;
 }
 
+static PyObject* PY_Channel_create_keyframe_from_state(PY_Channel* self, PyObject* args) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    PyObject* arg;
+    if (!PyArg_ParseTuple(args, "O", &arg)) {
+        return NULL;
+    }
+    
+    // Check if argument is a dictionary (Keyframe state)
+    if (!PyDict_Check(arg)) {
+        PyErr_SetString(PyExc_ValueError, "Keyframe state must be a dictionary");
+        return NULL;
+    }
+    
+    // Create temporary keyframe and set its state
+    PY_Keyframe* temp_kf = KeyframeToPY_Keyframe(anim::Keyframe(0.0, 0.0));
+    if (!temp_kf) return NULL;
+    
+    if (PY_Keyframe_set_state(temp_kf, arg, NULL) < 0) {
+        Py_DECREF(temp_kf);
+        return NULL;
+    }
+    try {
+        const anim::Keyframe& result = channelData.channel->create_keyframe(temp_kf->keyframe);
+        if (channelData.node_struct) {
+            channelData.node_struct->context->makeNodeDirty();
+        }
+        Py_DECREF(temp_kf);
+        return KeyframeToPY_Object(result);
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        Py_DECREF(temp_kf);
+        return NULL;
+    }
+
+}
+
 static PyObject* PY_Channel_emplace_keyframe(PY_Channel *self, PyObject *args) {
     auto channelData = getChannelData(self, false);
     if (!channelData.channel) {
@@ -780,17 +821,8 @@ int PY_Channel_set_state(PY_Channel *self, PyObject *value, void *closure) {
                     Py_DECREF(temp_kf);
                     return -1;
                 }
-                
-                // Create keyframe in channel
-                channelData.channel->create_keyframe(
-                    temp_kf->keyframe.position.time,
-                    temp_kf->keyframe.position.value,
-                    temp_kf->keyframe.in_handle,
-                    temp_kf->keyframe.out_handle,
-                    temp_kf->keyframe.function,
-                    temp_kf->keyframe.handle_mode
-                );
-                
+                channelData.channel->create_keyframe(temp_kf->keyframe);
+
                 Py_DECREF(temp_kf);
             }
         }
@@ -857,6 +889,7 @@ static PyMethodDef PY_Channel_methods[] = {
     {"__copy__", (PyCFunction)PY_Channel_copy, METH_NOARGS, "Create a shallow copy of the channel"},
     {"__deepcopy__", (PyCFunction)PY_Channel_deep_copy, METH_VARARGS, "Create a deep copy of the channel"},
     {"create_keyframe", (PyCFunction)PY_Channel_create_keyframe, METH_VARARGS | METH_KEYWORDS, "Create a keyframe (overloads supported)"},
+    {"create_keyframe_from_state", (PyCFunction)PY_Channel_create_keyframe_from_state, METH_VARARGS, "Create a keyframe from a state dictionary"},
     {"emplace_keyframe", (PyCFunction)PY_Channel_emplace_keyframe, METH_VARARGS, "Emplace a keyframe (move) into the channel"},
     {"delete_keyframe", (PyCFunction)PY_Channel_remove_keyframe, METH_VARARGS, "Delete a keyframe by index"},
     {"keyframe", (PyCFunction)PY_Channel_get_keyframe, METH_VARARGS, "Get a keyframe by index"},
@@ -894,6 +927,44 @@ static PySequenceMethods PY_Channel_as_sequence = {
     0  // sq_inplace_repeat
 };
 
+// --- Mapping protocol for subscript operator ---
+static PyObject* PY_Channel_mp_subscript(PY_Channel *self, PyObject *key) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    
+    if (PyLong_Check(key)) {
+        Py_ssize_t index = PyLong_AsSsize_t(key);
+        if (index == -1 && PyErr_Occurred()) {
+            return NULL;
+        }
+        
+        // Handle negative indices
+        if (index < 0) {
+            index += (Py_ssize_t)channelData.channel->num_keyframes();
+        }
+        
+        try {
+            const anim::Keyframe& kf = channelData.channel->keyframe(static_cast<size_t>(index));
+            return KeyframeToPY_Object(kf);
+        } catch (const std::exception& e) {
+            PyErr_SetString(PyExc_IndexError, e.what());
+            return NULL;
+        }
+    }
+    
+    PyErr_SetString(PyExc_TypeError, "Channel indices must be integers");
+    return NULL;
+}
+
+static PyMappingMethods PY_Channel_as_mapping = {
+    (lenfunc)PY_Channel_len,        // mp_length
+    (binaryfunc)PY_Channel_mp_subscript,  // mp_subscript
+    0,                              // mp_ass_subscript
+};
+
 // --- Properties ---
 static PyGetSetDef PY_Channel_getset[] = {
     {"name", (getter)PY_Channel_get_name, (setter)PY_Channel_set_name, "Channel name", NULL},
@@ -921,7 +992,7 @@ PyTypeObject PY_ChannelType = {
     (reprfunc)PY_Channel_str,  // tp_repr
     0,                         // tp_as_number
     &PY_Channel_as_sequence,   // tp_as_sequence
-    0,                         // tp_as_mapping
+    &PY_Channel_as_mapping,    // tp_as_mapping
     0,                         // tp_hash 
     0,                         // tp_call
     (reprfunc)PY_Channel_str,  // tp_str

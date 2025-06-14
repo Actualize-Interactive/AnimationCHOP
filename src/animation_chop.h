@@ -32,11 +32,18 @@ public:
 	const anim::Animation& animation() const { return *m_animation; }
 	float sampleRate() const { return m_sampleRate; }
 
+	void replaceAnimation(std::unique_ptr<anim::Animation> newAnimation) {
+		if (newAnimation) {
+			m_animation = std::move(newAnimation);
+		}
+	}
+
+
 private:
 	const OP_NodeInfo* m_nodeInfo;
 	const char* m_warning;
 	const char* m_error;
-	float m_sampleRate { 60.0f }; 
+	float m_sampleRate { 60.0f };
 	std::unique_ptr<anim::Animation> m_animation;
 
 	enum class OutputMode {
@@ -48,8 +55,6 @@ private:
 
 	OutputMode m_outputMode { OutputMode::range };
 	double m_lastEvalTime { 0.0 };
-
-	void applyOutputMode(const OP_Inputs* inputs);
 
 };
 

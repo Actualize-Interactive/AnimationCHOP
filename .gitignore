@@ -12,3 +12,4 @@ build
 *.pdb
 *.ilk
 *.dmp
+.DS_Store

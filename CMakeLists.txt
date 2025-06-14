@@ -24,17 +24,17 @@ set(ANIMATION_CHOP_SOURCES
     ${SRC}/animation_chop.cpp
 )
 
-# Explicitly define sources for AnimationSelectCHOP
-set(ANIMATION_SELECT_CHOP_SOURCES
-    ${SRC}/animation_select_chop.cpp
+# Explicitly define sources for AnimationViewCHOP
+set(ANIMATION_VIEW_CHOP_SOURCES
+    ${SRC}/animation_view_chop.cpp
 )
 
 if(VERBOSE_STATUS)
     foreach(SOURCE ${ANIMATION_CHOP_SOURCES})
         message(STATUS "Found AnimationCHOP source file: ${SOURCE}")
     endforeach()
-    foreach(SOURCE ${ANIMATION_SELECT_CHOP_SOURCES})
-        message(STATUS "Found AnimationSelectCHOP source file: ${SOURCE}")
+    foreach(SOURCE ${ANIMATION_VIEW_CHOP_SOURCES})
+        message(STATUS "Found AnimationViewCHOP source file: ${SOURCE}")
     endforeach()
 endif()
 
@@ -46,13 +46,21 @@ set(ANIM_BUILD_EXAMPLES OFF CACHE BOOL "Build anim examples" FORCE)
 add_subdirectory(ext/anim)
 
 # Create the animation_chop target
-add_library(animation_chop SHARED ${ANIMATION_CHOP_SOURCES})
+if(APPLE)
+    add_library(animation_chop MODULE ${ANIMATION_CHOP_SOURCES})
+else()
+    add_library(animation_chop SHARED ${ANIMATION_CHOP_SOURCES})
+endif()
 
-# Create the animation_select_chop target
-add_library(animation_select_chop SHARED ${ANIMATION_SELECT_CHOP_SOURCES})
+# Create the animation_view_chop target
+if(APPLE)
+    add_library(animation_view_chop MODULE ${ANIMATION_VIEW_CHOP_SOURCES})
+else()
+    add_library(animation_view_chop SHARED ${ANIMATION_VIEW_CHOP_SOURCES})
+endif()
 
 # Include directories for both targets
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     target_include_directories(${TARGET} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/ext/td/include
@@ -62,7 +70,7 @@ foreach(TARGET animation_chop animation_select_chop)
 endforeach()
 
 if(WIN32)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         target_include_directories(${TARGET} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include/PC
         )
@@ -71,50 +79,62 @@ if(WIN32)
             ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/lib/x64
         )
 
-        # Link against the anim library (AnimationSelectCHOP only needs anim, not full Python bindings)
-        if(${TARGET} STREQUAL "animation_chop")
-            target_link_libraries(${TARGET} PRIVATE 
-                python311
-                anim
-            )
-        else()
-            target_link_libraries(${TARGET} PRIVATE 
-                anim
-            )
-        endif()
+        # Both targets now need Python for their bindings
+        target_link_libraries(${TARGET} PRIVATE 
+            python311
+            anim
+        )
     endforeach()
 elseif(APPLE)
-    # On macOS, use the system Python or the one set up by GitHub Actions
-    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-    foreach(TARGET animation_chop animation_select_chop)
-        if(${TARGET} STREQUAL "animation_chop")
+    # On macOS, use TouchDesigner's Python specifically
+    set(TD_PYTHON_EXECUTABLE "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3.11")
+    set(TD_PYTHON_INCLUDE_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/include/python3.11")
+    set(TD_PYTHON_LIBRARY_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/lib")
+    
+    # Check if TouchDesigner's Python exists, otherwise fall back to system Python
+    if(EXISTS "${TD_PYTHON_EXECUTABLE}" AND EXISTS "${TD_PYTHON_INCLUDE_DIR}")
+        message(STATUS "Using TouchDesigner's Python: ${TD_PYTHON_EXECUTABLE}")
+        
+        # Force CMake to use TouchDesigner's Python by setting the paths explicitly
+        set(Python3_EXECUTABLE "${TD_PYTHON_EXECUTABLE}" CACHE FILEPATH "Path to Python3 executable" FORCE)
+        set(Python3_INCLUDE_DIR "${TD_PYTHON_INCLUDE_DIR}" CACHE PATH "Path to Python3 include directory" FORCE)
+        set(Python3_LIBRARY_DIRS "${TD_PYTHON_LIBRARY_DIR}" CACHE PATH "Path to Python3 library directory" FORCE)
+        
+        # Set the find strategy to prioritize our specified paths
+        set(Python3_FIND_STRATEGY LOCATION)
+        set(Python3_FIND_REGISTRY NEVER)
+        set(Python3_FIND_FRAMEWORK NEVER)
+        
+        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+        
+        foreach(TARGET animation_chop animation_view_chop)
             target_link_libraries(${TARGET} PRIVATE 
                 Python3::Python
                 anim
             )
-        else()
+            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
+        endforeach()
+    else()
+        message(WARNING "TouchDesigner's Python not found at ${TD_PYTHON_EXECUTABLE}, falling back to system Python")
+        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+        foreach(TARGET animation_chop animation_view_chop)
             target_link_libraries(${TARGET} PRIVATE 
+                Python3::Python
                 anim
             )
-        endif()
-        target_compile_definitions(${TARGET} PRIVATE __cdecl=)
-    endforeach()
+            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
+        endforeach()
+    endif()
 else()
     # On other platforms, use pkg-config to find Python
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(PYTHON REQUIRED python3)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         target_include_directories(${TARGET} PRIVATE ${PYTHON_INCLUDE_DIRS})
-        if(${TARGET} STREQUAL "animation_chop")
-            target_link_libraries(${TARGET} PRIVATE 
-                ${PYTHON_LIBRARIES}
-                anim
-            )
-        else()
-            target_link_libraries(${TARGET} PRIVATE 
-                anim
-            )
-        endif()
+        target_link_libraries(${TARGET} PRIVATE 
+            ${PYTHON_LIBRARIES}
+            anim
+        )
         target_compile_definitions(${TARGET} PRIVATE __cdecl=)
     endforeach()
 endif()
@@ -127,15 +147,15 @@ set_target_properties(animation_chop PROPERTIES
     PREFIX ""
 )
 
-set_target_properties(animation_select_chop PROPERTIES
+set_target_properties(animation_view_chop PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    OUTPUT_NAME "AnimationSelectCHOP"
+    OUTPUT_NAME "AnimationViewCHOP"
     PREFIX ""
 )
 
 if(SUPPRESS_NOT_REFERENCED_WARNINGS)
-    foreach(TARGET animation_chop animation_select_chop)
+    foreach(TARGET animation_chop animation_view_chop)
         if(MSVC)
             target_compile_options(${TARGET} PRIVATE /wd4100 /wd4189)
             target_compile_definitions(${TARGET} PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -147,18 +167,33 @@ if(SUPPRESS_NOT_REFERENCED_WARNINGS)
 endif()
 
 # Add post-build commands to copy both DLLs to the Plugins folder
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     add_custom_command(TARGET ${TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/test/Plugins"
-        COMMAND ${CMAKE_COMMAND} -E copy 
-                "$<TARGET_FILE:${TARGET}>" 
-                "${CMAKE_SOURCE_DIR}/test/Plugins/"
-        COMMENT "Copying ${TARGET} to Plugins directory"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
+        COMMENT "Creating Plugins directory"
     )
+    
+    if(APPLE)
+        # On macOS, copy the entire .plugin bundle
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory 
+                    "$<TARGET_BUNDLE_DIR:${TARGET}>" 
+                    "${CMAKE_SOURCE_DIR}/td/Plugins/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
+            COMMENT "Copying ${TARGET}.plugin bundle to Plugins directory"
+        )
+    else()
+        # On other platforms, copy the library file
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy 
+                    "$<TARGET_FILE:${TARGET}>" 
+                    "${CMAKE_SOURCE_DIR}/td/Plugins/"
+            COMMENT "Copying ${TARGET} to Plugins directory"
+        )
+    endif()
 endforeach()
 
 # Add platform-specific settings for both targets
-foreach(TARGET animation_chop animation_select_chop)
+foreach(TARGET animation_chop animation_view_chop)
     if(WIN32)
         target_compile_definitions(${TARGET} PRIVATE WIN32 _WINDOWS _USRDLL)
         # Windows-specific settings
@@ -167,10 +202,16 @@ foreach(TARGET animation_chop animation_select_chop)
             target_compile_options(${TARGET} PRIVATE /W4)
         endif()
     elseif(APPLE)
-        # macOS-specific settings
+        # macOS-specific settings for TouchDesigner modules
+        string(REPLACE "_" "-" BUNDLE_ID_TARGET ${TARGET})
         set_target_properties(${TARGET} PROPERTIES
             BUNDLE TRUE
-            MACOSX_BUNDLE_GUI_IDENTIFIER com.actualize.${TARGET}
+            BUNDLE_EXTENSION "plugin"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.actualize.${BUNDLE_ID_TARGET}"
+            MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+            MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
+            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.actualize.${BUNDLE_ID_TARGET}"
         )
     elseif(UNIX)
         # Linux-specific settings
@@ -179,7 +220,7 @@ foreach(TARGET animation_chop animation_select_chop)
 endforeach()
 
 # Install targets
-install(TARGETS animation_chop animation_select_chop
+install(TARGETS animation_chop animation_view_chop
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

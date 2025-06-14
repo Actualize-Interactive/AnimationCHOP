@@ -181,7 +181,6 @@ AnimationCHOP::~AnimationCHOP()
     cleanup_function_enum();
 }
 
-
 void
 AnimationCHOP::getGeneralInfo(CHOP_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
@@ -207,8 +206,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
     info->numChannels = static_cast<int32_t>(m_animation->num_channels());
     // std::cout << "AnimationCHOP::getOutputInfo: numChannels = " << info->numChannels << std::endl;
     info->sampleRate = static_cast<float>(inputs->getParDouble("Samplerate"));
-    applyOutputMode(inputs);
-
+    m_outputMode = static_cast<OutputMode>(inputs->getParInt("Outputmode"));
 
     switch(m_outputMode) {
     case OutputMode::input: {
@@ -256,6 +254,7 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
         break;
     }
     }
+    m_sampleRate = info->sampleRate;
     return true;
 }
 
@@ -517,22 +516,6 @@ AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
 }
 
-void
-AnimationCHOP::applyOutputMode(const OP_Inputs *inputs)
-{
-    const char* output_mode = inputs->getParString("Outputmode");
-    if (strcmp(output_mode, "range") == 0) {
-        m_outputMode = OutputMode::range;
-    } else if (strcmp(output_mode, "autorange") == 0) {
-        m_outputMode = OutputMode::autoRange;
-    } else if (strcmp(output_mode, "input") == 0) {
-        m_outputMode = OutputMode::input;
-    } else if (strcmp(output_mode, "sequence") == 0) {
-        m_outputMode = OutputMode::sequence;
-    } else {
-        m_outputMode = OutputMode::autoRange;
-    }
-}
 
 // --- Channel creation and insertion ---
 static PyObject* py_create_channel(PyObject *self, PyObject *args) {

@@ -88,7 +88,7 @@ jobs:
         name: AnimationCHOPs-windows-${{ matrix.build_type }}
         path: |
           build/bin/Release/AnimationCHOP.dll
-          build/bin/Release/AnimationSelectCHOP.dll
+          build/bin/Release/AnimationViewCHOP.dll
         
     - name: Upload build artifacts (macOS)
       if: runner.os == 'macOS'
@@ -97,4 +97,4 @@ jobs:
         name: AnimationCHOPs-macos-${{ matrix.build_type }}
         path: |
           build/bin/AnimationCHOP.dylib
-          build/bin/AnimationSelectCHOP.dylib
+          build/bin/AnimationViewCHOP.dylib

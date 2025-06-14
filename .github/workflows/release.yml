@@ -88,7 +88,7 @@ jobs:
       with:
         files: |
           build/bin/Release/AnimationCHOP.dll
-          build/bin/Release/AnimationSelectCHOP.dll
+          build/bin/Release/AnimationViewCHOP.dll
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -98,6 +98,6 @@ jobs:
       with:
         files: |
           build/bin/AnimationCHOP.dylib
-          build/bin/AnimationSelectCHOP.dylib
+          build/bin/AnimationViewCHOP.dylib
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
