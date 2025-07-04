@@ -221,7 +221,9 @@ class KeyframerExt:
 				self.keysNavHome()
 				# self.updateKeysView(init=True)							
 		except Exception as e:
-			traceback.print_exc()
+			# on startup the AnimationChop might not be set yet
+			# traceback.print_exc()
+			pass
 
 	def InitView(self):
 		self.SetNavRange()
@@ -250,7 +252,11 @@ class KeyframerExt:
 		self.init(newAnimComp=True)
 
 	def refreshChannelList(self):
-		channels_display = self.channels_viewChop['display'].vals
+		if self.channels_viewChop['display'] is not None:
+			channels_display = self.channels_viewChop['display'].vals
+		else:
+			channels_display = [True] * self.AnimationChop.num_channels
+		
 		channel_names = self.AnimationChop.channel_names
 		self.channelListComp.Refresh(channels_display, channel_names)
 		self.channels_replicatorComp.cook(force=True)
