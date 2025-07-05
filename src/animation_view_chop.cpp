@@ -603,8 +603,8 @@ bool AnimationViewCHOP::displayStartHandle(size_t channel_index, const Keyframe&
         return false;
     }
     return inst->m_channelViews[channel_index].displayed
-        && start_keyframe.function == Function::bezier 
-        && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth);
+        && start_keyframe.function == Function::Bezier 
+        && static_cast<uint8_t>(start_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::Smooth);
 }
 
 bool AnimationViewCHOP::displayEndHandle(bool display_start_handle, const Keyframe& end_keyframe) const
@@ -614,8 +614,8 @@ bool AnimationViewCHOP::displayEndHandle(bool display_start_handle, const Keyfra
         return false;
     }
     return display_start_handle
-        && (static_cast<uint8_t>(end_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::smooth)
-        || end_keyframe.function != Function::bezier);
+        && (static_cast<uint8_t>(end_keyframe.handle_mode) > static_cast<uint8_t>(HandleMode::Smooth)
+        || end_keyframe.function != Function::Bezier);
 }
 
 // Helper function to convert Python list to vector of indices

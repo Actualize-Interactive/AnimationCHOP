@@ -49,9 +49,9 @@ static PyObject* create_function_enum() {
         return true;
     };
 
-    if (!add_member("CONSTANT", anim::Function::constant) ||
-        !add_member("LINEAR", anim::Function::linear) ||
-        !add_member("BEZIER", anim::Function::bezier)) {
+    if (!add_member("CONSTANT", anim::Function::Constant) ||
+        !add_member("LINEAR", anim::Function::Linear) ||
+        !add_member("BEZIER", anim::Function::Bezier)) {
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module); 
@@ -117,18 +117,18 @@ static const char* function_full_names[] = {
 // Helper functions for state serialization
 const char* function_to_string(anim::Function func) {
     int idx = static_cast<int>(func);
-    if (idx >= 0 && idx < static_cast<int>(anim::Function::count)) {
+    if (idx >= 0 && idx < static_cast<int>(anim::Function::Count)) {
         return function_full_names[idx];
     }
     return "Function.UNKNOWN";
 }
 
 anim::Function string_to_function(const char* str) {
-    for (int i = 0; i < static_cast<int>(anim::Function::count); ++i) {
+    for (int i = 0; i < static_cast<int>(anim::Function::Count); ++i) {
         if (strcmp(str, function_full_names[i]) == 0 || strcmp(str, function_names[i]) == 0) {
             return static_cast<anim::Function>(i);
         }
     }
-    return anim::Function::bezier; // Default fallback
+    return anim::Function::Bezier; // Default fallback
 }
 

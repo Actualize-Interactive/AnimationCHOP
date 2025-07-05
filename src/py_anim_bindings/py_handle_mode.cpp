@@ -49,13 +49,13 @@ static PyObject* create_handle_mode_enum() {
         return true;
     };
 
-    if (!add_member("FLAT", anim::HandleMode::flat) ||
-        !add_member("SMOOTH", anim::HandleMode::smooth) ||
-        !add_member("ALIGNED", anim::HandleMode::aligned) ||
-        !add_member("FREE", anim::HandleMode::free) ||
-        !add_member("ALIGN_STRICT", anim::HandleMode::alignStrict) ||
-        !add_member("ALIGN_FLEX", anim::HandleMode::alignFlex) ||
-        !add_member("ALIGN_ADJUSTABLE", anim::HandleMode::alignAdjustable)) {
+    if (!add_member("FLAT", anim::HandleMode::Flat) ||
+        !add_member("SMOOTH", anim::HandleMode::Smooth) ||
+        !add_member("ALIGNED", anim::HandleMode::Aligned) ||
+        !add_member("FREE", anim::HandleMode::Free) ||
+        !add_member("ALIGN_STRICT", anim::HandleMode::AlignStrict) ||
+        !add_member("ALIGN_FLEX", anim::HandleMode::AlignFlex) ||
+        !add_member("ALIGN_ADJUSTABLE", anim::HandleMode::AlignAdjustable)) {
         Py_DECREF(members_dict);
         Py_DECREF(int_enum_class);
         Py_DECREF(enum_module); 
@@ -129,17 +129,17 @@ static const char* handle_mode_full_names[] = {
 // Helper functions for state serialization
 const char* handle_mode_to_string(anim::HandleMode mode) {
     int idx = static_cast<int>(mode);
-    if (idx >= 0 && idx < static_cast<int>(anim::HandleMode::count)) {
+    if (idx >= 0 && idx < static_cast<int>(anim::HandleMode::Count)) {
         return handle_mode_full_names[idx];
     }
     return "HandleMode.UNKNOWN";
 }
 
 anim::HandleMode string_to_handle_mode(const char* str) {
-    for (int i = 0; i < static_cast<int>(anim::HandleMode::count); ++i) {
+    for (int i = 0; i < static_cast<int>(anim::HandleMode::Count); ++i) {
         if (strcmp(str, handle_mode_full_names[i]) == 0 || strcmp(str, handle_mode_names[i]) == 0) {
             return static_cast<anim::HandleMode>(i);
         }
     }
-    return anim::HandleMode::smooth; // Default fallback
+    return anim::HandleMode::Smooth; // Default fallback
 }

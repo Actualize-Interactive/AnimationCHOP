@@ -38,8 +38,8 @@ static int PY_Keyframe_init(PY_Keyframe *self, PyObject *args, PyObject *kwds) {
     // Default handles
     anim::Point in_handle(time - 1.0, value);
     anim::Point out_handle(time + 1.0, value);
-    anim::Function function = anim::Function::bezier;
-    anim::HandleMode handle_mode = anim::HandleMode::smooth;
+    anim::Function function = anim::Function::Bezier;
+    anim::HandleMode handle_mode = anim::HandleMode::Smooth;
     
     // Parse in_handle if provided
     if (in_handle_obj) {
@@ -62,7 +62,7 @@ static int PY_Keyframe_init(PY_Keyframe *self, PyObject *args, PyObject *kwds) {
         if (PyLong_Check(function_obj)) {
             long function_val = PyLong_AsLong(function_obj);
             
-            if (function_val >= 0 && function_val < static_cast<long>(anim::Function::count)) { 
+            if (function_val >= 0 && function_val < static_cast<long>(anim::Function::Count)) { 
                 function = static_cast<anim::Function>(function_val);
             } else {
                 PyErr_SetString(PyExc_ValueError, "Invalid function value");
@@ -79,7 +79,7 @@ static int PY_Keyframe_init(PY_Keyframe *self, PyObject *args, PyObject *kwds) {
         if (PyLong_Check(handle_mode_obj)) {
             long mode_val = PyLong_AsLong(handle_mode_obj);
             
-            if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::count)) { 
+            if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::Count)) { 
                 handle_mode = static_cast<anim::HandleMode>(mode_val);
             } else {
                 PyErr_SetString(PyExc_ValueError, "Invalid handle mode value");
@@ -165,7 +165,7 @@ static PyObject* PY_Keyframe_get_function(PY_Keyframe *self, void *closure) {
 static int PY_Keyframe_set_function(PY_Keyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
         long function_val = PyLong_AsLong(value);
-        if (function_val >= 0 && function_val < static_cast<long>(anim::Function::count)) {
+        if (function_val >= 0 && function_val < static_cast<long>(anim::Function::Count)) {
             self->keyframe.function = static_cast<anim::Function>(function_val);
             return 0;
         } else {
@@ -185,7 +185,7 @@ static PyObject* PY_Keyframe_get_handle_mode(PY_Keyframe *self, void *closure) {
 static int PY_Keyframe_set_handle_mode(PY_Keyframe *self, PyObject *value, void *closure) {
     if (PyLong_Check(value)) {
         long mode_val = PyLong_AsLong(value);
-        if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::count)) {
+        if (mode_val >= 0 && mode_val < static_cast<long>(anim::HandleMode::Count)) {
             self->keyframe.handle_mode = static_cast<anim::HandleMode>(mode_val);
             return 0;
         } else {
@@ -369,15 +369,15 @@ int PY_Keyframe_set_state(PY_Keyframe *self, PyObject *value, void *closure) {
         }
         
         // Get function and handle mode (with defaults)
-        anim::Function function = anim::Function::bezier;
-        anim::HandleMode handle_mode = anim::HandleMode::smooth;
+        anim::Function function = anim::Function::Bezier;
+        anim::HandleMode handle_mode = anim::HandleMode::Smooth;
         
         PyObject* function_obj = PyDict_GetItemString(value, "function");
         if (function_obj) {
             if (PyLong_Check(function_obj)) {
                 // Accept integer values for backward compatibility
                 long func_val = PyLong_AsLong(function_obj);
-                if (func_val < 0 || func_val >= static_cast<long>(anim::Function::count)) {
+                if (func_val < 0 || func_val >= static_cast<long>(anim::Function::Count)) {
                     PyErr_SetString(PyExc_ValueError, "Invalid function value in keyframe state");
                     return -1;
                 }
@@ -397,7 +397,7 @@ int PY_Keyframe_set_state(PY_Keyframe *self, PyObject *value, void *closure) {
             if (PyLong_Check(handle_mode_obj)) {
                 // Accept integer values for backward compatibility
                 long mode_val = PyLong_AsLong(handle_mode_obj);
-                if (mode_val < 0 || mode_val >= static_cast<long>(anim::HandleMode::count)) {
+                if (mode_val < 0 || mode_val >= static_cast<long>(anim::HandleMode::Count)) {
                     PyErr_SetString(PyExc_ValueError, "Invalid handle_mode value in keyframe state");
                     return -1;
                 }

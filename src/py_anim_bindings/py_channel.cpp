@@ -34,8 +34,8 @@ static int PY_Channel_init(PY_Channel *self, PyObject *args, PyObject *kwds) {
 // --- Keyframe creation ---
 static PyObject* create_keyframe_time_value(PY_Channel* self, PyObject* args) {
     double time, value;
-    int function = (int)anim::Function::bezier;
-    int handle_mode = (int)anim::HandleMode::smooth;
+    int function = (int)anim::Function::Bezier;
+    int handle_mode = (int)anim::HandleMode::Smooth;
     
     auto argc = PyTuple_Size(args);
     if (argc == 2) {
@@ -66,8 +66,8 @@ static PyObject* create_keyframe_time_value(PY_Channel* self, PyObject* args) {
 
 static PyObject* create_keyframe_point(PY_Channel* self, PyObject* args) {
     PyObject *position_obj;
-    int function = (int)anim::Function::bezier;
-    int handle_mode = (int)anim::HandleMode::smooth;
+    int function = (int)anim::Function::Bezier;
+    int handle_mode = (int)anim::HandleMode::Smooth;
     
     auto argc = PyTuple_Size(args);
     if (argc == 1) {
@@ -102,8 +102,8 @@ static PyObject* create_keyframe_point(PY_Channel* self, PyObject* args) {
 static PyObject* create_keyframe_with_handles(PY_Channel* self, PyObject* args) {
     double time, value;
     PyObject *in_handle_obj, *out_handle_obj;
-    int function = (int)anim::Function::bezier;
-    int handle_mode = (int)anim::HandleMode::smooth;
+    int function = (int)anim::Function::Bezier;
+    int handle_mode = (int)anim::HandleMode::Smooth;
     
     auto argc = PyTuple_Size(args);
     if (argc == 4) {
