@@ -349,7 +349,10 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
                     m_samplesEndTime,
                     output->numSamples
                 );
-                std::copy(samples.begin(), samples.end(), output->channels[i]);
+                // std::copy(samples.begin(), samples.end(), output->channels[i]);
+                for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
+                    output->channels[i][j] = static_cast<float>(samples[j]);
+                }
             }
         }
         break;

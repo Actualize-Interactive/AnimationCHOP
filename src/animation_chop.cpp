@@ -404,7 +404,10 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
                     m_animation->end_time(),
                     output->numSamples
                 );
-                std::copy(samples.begin(), samples.end(), output->channels[i]);
+                // std::copy(samples.begin(), samples.end(), (output->channels[i]));
+                for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
+                    output->channels[i][j] = static_cast<float>(samples[j]);
+                }
             }
         }
         return;
@@ -466,26 +469,6 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
         np.minSliders[0] = 0.0;
         np.maxSliders[0] = 30.0;
         OP_ParAppendResult res = manager->appendFloat(np);
-        assert(res == OP_ParAppendResult::Success);
-    } {
-        OP_StringParameter	sp;
-        sp.name = "Extendleft";
-        sp.label = "Extend Left";
-        sp.defaultValue = "hold";
-        const char *names[] = { "hold", "repeat"};
-        const char *labels[] = { "Hold", "Repeat" };
-
-        OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
-        assert(res == OP_ParAppendResult::Success);
-    } {
-        OP_StringParameter	sp;
-        sp.name = "Extendright";
-        sp.label = "Extend Right";
-        sp.defaultValue = "repeat";
-        const char *names[] = { "hold", "repeat"};
-        const char *labels[] = { "Hold", "Repeat" };
-
-        OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
         assert(res == OP_ParAppendResult::Success);
     } {
 		OP_NumericParameter	np;
