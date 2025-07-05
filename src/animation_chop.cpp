@@ -14,6 +14,7 @@
 
 #include "animation_chop.h"
 #include "py_anim_bindings/py_bindings.h"
+#include "py_anim_bindings/py_extend.h"
 
 
 #include <stdio.h>
@@ -79,6 +80,7 @@ static PyGetSetDef getSets[] =
     {"Point", get_point_type, nullptr, "Point type for representing time-value pairs.", nullptr},
     {"HandleMode", get_handle_mode_enum, nullptr, "HandleMode enum for keyframe handle behavior.", nullptr},
     {"Function", get_function_enum, nullptr, "Function enum for keyframe interpolation type.", nullptr},
+    {"Extend", get_extend_enum, nullptr, "Extend enum for channel extrapolation behavior.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"channels", py_get_channels, nullptr, "Get all channels.", nullptr}, 
     {"channel_names", py_get_channel_names, nullptr, "Get all channel names.", nullptr},
@@ -179,6 +181,7 @@ AnimationCHOP::~AnimationCHOP()
 {
 	cleanup_handle_mode_enum();
     cleanup_function_enum();
+    cleanup_extend_enum();
 }
 
 void
@@ -463,8 +466,8 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
         assert(res == OP_ParAppendResult::Success);
     } {
         OP_NumericParameter	np;
-        np.name = "Sequence";
-        np.label = "Sequence Index";
+		np.name = "Sequence";
+		np.label = "Sequence Index";
 		np.defaultValues[0] = 0.0;
         np.minSliders[0] = 0.0;
         np.maxSliders[0] = 30.0;

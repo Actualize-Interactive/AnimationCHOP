@@ -1,6 +1,7 @@
 #include "py_channel.h"
 #include "py_keyframe.h" // For KeyframeToPY_Object, PY_KeyframeType
 #include "utils.h" // For AnimationCHOP, AnimationToPY_Object
+#include "py_extend.h" // For Extend enum support
 #include <vector>
 #include <optional>
 
@@ -706,6 +707,68 @@ static PyObject* PY_Channel_num_samples(PY_Channel *self, PyObject* args) {
     }
 }
 
+static PyObject* PY_Channel_get_extend_start(PY_Channel *self, void*) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    return PyLong_FromLong(static_cast<long>(channelData.channel->extend_start()));
+}
+
+static int PY_Channel_set_extend_start(PY_Channel *self, PyObject* value, void*) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return -1;
+    }
+    if (!PyLong_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "extend_start must be an integer");
+        return -1;
+    }
+    long extend_val = PyLong_AsLong(value);
+    if (extend_val < 0 || extend_val > 2) {
+        PyErr_SetString(PyExc_ValueError, "extend_start must be a valid Extend value (0-2)");
+        return -1;
+    }
+    channelData.channel->set_extend_start(static_cast<anim::Extend>(extend_val));
+    if (channelData.node_struct) {
+        channelData.node_struct->context->makeNodeDirty();
+    }
+    return 0;
+}
+
+static PyObject* PY_Channel_get_extend_end(PY_Channel *self, void*) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return NULL;
+    }
+    return PyLong_FromLong(static_cast<long>(channelData.channel->extend_end()));
+}
+
+static int PY_Channel_set_extend_end(PY_Channel *self, PyObject* value, void*) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return -1;
+    }
+    if (!PyLong_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "extend_end must be an integer");
+        return -1;
+    }
+    long extend_val = PyLong_AsLong(value);
+    if (extend_val < 0 || extend_val > 2) {
+        PyErr_SetString(PyExc_ValueError, "extend_end must be a valid Extend value (0-2)");
+        return -1;
+    }
+    channelData.channel->set_extend_end(static_cast<anim::Extend>(extend_val));
+    if (channelData.node_struct) {
+        channelData.node_struct->context->makeNodeDirty();
+    }
+    return 0;
+}
+
 // --- State methods ---
 PyObject* PY_Channel_get_state(PY_Channel *self, void *closure) {
     auto channelData = getChannelData(self, false);
@@ -725,6 +788,8 @@ PyObject* PY_Channel_get_state(PY_Channel *self, void *closure) {
         PyDict_SetItemString(state_dict, "length", PyFloat_FromDouble(channelData.channel->length()));
         PyDict_SetItemString(state_dict, "num_keyframes", PyLong_FromSize_t(channelData.channel->num_keyframes()));
         PyDict_SetItemString(state_dict, "empty", PyBool_FromLong(channelData.channel->empty() ? 1 : 0));
+        PyDict_SetItemString(state_dict, "extend_start", PyUnicode_FromString(extend_to_string(channelData.channel->extend_start())));
+        PyDict_SetItemString(state_dict, "extend_end", PyUnicode_FromString(extend_to_string(channelData.channel->extend_end())));
         
         // Create keyframes list using keyframe state
         PyObject* keyframes_list = PyList_New(channelData.channel->num_keyframes());
@@ -794,6 +859,19 @@ int PY_Channel_set_state(PY_Channel *self, PyObject *value, void *closure) {
         PyObject* name_obj = PyDict_GetItemString(value, "name");
         if (name_obj && PyUnicode_Check(name_obj)) {
             channelData.channel->set_name(PyUnicode_AsUTF8(name_obj));
+        }
+        
+        // Set extend modes if provided
+        PyObject* extend_start_obj = PyDict_GetItemString(value, "extend_start");
+        if (extend_start_obj && PyUnicode_Check(extend_start_obj)) {
+            const char* extend_start_str = PyUnicode_AsUTF8(extend_start_obj);
+            channelData.channel->set_extend_start(string_to_extend(extend_start_str));
+        }
+        
+        PyObject* extend_end_obj = PyDict_GetItemString(value, "extend_end");
+        if (extend_end_obj && PyUnicode_Check(extend_end_obj)) {
+            const char* extend_end_str = PyUnicode_AsUTF8(extend_end_obj);
+            channelData.channel->set_extend_end(string_to_extend(extend_end_str));
         }
         
         // Process keyframes
@@ -974,6 +1052,8 @@ static PyGetSetDef PY_Channel_getset[] = {
     {"start_time", (getter)PY_Channel_start_time, NULL, "Start time", NULL},
     {"end_time", (getter)PY_Channel_end_time, NULL, "End time", NULL},
     {"length", (getter)PY_Channel_length, NULL, "Length", NULL},
+    {"extend_start", (getter)PY_Channel_get_extend_start, (setter)PY_Channel_set_extend_start, "Start extend mode", NULL},
+    {"extend_end", (getter)PY_Channel_get_extend_end, (setter)PY_Channel_set_extend_end, "End extend mode", NULL},
     {"state", (getter)PY_Channel_get_state, (setter)PY_Channel_set_state, "Channel state as dictionary", NULL},
     {NULL}
 };
