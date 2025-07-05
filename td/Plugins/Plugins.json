@@ -6,13 +6,19 @@
             "Plugins": {
                 "D:/AnimationCHOP/td/Plugins/AnimationViewCHOP.dll": {
                     "Hashes": [
-                        "jqmhtXzQub2DVE9lmNP8nvEEp5oamI+YeFhxWJb+BnK9GPtMy7CoiiT6bxx34vehvTJ1hsySFBfWB+VXtI/QD7NIP2RVWJHvddAJ9laQ7CKXRd7gfrGJWxTLKB6g5oAk"
-                    ]
+                        "jqmhtXzQub2DVE9lmNP8nvEEp5oamI+YeFhxWJb+BnK9GPtMy7CoiiT6bxx34vehvTJ1hsySFBfWB+VXtI/QD7NIP2RVWJHvddAJ9laQ7CKXRd7gfrGJWxTLKB6g5oAk",
+                        "OQE1cyyo0CFR51B/FvLClFMkKfKyfSHdpLaTnwmEWCMmNenmwVNGZHkpDVAEPvNJtIMPzr+L6oopmQkFcRRte9rJokcb95uaX9C29m4NcDSvxX4oNO0WYm9jUjzBm2xT"
+                    ],
+                    "AuthorName": "Keith Lostracco",
+                    "AuthorEmail": "keith@actualize.vision"
                 },
                 "D:/AnimationCHOP/td/Plugins/AnimationCHOP.dll": {
                     "Hashes": [
-                        "uN7iB8XGaCsEodxkGYa/JVTzi3a0G7V+wNwzytAWqGxH+64cdCkPmF7fzBKCon8jwPUThRMhPt/M+ma6BFVqxzVkVLPbyo5AvNDFoKVJinkKGEeTR6YSKMwtaIQTeoet"
-                    ]
+                        "uN7iB8XGaCsEodxkGYa/JVTzi3a0G7V+wNwzytAWqGxH+64cdCkPmF7fzBKCon8jwPUThRMhPt/M+ma6BFVqxzVkVLPbyo5AvNDFoKVJinkKGEeTR6YSKMwtaIQTeoet",
+                        "yAUH+c6obs7tr5V0gnLkzXHkGtV41FAsajXYpW0NIOlzCF6/mTdRfYFv/x4eNY8svBnpqV7MBgK3TxevAXbZb9Iu0poNNM4TZzXbs2zHPxhJ9SRS3zFOLVHjkJnDU8eq"
+                    ],
+                    "AuthorName": "Keith Lostracco",
+                    "AuthorEmail": "keith@actualize.vision"
                 }
             }
         }
