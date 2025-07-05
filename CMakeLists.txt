@@ -12,6 +12,7 @@ set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(PY_ANIM_BINDINGS_SRCS
     ${SRC}/py_anim_bindings/py_channel.cpp
+    ${SRC}/py_anim_bindings/py_extend.cpp
     ${SRC}/py_anim_bindings/py_function.cpp
     ${SRC}/py_anim_bindings/py_handle_mode.cpp
     ${SRC}/py_anim_bindings/py_keyframe.cpp
