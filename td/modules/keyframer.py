@@ -1,9 +1,6 @@
 vMath = op('vsu').module.VMath()
-import traceback
-import numpy as np
-import colorsys
 TD_CHOP_CHANNEL = Channel
-from pprint import pprint
+pop_menu = op.TDResources.PopMenu
 
 class KeyframerExt:
 	def __init__(self, ownerComp):
@@ -91,7 +88,15 @@ class KeyframerExt:
 					{
 						'label': 'Rename Channel',
 						'func': self.EditChannelName,
-					}				
+					},
+					{
+						'label': 'Extend Start',
+						'func': self.set_extend_start_pop_up,
+					},
+					{
+						'label': 'Extend End',
+						'func': self.set_extend_end_pop_up,
+					}
 				]
 			}
 		}	
@@ -389,6 +394,30 @@ class KeyframerExt:
 				break
 		if idx is not None:
 			self.channelListComp.StartEditCell(idx)
+
+	def set_extend_start_pop_up(self, channel_name):
+		def callback(info):
+			index = info['index']
+			if self.AnimationChop.has_channel(channel_name) and index >= 0 and index <= 2:
+				chan = self.AnimationChop.get_channel(channel_name)
+				chan.extend_start = index
+
+		pop_menu.Open(
+			items=['Hold', 'Repeat', 'Mirror'],
+			callback=callback,
+		)
+
+	def set_extend_end_pop_up(self, channel_name):
+		def callback(info):
+			index = info['index']
+			if self.AnimationChop.has_channel(channel_name) and index >= 0 and index <= 2:
+				chan = self.AnimationChop.get_channel(channel_name)
+				chan.extend_end = index
+
+		pop_menu.Open(
+			items=['Hold', 'Repeat', 'Mirror'],
+			callback=callback,
+		)
 
 	def RenameChannel(self, channel_index, new_name):
 		if new_name in self.AnimationChop.channel_names:
