@@ -253,11 +253,11 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
             m_samplesStartTime = rangeStart / info->sampleRate;
             m_samplesEndTime = rangeEnd / info->sampleRate;
         } else { // Seconds
-            // + 1 to include the start, matching the samples branch above and
-            // the evaluate_range() call in execute(), which spans start..end
-            // inclusive. Without it the output is one sample short of the range.
-            info->numSamples =
-                static_cast<int32_t>(std::ceil(range_delta * info->sampleRate)) + 1;
+            // Half-open, matching the evaluate_range_by_rate() call in
+            // execute(): a span of n sample periods is n samples, and the end
+            // time is not sampled.
+            info->numSamples = static_cast<int32_t>(
+                std::ceil(range_delta * info->sampleRate));
             m_samplesStartTime = rangeStart;
             m_samplesEndTime = rangeEnd;
         }
@@ -359,10 +359,13 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_anim_channels = animation->num_channels();
         for (int i = 0; i < output->numChannels; ++i) {
             if (i < static_cast<int>(num_anim_channels)) {
-                auto samples = animation->channel(i).evaluate_range(
+                // By rate, matching AnimationCHOP: a CHOP's samples are one
+                // period apart by definition, so the data has to be generated
+                // at 1/sampleRate rather than spread across a closed range.
+                auto samples = animation->channel(i).evaluate_range_by_rate(
                     m_samplesStartTime,
                     m_samplesEndTime,
-                    output->numSamples
+                    output->sampleRate
                 );
                 // std::copy(samples.begin(), samples.end(), output->channels[i]);
                 for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {

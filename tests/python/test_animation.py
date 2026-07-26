@@ -143,15 +143,52 @@ def test_animation_num_samples_is_empty_without_channels(op):
 
 
 def test_animation_num_samples_covers_the_range(ramp, op):
-    # 0..30 at 60 fps, inclusive of both ends.
-    assert op.num_samples == 30 * 60 + 1
+    """The range is half-open: 30 seconds at 60 fps is 1800 samples.
+
+    The end time is not sampled, so a span of n sample periods gives n
+    samples -- what a CHOP means by a sample count, and what the operator's
+    output length is.
+    """
+    assert op.num_samples == 30 * 60
 
 
 def test_channel_num_samples_takes_a_sample_rate(ramp):
     """Channel.num_samples(rate) is a method because it is rate-dependent,
     unlike the operator's num_samples, which reads the configured range."""
-    assert ramp.num_samples(60.0) == 30 * 60 + 1
-    assert ramp.num_samples(30.0) == 30 * 30 + 1
+    assert ramp.num_samples(60.0) == 30 * 60
+    assert ramp.num_samples(30.0) == 30 * 30
+
+
+def test_num_samples_is_a_whole_number_of_periods(op):
+    """A duration that lands a few ulps off a whole number must not gain a
+    sample -- the count is rounded to the nearest whole period first."""
+    op.start_time = 0.0
+    op.end_time = 4.0
+    ch = op.create_channel("tx")
+    ch.create_keyframe(0, 0)
+    ch.create_keyframe(4, 1)
+
+    assert ch.num_samples(30.0) == 120
+    assert op.num_samples == 4 * 60
+
+
+def test_evaluate_range_by_rate_is_half_open(ramp):
+    """The samples are one period apart and stop short of the end time."""
+    values = ramp.evaluate_range_by_rate(0.0, 30.0, 60.0)
+
+    assert len(values) == 30 * 60
+    assert values[0] == pytest.approx(0.0)
+    # Last sample sits one period before the end, not on it.
+    assert values[-1] == pytest.approx(ramp.evaluate(30.0 - 1.0 / 60.0))
+
+
+def test_evaluate_range_stays_closed(ramp):
+    """evaluate_range(start, end, n) keeps its closed meaning -- both ends."""
+    values = ramp.evaluate_range(0.0, 30.0, 121)
+
+    assert len(values) == 121
+    assert values[0] == pytest.approx(0.0)
+    assert values[-1] == pytest.approx(ramp.evaluate(30.0))
 
 
 # --- state ------------------------------------------------------------------

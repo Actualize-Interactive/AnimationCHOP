@@ -1171,14 +1171,16 @@ def test_state_roundtrip(anim_chop, result):
 import math
 
 # Deliberately a non-zero start: range mode used to size its output as
-# end_time * sample_rate, which ignored the start and over-ran the range. The
-# count is ceil(length * rate) + 1, spanning start..end inclusive -- the same
-# convention as Animation.num_samples.
+# end_time * sample_rate, which ignored the start and over-ran the range.
+#
+# The range is half-open, matching Animation.num_samples and a CHOP's own
+# meaning of a sample count: a span of n sample periods is n samples, spaced
+# exactly 1/rate apart, and the end time is not sampled.
 COOK_START = 1.0
 COOK_END = 3.0
 COOK_RATE = 60.0
-COOK_SAMPLES = int(math.ceil((COOK_END - COOK_START) * COOK_RATE)) + 1
-COOK_STEP = (COOK_END - COOK_START) / (COOK_SAMPLES - 1)
+COOK_SAMPLES = int(math.ceil((COOK_END - COOK_START) * COOK_RATE))
+COOK_STEP = 1.0 / COOK_RATE
 
 
 def setup_cook_test(anim_chop):
@@ -1225,8 +1227,15 @@ def check_cook_test(anim_chop, result):
 
         result.assert_near(0.0, ramp_out[0], 1e-4,
                            "First cooked sample matches the first keyframe")
-        result.assert_near(100.0, ramp_out[COOK_SAMPLES - 1], 1e-4,
-                           "Last cooked sample matches the last keyframe")
+
+        # Half-open: the last sample sits one period short of the range end, so
+        # it is NOT the final keyframe's value. Asserting that explicitly, since
+        # an off-by-one here is otherwise invisible on a smooth curve.
+        result.assert_near(ramp_src.evaluate(COOK_END - COOK_STEP),
+                           ramp_out[COOK_SAMPLES - 1], 1e-3,
+                           "Last cooked sample sits one period before the range end")
+        result.assert_true(ramp_out[COOK_SAMPLES - 1] < 100.0,
+                           "The range end itself is not sampled")
 
         # The interesting one: every sample has to agree with evaluate(), which
         # is the contract the CHOP output rests on. Tolerance is loose because

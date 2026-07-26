@@ -35,9 +35,18 @@ First release prepared for the public repository.
 
 - **Breaking:** range mode sized its output as `end_time * sample_rate`, which
   ignored the range start. A node with `Range = [10, 70]` at 60 fps emitted 4200
-  samples for a 60-second span. Both range and auto-range now derive the count
-  from the range length, and agree with `Animation.num_samples` for the same
-  range. Output lengths change for any node whose range does not start at zero.
+  samples for a 60-second span. Both range and auto-range now take their count
+  from `Animation::num_samples`, so the length and the data cannot drift.
+  Output lengths change for any node whose range does not start at zero.
+- **Breaking:** the range is now half-open. A span of n sample periods produces
+  n samples spaced exactly `1/rate` apart, and the range end is no longer
+  sampled — 30 seconds at 60 fps is 1800 samples, not 1801. Both operators now
+  fill their output with `evaluate_range_by_rate()` rather than
+  `evaluate_range()`, which spreads a count across a *closed* interval and so
+  only lands on `1/rate` spacing for one particular count. A CHOP's samples are
+  implicitly one period apart — the format stores no per-sample times — so the
+  previous pairing skewed the whole channel whenever the two disagreed. This
+  follows the same change in anim.
 - AnimationViewCHOP's samples view was one sample short of its range in seconds
   mode, while its samples mode was correct. Both now clamp to at least one
   sample, so an inverted range cannot ask TouchDesigner for a negative count.
@@ -55,8 +64,9 @@ First release prepared for the public repository.
 
 ### Changed
 
-- Updated to anim v0.3.0, which makes `Id`'s constructor private and returns
-  references rather than pointers from its `Id` lookups.
+- Updated to anim, which makes `Id`'s constructor private, returns references
+  rather than pointers from its `Id` lookups, and moves rate-based sampling to a
+  half-open range.
 - CI builds now run the test suites, and publish release archives that work on
   unzip: the operators in a `Plugins/` folder beside the example project,
   `Keyframer.tox`, the modules the project loads, and the licence files.

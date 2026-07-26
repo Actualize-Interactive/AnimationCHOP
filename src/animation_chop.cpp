@@ -41,23 +41,22 @@ namespace {
 
 // The output length for the range/auto-range modes.
 //
-// This has to agree with execute(), which fills the output with
-// evaluate_range(start, end, numSamples) -- a span inclusive of both ends. That
-// makes the count ceil(length * rate) + 1, the same convention as anim's own
-// Animation::num_samples(). Computing the span here rather than calling
-// length() avoids its throw-on-inverted-range, so this can never raise across
-// TouchDesigner's C API.
+// Delegates to the animation rather than recomputing, so the count cannot drift
+// from the data: num_samples() shares its half-open span and its rounding rule
+// with evaluate_range_by_rate(), which execute() fills the output from. A span
+// of n sample periods is n samples -- end_time is not sampled -- which is also
+// what a CHOP means by a sample count.
+//
+// Guards the rate because num_samples() throws on a non-positive one, and an
+// exception must not cross TouchDesigner's C API. Clamps up because a CHOP
+// cannot have zero samples, while an animation with no channels has none.
 int32_t rangeSampleCount(const anim::Animation& animation, double sampleRate)
 {
     if (sampleRate <= 0.0)
         return 1;
 
-    const double length = animation.end_time() - animation.start_time();
-    if (length <= 0.0)
-        return 1;
-
-    const int32_t count = static_cast<int32_t>(std::ceil(length * sampleRate)) + 1;
-    return count < 1 ? 1 : count;
+    const size_t count = animation.num_samples(sampleRate);
+    return count < 1 ? 1 : static_cast<int32_t>(count);
 }
 
 // Move the animation's range to [start, end].
@@ -444,10 +443,16 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
         size_t num_anim_channels = m_animation->num_channels();
         for (int i = 0; i < output->numChannels; i++) {
             if (i < static_cast<int>(num_anim_channels)) {
-                auto samples = m_animation->channel(i).evaluate_range(
+                // By rate, not by count. A CHOP's samples are implicitly one
+                // period apart -- the format stores no per-sample times -- so
+                // the data has to be generated at exactly 1/sampleRate.
+                // evaluate_range() spreads a count across a closed interval
+                // instead, which only lands on that spacing for one particular
+                // count and skews the whole channel otherwise.
+                auto samples = m_animation->channel(i).evaluate_range_by_rate(
                     m_animation->start_time(),
                     m_animation->end_time(),
-                    output->numSamples
+                    output->sampleRate
                 );
                 // std::copy(samples.begin(), samples.end(), (output->channels[i]));
                 for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
@@ -1023,8 +1028,8 @@ static PyObject* py_get_num_samples(PyObject *self, void* closure) {
     }
  
     try {
-        int samples = animation->num_samples(static_cast<double>(inst->sampleRate()));
-        return PyLong_FromLong(samples);
+        size_t samples = animation->num_samples(static_cast<double>(inst->sampleRate()));
+        return PyLong_FromSize_t(samples);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_ValueError, e.what());
         return NULL;

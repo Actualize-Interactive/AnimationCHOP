@@ -119,17 +119,16 @@ jobs:
     - name: Extract release notes from CHANGELOG
       run: |
         version="${GITHUB_REF_NAME#v}"
-        # Match the heading with a plain string prefix test, not a dynamic
-        # regex. Building one as "^## \\[" v "\\]" looks right but is not
-        # portable: gawk strips the backslashes when converting a string to a
-        # regex, leaving [0.4.0] as a character class that matches a single
-        # character. The bug is silent -- it yields empty notes, not an error.
-        awk -v hdr="## [$version]" '
-          index($0, hdr) == 1  { found = 1; next }   # heading for this version
-          found && /^## \[/    { exit }              # next version heading
-          found && /^\[.*\]: / { exit }              # link reference block
-          found && /^<!--/     { exit }              # trailing comments
-          found                { print }
+        # Match the heading by prefix rather than by regex: a version string
+        # interpolated into a regex turns "[0.4.0]" into a character class, and
+        # whether the escaping survives depends on the awk in use (mawk keeps
+        # the backslash, gawk drops it and silently matches nothing).
+        awk -v head="## [$version]" '
+          index($0, head) == 1      { found = 1; next }  # heading for this version
+          found && index($0, "## [") == 1 { exit }       # next version heading
+          found && /^\[.*\]: /      { exit }             # link reference block
+          found && index($0, "<!--") == 1 { exit }       # trailing comments
+          found                     { print }
         ' CHANGELOG.md \
           | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' > RELEASE_NOTES.md
 
