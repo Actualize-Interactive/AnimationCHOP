@@ -4,6 +4,7 @@
 #include "py_extend.h" // For Extend enum support
 #include <vector>
 #include <optional>
+#include <stdexcept>
 
 // Allocation/deallocation functions
 static PyObject* PY_Channel_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
@@ -1135,7 +1136,10 @@ PyObject* ChannelToPY_Object(anim::Channel* channel, PyObject* parent) {
     self->parent = nullptr;
 
     try {
-        new (&self->channel_id) anim::Id(channel->id().id); // Use placement new to initialize id
+        // Placement new to initialize the const id member. Copy the Id itself
+        // rather than rebuilding one from its raw value: anim only hands ids
+        // out from the library, so the raw constructor is private.
+        new (&self->channel_id) anim::Id(channel->id());
         Py_XINCREF(parent); // Increase reference count for parent
         self->parent = parent; // Assign parent
     } catch (const std::exception& e) {
@@ -1195,6 +1199,15 @@ ChannelData getChannelData(PY_Channel *self, bool autoCook) {
         PyErr_SetString(PyExc_RuntimeError, "Cannot retrieve anim::Animation instance.");
         return ChannelData();
     }
-    // anim::Animation would need a method like getChannelById
-    return { animation->channel(self->channel_id), inst, td_struct };
+    // channel(Id) returns a reference and throws std::out_of_range when the
+    // channel is gone -- which is reachable, since Python can hold a Channel
+    // past a remove_channel(). Every caller tests for a null channel, so
+    // translate the miss into that rather than letting a C++ exception escape
+    // through the CPython boundary.
+    try {
+        return { &animation->channel(self->channel_id), inst, td_struct };
+    } catch (const std::out_of_range&) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel no longer exists.");
+        return ChannelData();
+    }
 }
