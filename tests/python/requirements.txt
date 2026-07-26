@@ -1,0 +1,6 @@
+# Test dependencies for the pytest binding suite.
+# Only needed when uv is unavailable -- otherwise `uv run --with pytest`
+# supplies these ephemerally. Install into the Python 3.11 that built the
+# extension, e.g.:
+#   uv pip install -r tests/python/requirements.txt
+pytest>=8,<9

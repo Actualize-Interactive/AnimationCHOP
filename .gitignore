@@ -18,3 +18,9 @@ build
 # and TouchDesigner writes a per-machine Plugins.json trust file alongside them.
 # Released binaries are published as release assets instead.
 td/Plugins/
+
+# The pytest extension is copied next to its tests so `import animationchop`
+# resolves; it is a build artifact.
+tests/python/*.pyd
+tests/python/*.so
+.pytest_cache/

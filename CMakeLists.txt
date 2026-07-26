@@ -226,3 +226,56 @@ install(TARGETS animation_chop animation_view_chop
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
+
+# ---------------------------------------------------------------------------
+# Tests
+#
+# tests/python runs pytest against an extension that compiles the real operator
+# sources against a fake PY_Context. No TouchDesigner needed, so it runs in CI.
+#
+# There is deliberately no Catch2 suite yet: anim carries its own (5026
+# assertions), and what remains here is bound to TouchDesigner or to CPython,
+# so a C++ suite today would either test nothing meaningful or drag Python in.
+# The saveData()/loadData() codec is the natural subject and should bring
+# tests/cpp with it.
+#
+# The TouchDesigner integration test is separate and local-only (TouchDesigner
+# needs a licence and a GPU, so it cannot run on a cloud runner); see
+# run_td_tests.ps1 and TESTING.md.
+#
+# Configure with -DANIMATIONCHOP_BUILD_TESTS=ON, or use the `dev` preset.
+# ---------------------------------------------------------------------------
+option(ANIMATIONCHOP_BUILD_TESTS "Build the Catch2 and pytest unit tests" OFF)
+
+if(ANIMATIONCHOP_BUILD_TESTS)
+    enable_testing()
+
+    # TouchDesigner embeds CPython 3.11, so the extension must be built and
+    # imported by 3.11. uv is preferred: it can supply both the interpreter and
+    # pytest without anything being installed globally.
+    find_program(UV_EXECUTABLE uv)
+    if(UV_EXECUTABLE)
+        message(STATUS "AnimationCHOP: using uv at ${UV_EXECUTABLE} to run pytest")
+    else()
+        find_package(Python3 3.11 COMPONENTS Interpreter REQUIRED)
+        set(ANIMATIONCHOP_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+        message(STATUS "AnimationCHOP: uv not found; running pytest with ${Python3_EXECUTABLE}")
+    endif()
+
+    # A CPython extension is .pyd on Windows and .so everywhere else, including
+    # macOS -- CMake's default MODULE suffix there is .so already, but .dylib
+    # would not be importable, so be explicit.
+    if(WIN32)
+        set(ANIMATIONCHOP_PYEXT_SUFFIX ".pyd")
+        # Windows builds against the vendored headers/import library, matching
+        # the operator targets above.
+        set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include)
+    else()
+        set(ANIMATIONCHOP_PYEXT_SUFFIX ".so")
+        find_package(Python3 3.11 COMPONENTS Development.Module REQUIRED)
+        set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+        set(ANIMATIONCHOP_PYTHON_LIBRARIES Python3::Module)
+    endif()
+
+    add_subdirectory(tests/python)
+endif()

@@ -7,8 +7,16 @@
 #include <map>
 #include <memory>
 
+#include <Python.h>
+
 
 using namespace TD;
+
+// The Python method/getset tables this operator registers with TouchDesigner.
+// Defined in animation_chop.cpp and exposed so the pytest extension under
+// tests/python can bind the identical tables without TouchDesigner.
+extern PyMethodDef AnimationCHOP_pythonMethods[];
+extern PyGetSetDef AnimationCHOP_pythonGetSets[];
 
 class AnimationCHOP : public CHOP_CPlusPlusBase
 {

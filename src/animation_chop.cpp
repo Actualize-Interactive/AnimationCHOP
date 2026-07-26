@@ -49,7 +49,10 @@ static PyObject* py_get_state_method(PyObject* self, PyObject* args);
 static PyObject* py_set_state_method(PyObject* self, PyObject* args);
 
 // --- Python method table for AnimationCHOP ---
-static PyMethodDef methods[] = {
+// Externally linked (and declared in animation_chop.h) so the pytest extension
+// under tests/python can expose the very same table, rather than a copy that
+// would drift.
+PyMethodDef AnimationCHOP_pythonMethods[] = {
     {"create_channel", (PyCFunction)py_create_channel, METH_VARARGS, "Create a new channel."},
     {"remove_channel", (PyCFunction)py_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
     {"has_channel", (PyCFunction)py_has_channel, METH_VARARGS, "Check if a channel exists."},
@@ -75,7 +78,8 @@ static PyObject* py_get_state(PyObject* self, void* closure);
 static int py_set_state(PyObject* self, PyObject* value, void* closure);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
-static PyGetSetDef getSets[] =
+// Externally linked for the same reason as AnimationCHOP_pythonMethods above.
+PyGetSetDef AnimationCHOP_pythonGetSets[] =
 {
     {"Point", get_point_type, nullptr, "Point type for representing time-value pairs.", nullptr},
     {"HandleMode", get_handle_mode_enum, nullptr, "HandleMode enum for keyframe handle behavior.", nullptr},
@@ -144,8 +148,8 @@ FillCHOPPluginInfo(CHOP_PluginInfo *info)
 	info->customOPInfo.maxInputs = 1;
 
 	info->customOPInfo.pythonVersion->setString(PY_VERSION);
-	info->customOPInfo.pythonMethods = methods;
-	info->customOPInfo.pythonGetSets = getSets;
+	info->customOPInfo.pythonMethods = AnimationCHOP_pythonMethods;
+	info->customOPInfo.pythonGetSets = AnimationCHOP_pythonGetSets;
 	info->customOPInfo.pythonCallbacksDAT = PythonCallbacksDATStubs;
 }
 
