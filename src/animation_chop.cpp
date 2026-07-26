@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 #include <cmath>
 #include <assert.h>
 
@@ -71,6 +72,29 @@ void setAnimationRange(anim::Animation& animation, double start, double end)
     animation.set_end_time(std::max(start, end));
     animation.set_start_time(start);
     animation.set_end_time(end);
+}
+
+// Zero one output channel.
+//
+// TouchDesigner allocates the sample buffer but does not initialise it -- the
+// SDK header promises only that it is "already allocated for you" -- so a
+// sample left unwritten keeps whatever was in that memory, which surfaces as
+// NaN. Every sample the CHOP asks for has to be written exactly once, so this
+// is only for the cases with no data to write: an error return, or an output
+// channel with no animation channel behind it. The normal path fills the buffer
+// itself and must not be pre-cleared -- that would write every sample twice,
+// every cook.
+void silenceChannel(CHOP_Output* output, int32_t index)
+{
+    std::fill_n(output->channels[index], output->numSamples, 0.0f);
+}
+
+// Zero the whole output, for the paths that bail out before producing anything.
+void silenceOutput(CHOP_Output* output)
+{
+    for (int32_t i = 0; i < output->numChannels; ++i) {
+        silenceChannel(output, i);
+    }
 }
 
 } // namespace
@@ -330,18 +354,26 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 
     switch(m_outputMode) {
     case OutputMode::input: {
+        // Each of these bails out with nothing to write, so the output has to
+        // be silenced rather than left as it was. Reporting the problem is not
+        // enough on its own: an untouched buffer reads as NaN, which looks like
+        // a fault in the data rather than a missing connection.
         const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
         if (!input_chop) {
             m_error = "No input CHOP connected.";
+            silenceOutput(output);
             return;
         } else if (input_chop->numChannels < 1) {
             m_error = "Input CHOP has no channels.";
+            silenceOutput(output);
             return;
         } else if (input_chop->numSamples != output->numSamples) {
             m_error = "Input CHOP and output CHOP have different number of samples.";
+            silenceOutput(output);
             return;
         } else if (input_chop->sampleRate != output->sampleRate) {
             m_error = "Input CHOP and output CHOP have different sample rates.";
+            silenceOutput(output);
             return;
         }
 
@@ -367,10 +399,25 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
                 for (int j = 0; j < output->numSamples; ++j) {
                     output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_times[j]));
                 }
-            } 
+            } else {
+                // No animation channel or no input channel to drive it, so
+                // nothing to evaluate -- but the sample still has to be written.
+                silenceChannel(output, static_cast<int32_t>(i));
+            }
         }
         return;
     } case OutputMode::sequence: {
+        // The fill loops below skip any output channel with no animation
+        // channel behind it. getOutputInfo sized the output from that same
+        // count, so this is only reachable if the animation shrank in between
+        // -- from Python, between cooks -- but those samples still have to be
+        // written. Done once here rather than as an else on each of the six
+        // fill loops.
+        for (int32_t i = static_cast<int32_t>(m_animation->num_channels());
+             i < output->numChannels; ++i) {
+            silenceChannel(output, i);
+        }
+
         auto index_unit = inputs->getParString("Indexunit");
         auto eval_time = inputs->getParDouble("Sequence");
 
@@ -443,7 +490,9 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
     } case OutputMode::range: case OutputMode::autoRange: default: {
         size_t num_anim_channels = m_animation->num_channels();
         for (int i = 0; i < output->numChannels; i++) {
-            if (i < static_cast<int>(num_anim_channels)) {
+            if (i >= static_cast<int>(num_anim_channels)) {
+                silenceChannel(output, i);  // no animation channel behind it
+            } else {
                 // By rate, not by count. A CHOP's samples are implicitly one
                 // period apart -- the format stores no per-sample times -- so
                 // the data has to be generated at exactly 1/sampleRate.
@@ -455,9 +504,23 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
                     m_animation->end_time(),
                     output->sampleRate
                 );
-                // std::copy(samples.begin(), samples.end(), (output->channels[i]));
-                for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
+
+                const int32_t written = static_cast<int32_t>(std::min<size_t>(
+                    samples.size(), static_cast<size_t>(output->numSamples)));
+                for (int32_t j = 0; j < written; ++j) {
                     output->channels[i][j] = static_cast<float>(samples[j]);
+                }
+
+                // getOutputInfo sized the output from Animation::num_samples,
+                // and this fills it from evaluate_range_by_rate over the same
+                // span -- both route through the same rounding, so a shortfall
+                // should be impossible. Say so rather than absorbing it: the
+                // tail reads as a run of zeros either way, and a silent
+                // shortfall is exactly what made this class of bug hard to
+                // place.
+                if (written < output->numSamples) {
+                    m_warning = "Generated fewer samples than the output declares. "
+                                "Please report this.";
                 }
             }
         }

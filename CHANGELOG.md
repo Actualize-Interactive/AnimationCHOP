@@ -68,11 +68,21 @@ First release prepared for the public repository.
   maximum 30) on both operators.
 - Holding a `Channel` past a `remove_channel()` unwound a C++ exception through
   the CPython boundary instead of raising. It now raises `RuntimeError`.
+- NaN in the cooked output. TouchDesigner allocates a CHOP's sample buffer but
+  does not initialise it, so any sample an operator does not write keeps
+  whatever was in that memory -- which appears as NaN, apparently by design, so
+  the omission is visible. Several paths wrote nothing at all: AnimationCHOP in
+  Input mode with nothing connected, or with a mismatched input, set an error
+  and returned; AnimationViewCHOP did the same with no source operator
+  selected, which is the state a freshly created node is in. Those paths now
+  write zeros, so a node that cannot produce data reports why rather than
+  emitting NaN. The normal paths are unchanged and still write each sample
+  exactly once. Closes #15.
 - A channel with no keyframes crashed AnimationViewCHOP. The segment count was
   computed as `size() - 1` on an unsigned type, so an empty channel wrapped to
   `SIZE_MAX` and undercounted the segment table, which the fill loop then wrote
   past the end of. Creating a channel before keying it is ordinary, so this was
-  reachable from the first thing a user does.
+  reachable from the first thing a user does. Closes #16.
 
 ### Changed
 

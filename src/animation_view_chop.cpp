@@ -6,6 +6,23 @@
 #include <cmath>
 #include <iostream>
 
+namespace {
+
+// Zero the whole output, for the paths that bail out before producing anything.
+//
+// TouchDesigner allocates the sample buffer but does not initialise it, so a
+// sample left unwritten keeps whatever was in that memory and shows up as NaN.
+// This is only for the no-data cases: the view fill loops write every sample
+// themselves, and pre-clearing them would write the buffer twice every cook.
+void silenceOutput(TD::CHOP_Output* output)
+{
+    for (int32_t i = 0; i < output->numChannels; ++i) {
+        std::fill_n(output->channels[i], output->numSamples, 0.0f);
+    }
+}
+
+} // namespace
+
 
 #ifdef _WIN32
 	#include <Python.h>
@@ -351,11 +368,19 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
     m_error = nullptr;
     m_warning = nullptr;
 
+    // Both of these bail out with nothing to write. TouchDesigner allocates the
+    // sample buffer but does not initialise it, so returning without writing
+    // leaves whatever was in that memory, which surfaces as NaN -- and the
+    // first case is the state a freshly created node is in, before a source
+    // operator has been picked. Only the no-data paths are silenced; the fill
+    // loops below write every sample themselves and must not be pre-cleared.
     if (!setDataInstance(inputs)) {
+        silenceOutput(output);
         return;
     }
     auto animation = animationCHOP()->animation();
     if (!animation) {
+        silenceOutput(output);
         return;
     }
     
@@ -384,6 +409,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_keyframe_channels = m_keyframes_chan_names.size();
         if (output->numChannels > num_keyframe_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         size_t i = 0;
@@ -412,6 +438,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_segment_info_channels = m_segments_chan_names.size();
         if (output->numChannels > num_segment_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         size_t i = 0;
@@ -452,6 +479,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_channel_info_channels = m_channels_chan_names.size();
         if (output->numChannels > num_channel_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         int32_t start_index = 0;
@@ -473,6 +501,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_animation_info_channels = m_animation_chan_names.size();
         if (output->numChannels > num_animation_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         double min_keyframe_time = std::numeric_limits<double>::max();

@@ -117,6 +117,11 @@ def _build_steps():
         steps.append(lambda: ac.setup_nan_case(_anim_chop))
         steps.append(lambda: ac.check_nan_case(_anim_chop, _result))
 
+    steps += [
+        lambda: ac.setup_unconnected_input_case(_anim_chop),
+        lambda: ac.check_unconnected_input_case(_anim_chop, _result),
+    ]
+
     if _view_chop is None:
         print("[td-test] no AnimationViewCHOP found; skipping its suites")
         steps.append(lambda: _result.record_exception(
@@ -149,6 +154,9 @@ def _build_steps():
 
         lambda: _anim_chop.clear(),
         lambda: av.check_empty_animation(_anim_chop, _view_chop, _result),
+
+        lambda: av.setup_no_source(_view_chop),
+        lambda: av.check_no_source(_view_chop, _result),
     ]
     return steps
 

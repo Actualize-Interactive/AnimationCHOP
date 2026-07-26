@@ -327,6 +327,46 @@ def check_empty_channel(anim_chop, view_chop, result):
         result.record_exception("Empty channel handling", e)
 
 
+_saved_source = None
+
+
+def setup_no_source(view_chop):
+    """Clear the source operator -- the state a freshly created node is in.
+
+    setDataInstance() fails without one and execute() returns having written
+    nothing, so every sample used to keep whatever was in TouchDesigner's
+    buffer. A node that has not been hooked up yet should read as zeros, not
+    NaN.
+    """
+    global _saved_source
+    _saved_source = view_chop.par.Datasource.eval()
+    view_chop.par.Datasource = ''
+
+
+def check_no_source(view_chop, result):
+    result.begin_suite('view: no source')
+    print("\n--- Testing AnimationViewCHOP with no source operator ---")
+
+    try:
+        bad = []
+        for c in range(view_chop.numChans):
+            chan = view_chop[c]
+            for i in range(view_chop.numSamples):
+                if chan[i] != chan[i] or abs(chan[i]) > 1e30:
+                    bad.append((chan.name, i))
+                    break
+        result.assert_equal([], bad,
+                            "No NaN in cooked output with no source operator")
+    except Exception as e:
+        result.record_exception("No-source handling", e)
+    finally:
+        try:
+            if _saved_source is not None:
+                view_chop.par.Datasource = _saved_source
+        except Exception:
+            pass
+
+
 def check_empty_animation(anim_chop, view_chop, result):
     """No channels at all -- the state a freshly created node is in."""
     result.begin_suite('view: empty animation')

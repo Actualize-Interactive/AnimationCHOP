@@ -1269,6 +1269,48 @@ def check_nan_case(anim_chop, result):
         result.record_exception(f"NaN scan: {label}", e)
 
 
+def setup_unconnected_input_case(anim_chop):
+    """Input mode with nothing connected -- an error state that still cooks.
+
+    execute() sets an error and returns without writing anything, so every
+    sample used to keep whatever was in TouchDesigner's buffer. The node is
+    meant to report the problem, not emit NaN, and this configuration is one
+    parameter click away from the default.
+    """
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'input'
+    ch = anim_chop.create_channel('orphan')
+    ch.create_keyframe(0.0, 0.0)
+    ch.create_keyframe(1.0, 100.0)
+
+
+def check_unconnected_input_case(anim_chop, result):
+    result.begin_suite('cooked output: NaN')
+    try:
+        bad = []
+        for c in range(anim_chop.numChans):
+            chan = anim_chop[c]
+            for i in range(anim_chop.numSamples):
+                if _is_bad(chan[i]):
+                    bad.append((chan.name, i))
+                    break
+        if bad:
+            _nan_findings.append(f"Input mode with no input connected: {bad}")
+        result.assert_equal([], bad,
+                            "No NaN in cooked output -- Input mode, nothing connected")
+        # The node should say why it has no data rather than only looking odd.
+        result.assert_true(bool(anim_chop.errors()),
+                           "Input mode with no input reports an error")
+    except Exception as e:
+        result.record_exception("NaN scan: unconnected input", e)
+    finally:
+        try:
+            anim_chop.par.Outputmode = 'range'
+            anim_chop.clear()
+        except Exception:
+            pass
+
+
 def nan_cases_remaining():
     return _nan_case_index < len(NAN_CASES)
 
