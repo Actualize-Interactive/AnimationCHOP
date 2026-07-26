@@ -6,6 +6,7 @@
 #include "py_point.h"
 #include "py_handle_mode.h"
 #include "py_function.h"
+#include "py_range_end.h"
 
 #ifdef _WIN32
 	#include <Python.h>

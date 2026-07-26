@@ -13,6 +13,7 @@ This document provides comprehensive reference for the Python bindings available
 
 - [**Function**](Function.md) - Interpolation functions for keyframes
 - [**HandleMode**](HandleMode.md) - Handle behavior modes for keyframes
+- [**RangeEnd**](RangeEnd.md) - Whether a sampled range includes its end time
 
 ## Quick Start
 

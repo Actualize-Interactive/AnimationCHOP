@@ -28,7 +28,14 @@ First release prepared for the public repository.
 - A TouchDesigner integration harness (`run_td_tests.ps1` / `.sh`) that runs the
   suites inside a real project and gates its exit code on the result, including
   checks that the cooked CHOP output matches what the channels evaluate to. See
-  `TESTING.md`.
+  `TESTING.md`. AnimationViewCHOP is covered there too, across all five view
+  modes -- it has no Python API of its own, so integration is the only place it
+  can be tested at all.
+- `RangeEnd` is exposed to Python, as a trailing argument on
+  `Channel.evaluate_range`, `Channel.evaluate_range_by_rate` and
+  `Channel.num_samples`. It defaults to `RangeEnd.EXCLUSIVE`; pass
+  `RangeEnd.INCLUSIVE` when samples are points on the curve rather than spans of
+  time, as when plotting or building a lookup table.
 - `LICENSE`, `NOTICE`, `README.md` and `CONTRIBUTING.md`.
 
 ### Fixed
@@ -61,6 +68,11 @@ First release prepared for the public repository.
   maximum 30) on both operators.
 - Holding a `Channel` past a `remove_channel()` unwound a C++ exception through
   the CPython boundary instead of raising. It now raises `RuntimeError`.
+- A channel with no keyframes crashed AnimationViewCHOP. The segment count was
+  computed as `size() - 1` on an unsigned type, so an empty channel wrapped to
+  `SIZE_MAX` and undercounted the segment table, which the fill loop then wrote
+  past the end of. Creating a channel before keying it is ordinary, so this was
+  reachable from the first thing a user does.
 
 ### Changed
 

@@ -5,13 +5,14 @@
 # writes, then parses it and exits 0 (pass) or 1 (fail / timeout).
 #
 # Usage: ./run_td_tests.sh [--no-build] [--op NAME] [--timeout SEC]
-#                          [--toe PATH] [--td APP_PATH]
+#                          [--toe PATH] [--td APP_PATH] [--view-op NAME]
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
 no_build=0
 op="animation1"
+view_op="animationview1"
 timeout_sec=180
 toe="tests/td/test.toe"
 td_app="${ANIMATIONCHOP_TD:-/Applications/TouchDesigner.app}"
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-build)      no_build=1; shift ;;
         --op)            op="$2"; shift 2 ;;
+        --view-op)       view_op="$2"; shift 2 ;;
         --timeout)       timeout_sec="$2"; shift 2 ;;
         --toe)           toe="$2"; shift 2 ;;
         --td)            td_app="$2"; shift 2 ;;
@@ -55,6 +57,7 @@ rm -f "$results_path"
 
 export ANIMATIONCHOP_RESULTS="$results_path"
 export ANIMATIONCHOP_OP="$op"
+export ANIMATIONCHOP_VIEW_OP="$view_op"
 
 echo "Launching TouchDesigner..."
 "$td_bin" "$toe_full" &

@@ -14,6 +14,7 @@
 .PARAMETER NoBuild    Skip building; use the operator already in td/Plugins/.
 .PARAMETER Toe        Path to the .toe to run. Default: tests/td/test.toe
 .PARAMETER OpName     Name of the AnimationCHOP operator in the project. Default: animation1
+.PARAMETER ViewOpName Name of the AnimationViewCHOP operator. Default: animationview1
 .PARAMETER TimeoutSec How long to wait for results.json. Default: 180
 .PARAMETER TdPath     Path to TouchDesigner.exe. Default: newest install found.
 
@@ -27,6 +28,7 @@ param(
     [switch] $NoBuild,
     [string] $Toe = (Join-Path $PSScriptRoot "tests/td/test.toe"),
     [string] $OpName = "animation1",
+    [string] $ViewOpName = "animationview1",
     [int]    $TimeoutSec = 180,
     [string] $TdPath = ""
 )
@@ -75,6 +77,7 @@ if (Test-Path $resultsPath) { Remove-Item $resultsPath -Force }
 # The in-TD runner reads these (inherited by the child process).
 $env:ANIMATIONCHOP_RESULTS = $resultsPath
 $env:ANIMATIONCHOP_OP = $OpName
+$env:ANIMATIONCHOP_VIEW_OP = $ViewOpName
 
 Write-Host "Launching TouchDesigner..." -ForegroundColor Cyan
 $proc = Start-Process -FilePath $td -ArgumentList "`"$toeFull`"" -PassThru

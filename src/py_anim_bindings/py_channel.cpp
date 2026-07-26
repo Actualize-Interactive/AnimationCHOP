@@ -571,10 +571,14 @@ static PyObject* PY_Channel_evaluate_range(PY_Channel *self, PyObject *args) {
     }
     double start_time, end_time;
     int num_samples;
-    if (!PyArg_ParseTuple(args, "ddi", &start_time, &end_time, &num_samples))
+    PyObject* range_end_obj = NULL;
+    if (!PyArg_ParseTuple(args, "ddi|O", &start_time, &end_time, &num_samples, &range_end_obj))
+        return NULL;
+    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
+    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
         return NULL;
     try {
-        std::vector<double> values = channelData.channel->evaluate_range(start_time, end_time, num_samples);
+        std::vector<double> values = channelData.channel->evaluate_range(start_time, end_time, num_samples, range_end);
         PyObject* list = PyList_New(values.size());
         for (size_t i = 0; i < values.size(); ++i)
             PyList_SET_ITEM(list, i, PyFloat_FromDouble(values[i]));
@@ -592,10 +596,14 @@ static PyObject* PY_Channel_evaluate_range_by_rate(PY_Channel *self, PyObject *a
         return NULL;
     }
     double start_time, end_time, sample_rate;
-    if (!PyArg_ParseTuple(args, "ddd", &start_time, &end_time, &sample_rate))
+    PyObject* range_end_obj = NULL;
+    if (!PyArg_ParseTuple(args, "ddd|O", &start_time, &end_time, &sample_rate, &range_end_obj))
+        return NULL;
+    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
+    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
         return NULL;
     try {
-        std::vector<double> values = channelData.channel->evaluate_range_by_rate(start_time, end_time, sample_rate);
+        std::vector<double> values = channelData.channel->evaluate_range_by_rate(start_time, end_time, sample_rate, range_end);
         PyObject* list = PyList_New(values.size());
         for (size_t i = 0; i < values.size(); ++i)
             PyList_SET_ITEM(list, i, PyFloat_FromDouble(values[i]));
@@ -697,10 +705,14 @@ static PyObject* PY_Channel_num_samples(PY_Channel *self, PyObject* args) {
         return NULL;
     }
     double sample_rate;
-    if (!PyArg_ParseTuple(args, "d", &sample_rate))
+    PyObject* range_end_obj = NULL;
+    if (!PyArg_ParseTuple(args, "d|O", &sample_rate, &range_end_obj))
+        return NULL;
+    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
+    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
         return NULL;
     try {
-        size_t n = channelData.channel->num_samples(sample_rate);
+        size_t n = channelData.channel->num_samples(sample_rate, range_end);
         return PyLong_FromSize_t(n);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -1003,9 +1015,22 @@ static PyMethodDef PY_Channel_methods[] = {
     {"set_keyframe_function", (PyCFunction)PY_Channel_set_keyframe_function, METH_VARARGS, "Set keyframe function at index"},
     {"set_keyframe_handle_mode", (PyCFunction)PY_Channel_set_keyframe_handle_mode, METH_VARARGS, "Set keyframe handle mode at index"},
     {"evaluate", (PyCFunction)PY_Channel_evaluate, METH_VARARGS, "Evaluate the channel at a specific time"},
-    {"evaluate_range", (PyCFunction)PY_Channel_evaluate_range, METH_VARARGS, "Evaluate the channel over a range (start_time, end_time, num_samples)"},
-    {"evaluate_range_by_rate", (PyCFunction)PY_Channel_evaluate_range_by_rate, METH_VARARGS, "Evaluate the channel over a range by sample rate (start_time, end_time, sample_rate)"},
-    {"num_samples", (PyCFunction)PY_Channel_num_samples, METH_VARARGS, "Get the number of samples for a given sample rate"},
+    {"evaluate_range", (PyCFunction)PY_Channel_evaluate_range, METH_VARARGS,
+     "evaluate_range(start_time, end_time, num_samples, range_end=RangeEnd.EXCLUSIVE) -> list[float]\n\n"
+     "Evaluate num_samples evenly spaced values across the range. The range is\n"
+     "half-open by default: end_time is not sampled, so looping or joining\n"
+     "adjacent ranges does not repeat a value at the seam. Pass\n"
+     "RangeEnd.INCLUSIVE to land the last sample on end_time, which is what\n"
+     "plotting a curve or building a lookup table wants."},
+    {"evaluate_range_by_rate", (PyCFunction)PY_Channel_evaluate_range_by_rate, METH_VARARGS,
+     "evaluate_range_by_rate(start_time, end_time, sample_rate, range_end=RangeEnd.EXCLUSIVE) -> list[float]\n\n"
+     "Evaluate the range at a fixed rate, so samples are exactly one period\n"
+     "apart however long the range is. Half-open by default: a span of n\n"
+     "periods gives n values. This is what the operator's own output uses."},
+    {"num_samples", (PyCFunction)PY_Channel_num_samples, METH_VARARGS,
+     "num_samples(sample_rate, range_end=RangeEnd.EXCLUSIVE) -> int\n\n"
+     "How many samples evaluate_range_by_rate() returns over this channel's\n"
+     "keyframe range at the given rate."},
     {"get_state", (PyCFunction)PY_Channel_get_state_method, METH_NOARGS, "Get Channel state as dictionary"},
     {"set_state", (PyCFunction)PY_Channel_set_state_method, METH_VARARGS, "Set Channel state from dictionary"},
     {NULL}  // Sentinel

@@ -182,13 +182,61 @@ def test_evaluate_range_by_rate_is_half_open(ramp):
     assert values[-1] == pytest.approx(ramp.evaluate(30.0 - 1.0 / 60.0))
 
 
-def test_evaluate_range_stays_closed(ramp):
-    """evaluate_range(start, end, n) keeps its closed meaning -- both ends."""
-    values = ramp.evaluate_range(0.0, 30.0, 121)
+def test_evaluate_range_is_half_open_by_default(ramp):
+    """Both sampling methods default to half-open, and agree with each other."""
+    values = ramp.evaluate_range(0.0, 30.0, 30 * 60)
+
+    assert len(values) == 30 * 60
+    assert values[0] == pytest.approx(0.0)
+    assert values[-1] == pytest.approx(ramp.evaluate(30.0 - 1.0 / 60.0))
+    assert values == pytest.approx(ramp.evaluate_range_by_rate(0.0, 30.0, 60.0))
+
+
+def test_range_end_inclusive_lands_on_the_end(op, ramp):
+    """RangeEnd.INCLUSIVE samples the end time -- for plots and lookup tables."""
+    values = ramp.evaluate_range(0.0, 30.0, 121, op.RangeEnd.INCLUSIVE)
 
     assert len(values) == 121
     assert values[0] == pytest.approx(0.0)
     assert values[-1] == pytest.approx(ramp.evaluate(30.0))
+
+
+def test_range_end_inclusive_adds_the_closing_sample_by_rate(op, ramp):
+    """By rate, INCLUSIVE is one more sample: the one landing on the end."""
+    exclusive = ramp.evaluate_range_by_rate(0.0, 30.0, 60.0)
+    inclusive = ramp.evaluate_range_by_rate(0.0, 30.0, 60.0, op.RangeEnd.INCLUSIVE)
+
+    assert len(inclusive) == len(exclusive) + 1
+    assert inclusive[:-1] == pytest.approx(exclusive)
+    assert inclusive[-1] == pytest.approx(ramp.evaluate(30.0))
+
+
+def test_num_samples_follows_range_end(op, ramp):
+    assert ramp.num_samples(60.0) == 30 * 60
+    assert ramp.num_samples(60.0, op.RangeEnd.INCLUSIVE) == 30 * 60 + 1
+
+
+def test_range_end_rejects_nonsense(op, ramp):
+    with pytest.raises(ValueError):
+        ramp.evaluate_range(0.0, 30.0, 10, 99)
+    with pytest.raises(TypeError):
+        ramp.evaluate_range(0.0, 30.0, 10, "inclusive")
+
+
+def test_half_open_ranges_join_without_repeating(op):
+    """The reason the default is half-open: adjacent spans do not double up.
+
+    Sampling 0..1 and 1..2 back to back must give the same values as sampling
+    0..2 in one go -- no repeated sample at the seam.
+    """
+    ch = op.create_channel("seam")
+    ch.create_keyframe(0, 0)
+    ch.create_keyframe(2, 100)
+
+    joined = (ch.evaluate_range_by_rate(0.0, 1.0, 60.0)
+              + ch.evaluate_range_by_rate(1.0, 2.0, 60.0))
+
+    assert joined == pytest.approx(ch.evaluate_range_by_rate(0.0, 2.0, 60.0))
 
 
 # --- state ------------------------------------------------------------------

@@ -112,7 +112,7 @@ Full Python API reference under [`docs/`](docs/README.md):
 - [AnimationCHOP](docs/AnimationCHOP.md) — the operator: channels, range, state
 - [Channel](docs/Channel.md) — a single curve
 - [Keyframe](docs/Keyframe.md) · [Point](docs/Point.md)
-- [Function](docs/Function.md) · [HandleMode](docs/HandleMode.md)
+- [Function](docs/Function.md) · [HandleMode](docs/HandleMode.md) · [RangeEnd](docs/RangeEnd.md)
 
 ## Building from source
 

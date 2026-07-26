@@ -124,6 +124,7 @@ PyGetSetDef AnimationCHOP_pythonGetSets[] =
     {"HandleMode", get_handle_mode_enum, nullptr, "HandleMode enum for keyframe handle behavior.", nullptr},
     {"Function", get_function_enum, nullptr, "Function enum for keyframe interpolation type.", nullptr},
     {"Extend", get_extend_enum, nullptr, "Extend enum for channel extrapolation behavior.", nullptr},
+    {"RangeEnd", get_range_end_enum, nullptr, "RangeEnd enum controlling whether a sampled range includes its end time.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"channels", py_get_channels, nullptr, "Get all channels.", nullptr}, 
     {"channel_names", py_get_channel_names, nullptr, "Get all channel names.", nullptr},

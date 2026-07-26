@@ -66,20 +66,30 @@ terminates TouchDesigner, and exits non-zero if anything failed.
 ./run_td_tests.sh --no-build --op animation1
 ```
 
-Two modules implement it:
+Four modules implement it, one per operator plus a driver and a shared harness:
 
-- **`animation_test.py`** *is* the suite. `run_api_tests(anim_chop)` runs the
-  binding suites (Point, Keyframe, enums, animation core, channel, advanced,
-  error handling, state, state errors, state roundtrip) against the real
-  operator. `setup_cook_test()` / `check_cook_test()` then do what only an
+- **`animation_chop_test.py`** — the AnimationCHOP suite. `run_api_tests()`
+  covers the bindings (Point, Keyframe, enums, animation core, channel,
+  advanced, error handling, state, state errors, state roundtrip) against the
+  real operator. `setup_cook_test()` / `check_cook_test()` then do what only an
   in-TouchDesigner run can: configure the node's output parameters, let it cook,
   and check that the samples it emits match what the channels evaluate to.
-- **`td_test_runner.py`** drives them. It runs the API suites, schedules the
-  cook checks a few frames later (the node has to actually cook in between —
-  that is what `run(..., delayFrames=)` is for; sleeping would block the very
-  frames being waited on), and writes `results.json`.
+- **`animation_view_chop_test.py`** — the AnimationViewCHOP suite. This operator
+  has no Python API of its own, so *everything* about it is integration-only:
+  the suite steps through all five view modes (samples, keyframes, segments,
+  channels, animation), checking each publishes its documented channels and that
+  the values match the source animation. It also covers empty and
+  single-keyframe channels, which have no segments.
+- **`td_test_runner.py`** drives them as a list of steps, a few frames apart. A
+  step that reconfigures a node is followed by one that reads what it cooked —
+  the gap is what lets the cook happen. That is what `run(..., delayFrames=)` is
+  for; sleeping would block the very frames being waited on. It writes
+  `results.json` when the last step finishes.
+- **`test_result.py`** — the assertion harness both suites share. One
+  `TestResult` is threaded through the whole run, so the summary and
+  `results.json` cover everything rather than one module.
 
-The operator is passed in, so neither module needs to know where it lives.
+The operators are passed in, so no module needs to know where they live.
 TouchDesigner is left running; the host script terminates it once the sentinel
 appears.
 
@@ -94,6 +104,10 @@ appears.
   loads Custom Operators from a `Plugins/` folder beside the `.toe`, and CMake's
   post-build step puts them there.
 - Add an **AnimationCHOP** and name it `animation1`.
+- Add an **AnimationViewCHOP** and name it `animationview1`, with its
+  **Animation / Animation View CHOP** parameter pointing at `animation1`.
+  (Without one, its suites are skipped and recorded as skipped; everything else
+  still runs.)
 - **First load after a (re)build:** TouchDesigner shows a modal asking you to
   approve/trust the newly built Custom Operator. Click to approve. This is
   interactive, so the first integration run after a rebuild may need a manual
@@ -107,14 +121,17 @@ truth:
 | Module DAT (`/local/modules/…`) | Synced to file |
 | --- | --- |
 | `td_test_runner` | `tests/td/td_test_runner.py` |
-| `animation_test` | `tests/td/animation_test.py` |
+| `test_result` | `tests/td/test_result.py` |
+| `animation_chop_test` | `tests/td/animation_chop_test.py` |
+| `animation_view_chop_test` | `tests/td/animation_view_chop_test.py` |
 
 In each DAT, set the **File** parameter to the path above and use **Sync to
-File** so TouchDesigner imports them by name.
+File** so TouchDesigner imports them by name. The DAT names must match the file
+names, since the modules import each other by name.
 
 **3. Add the bootstrap Execute DAT.**
 
-This is the only place that needs to know where the operator is.
+This is the only place that needs to know where the operators are.
 
 - Enable the Execute DAT's **Start** flag (the `onStart` callback).
 - Paste:
@@ -122,32 +139,35 @@ This is the only place that needs to know where the operator is.
   ```python
   def onStart():
       import td_test_runner
-      td_test_runner.start(op('animation1'))   # point at your AnimationCHOP
+      td_test_runner.start(op('animation1'), op('animationview1'))
       return
   ```
 
 - **Save** `test.toe`.
 
-(If you omit the argument, `start()` resolves the operator from the
-`ANIMATIONCHOP_OP` environment variable that the host script sets from
-`-OpName` / `--op`, defaulting to `animation1`.)
+(Omit either argument and `start()` resolves it from the `ANIMATIONCHOP_OP` /
+`ANIMATIONCHOP_VIEW_OP` environment variables the host script sets, defaulting
+to `animation1` and `animationview1`.)
 
 ### Running the suite by hand
 
 Useful while iterating — watch the textport for the PASS/FAIL lines:
 
 ```python
-import animation_test
-animation_test.run_api_tests(op('animation1'))
+import animation_chop_test
+animation_chop_test.run_api_tests(op('animation1'))
 ```
 
-Or the whole thing including the cooked-output checks, which writes
-`results.json` as well:
+Or the whole thing — both operators, every view mode, the cooked-output checks —
+which writes `results.json` as well:
 
 ```python
 import td_test_runner
-td_test_runner.start(op('animation1'))
+td_test_runner.start(op('animation1'), op('animationview1'))
 ```
+
+Note that the full run spans many frames by design, so it finishes a second or
+two after you invoke it, not immediately.
 
 ### Troubleshooting
 

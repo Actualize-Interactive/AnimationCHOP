@@ -204,7 +204,13 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         int32_t total_segments = 0;
         for (const auto& channel : animation->channels()) {
             total_keyframes += static_cast<int32_t>(channel->size());
-            total_segments += static_cast<int32_t>(channel->size() - 1);
+            // size() is unsigned, so an empty channel would make size() - 1
+            // wrap to SIZE_MAX and land here as -1, undercounting the segment
+            // vector that the loop below then writes past the end of. A channel
+            // with fewer than two keyframes simply has no segments.
+            if (channel->size() >= 2) {
+                total_segments += static_cast<int32_t>(channel->size() - 1);
+            }
         }
         
         // Initialize keyframe views with proper indices
@@ -411,7 +417,15 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t i = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
             auto& channel = animation->channel(c);
+            // Same unsigned wrap as in setDataInstance(): without this an empty
+            // channel loops to SIZE_MAX and writes far past the output.
+            if (channel.size() < 2) {
+                continue; // No segments in a channel with fewer than two keyframes
+            }
             for (size_t k = 0; k < channel.size() - 1; ++k) {
+                if (i >= output->numSamples) {
+                    break;
+                }
                 auto start_keyframe = channel.keyframe(k);
                 auto end_keyframe = channel.keyframe(k + 1);
                 output->channels[0][i] = static_cast<float>(c); // Channel index

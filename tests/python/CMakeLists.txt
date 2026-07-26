@@ -12,6 +12,7 @@ add_library(animationchop_testext MODULE
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_handle_mode.cpp
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_keyframe.cpp
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_point.cpp
+    ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_range_end.cpp
 )
 
 # A CPython extension is a .pyd on Windows and a .so elsewhere -- never .dylib.

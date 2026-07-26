@@ -104,13 +104,29 @@ Set the handle mode of keyframe at index.
 #### `evaluate(time: float) -> float`
 Evaluate the channel at a specific time.
 
-#### `evaluate_range(start_time: float, end_time: float, num_samples: int) -> list[float]`
+Both range methods take an optional trailing `range_end`. It defaults to
+`RangeEnd.EXCLUSIVE`: the range is half-open, `end_time` is **not** sampled, and
+a span of n sample periods gives n values. That is the timeline reading — a
+sample covers the interval that follows it, and the end of a range is an edge —
+so looping a curve or joining adjacent ranges does not repeat a value at the
+seam. It is also what the operators' own output uses.
+
+Pass `RangeEnd.INCLUSIVE` when samples are points on the curve rather than spans
+of time: plotting, building a lookup table, numeric integration. Without it the
+last point falls one step short of the end.
+
+```python
+ch.evaluate_range_by_rate(0, 2, 60)                      # 120 values, 0 .. 1.983
+ch.evaluate_range_by_rate(0, 2, 60, op.RangeEnd.INCLUSIVE)  # 121, the last at 2.0
+```
+
+#### `evaluate_range(start_time: float, end_time: float, num_samples: int, range_end: RangeEnd = RangeEnd.EXCLUSIVE) -> list[float]`
 Evaluate the channel over a time range with specified number of samples.
 
-#### `evaluate_range_by_rate(start_time: float, end_time: float, sample_rate: float) -> list[float]`
+#### `evaluate_range_by_rate(start_time: float, end_time: float, sample_rate: float, range_end: RangeEnd = RangeEnd.EXCLUSIVE) -> list[float]`
 Evaluate the channel over a time range with specified sample rate.
 
-#### `num_samples(sample_rate: float) -> int`
+#### `num_samples(sample_rate: float, range_end: RangeEnd = RangeEnd.EXCLUSIVE) -> int`
 Get the number of samples needed for the channel's duration at given sample rate.
 
 ### State Management

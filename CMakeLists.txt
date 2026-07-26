@@ -18,6 +18,7 @@ set(PY_ANIM_BINDINGS_SRCS
     ${SRC}/py_anim_bindings/py_handle_mode.cpp
     ${SRC}/py_anim_bindings/py_keyframe.cpp
     ${SRC}/py_anim_bindings/py_point.cpp
+    ${SRC}/py_anim_bindings/py_range_end.cpp
 )
 
 # Explicitly define sources for AnimationCHOP

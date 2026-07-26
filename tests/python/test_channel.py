@@ -78,7 +78,8 @@ def test_evaluate_range_length(ramp):
     samples = ramp.evaluate_range(0, 30, 31)
     assert len(samples) == 31
     assert samples[0] == pytest.approx(0.0)
-    assert samples[-1] == pytest.approx(100.0)
+    # Half-open by default, so the last sample is one step short of frame 30.
+    assert samples[-1] == pytest.approx(ramp.evaluate(30.0 - 30.0 / 31))
 
 
 def test_evaluate_range_by_rate(ramp):
