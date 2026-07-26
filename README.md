@@ -35,12 +35,15 @@ it.
   index driven by an input CHOP, or a single scrubbed sequence index
 - A complete Python API — create and edit channels and keyframes, evaluate the
   curve at any time, and save or restore whole-animation state as a plain dict
+- Animations persist inside the `.toe`: channels and keyframes are saved with
+  the project and restored on load, with no external files
 
 ## Requirements
 
-- **TouchDesigner** — a build providing Custom Operator CHOP API version 10
-  (common API version 2), i.e. one with node data persistence
-  (`saveData`/`loadData`). Earlier builds will refuse to load the operators.
+- **TouchDesigner 2025.33070 or newer.** Earlier builds will refuse to load the
+  operators. That build is where the Custom Operator API gained node data
+  persistence (`saveData`/`loadData`), which is how animations are stored in the
+  `.toe`; the operators target CHOP API version 10 / common API version 2.
 - **Windows or macOS.** Windows builds are x64.
 
 ## Installation

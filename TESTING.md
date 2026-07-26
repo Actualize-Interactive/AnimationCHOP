@@ -2,17 +2,19 @@
 
 Tests live under `tests/`:
 
+- `tests/cpp/` — Catch2 over the `.toe` persistence codec (no TouchDesigner needed).
 - `tests/python/` — pytest against a compiled test extension (no TouchDesigner needed).
 - `tests/td/` — the TouchDesigner project, the in-network test modules, and the
   local integration harness (`run_td_tests.ps1` / `run_td_tests.sh`).
 
 > Note: TouchDesigner cannot run in cloud CI (it needs a license and a GPU), so
-> CI only builds the operators and runs the `tests/python` suite. The `tests/td`
-> integration test runs against a local TouchDesigner install.
+> CI only builds the operators and runs the `tests/cpp` and `tests/python`
+> suites. The `tests/td` integration test runs against a local TouchDesigner
+> install.
 
-There is no `tests/cpp` suite. The animation maths lives in the `anim`
-submodule, which has its own Catch2 tests; what remains here is binding and
-TouchDesigner glue, which the two suites below cover directly.
+Curve behaviour is not tested here — that belongs to the `anim` submodule, which
+carries its own Catch2 suite. What these cover is the binding and TouchDesigner
+glue built on top of it.
 
 ## Unit tests (no TouchDesigner)
 
@@ -28,6 +30,13 @@ CMake auto-detects the uv Python 3.11 (no paths to pass), and the suite runs
 through `uv run`, so pytest is fetched automatically — nothing to install first.
 (Without uv, install `tests/python/requirements.txt` into the interpreter and
 ctest will call `pytest` there instead.)
+
+`tests/cpp` covers `src/animation_codec.cpp`, the binary format the operator
+writes into the `.toe`. Those bytes are persisted user data, so the suite checks
+both round-trip fidelity — including that a decoded curve evaluates identically
+to the one that was saved — and that a truncated, foreign or out-of-range blob
+is rejected outright rather than half-loaded. Catch2 is fetched at configure
+time; nothing to install.
 
 `tests/python` builds a small CPython extension (`animationchop`) that compiles
 the *real* operator sources against a fake `PY_Context`, so the bindings are

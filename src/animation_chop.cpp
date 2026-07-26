@@ -13,6 +13,7 @@
 */
 
 #include "animation_chop.h"
+#include "animation_codec.h"
 #include "py_anim_bindings/py_bindings.h"
 #include "py_anim_bindings/py_extend.h"
 
@@ -468,6 +469,12 @@ AnimationCHOP::getWarningString(OP_String *warning, void* reserved1)
 void
 AnimationCHOP::getErrorString(OP_String *error, void* reserved1)
 {
+	// A failed restore outranks a cooking error: it explains why the node has
+	// no channels, which is usually the cause of whatever else is complaining.
+	if (!m_loadError.empty()) {
+		error->setString(m_loadError.c_str());
+		return;
+	}
 	error->setString(m_error);
 }
 
@@ -541,6 +548,39 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 void
 AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
+}
+
+void
+AnimationCHOP::saveData(OP_NodeSaveState* saver, void* reserved1)
+{
+    if (!saver || !m_animation)
+        return;
+
+    const std::vector<uint8_t> blob = animation_codec::encode(*m_animation);
+    saver->saveEntry(animation_codec::kSaveKey,
+                     blob.data(),
+                     static_cast<int64_t>(blob.size()));
+}
+
+void
+AnimationCHOP::loadData(const OP_NodeLoadState* loader, void* reserved1)
+{
+    if (!loader || !m_animation)
+        return;
+
+    int64_t byteSize = 0;
+    const void* blob = loader->loadEntry(animation_codec::kSaveKey, &byteSize);
+    if (!blob || byteSize <= 0)
+        return;  // A project saved before this operator persisted anything.
+
+    std::string error;
+    if (!animation_codec::decode(blob, static_cast<size_t>(byteSize), *m_animation, &error)) {
+        // Surface it rather than silently starting empty: the user's keyframes
+        // are in that .toe, and a node that comes back blank with no
+        // explanation looks like data loss. decode() leaves the animation
+        // untouched on failure, so the node is still usable.
+        m_loadError = "Could not restore saved animation: " + error;
+    }
 }
 
 

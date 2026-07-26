@@ -10,8 +10,9 @@ TouchDesigner Custom Operator SDK headers
   Copyright (c) Derivative Inc.
 
 These headers are part of the TouchDesigner Custom Operator SDK (the C++ CHOP
-API, version 10, with common API version 2) and are redistributed here so the
-operators can be built without a separate SDK download. They remain the
+API, version 10, with common API version 2, as shipped with TouchDesigner
+2025.33070) and are redistributed here so the operators can be built without a
+separate SDK download. They remain the
 property of Derivative Inc. and are governed by Derivative's licensing terms
 (the "Shared Use License" reproduced at the top of each file), not the MIT
 license that covers the rest of this repository. The matching or newer versions

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
-project(AnimationCHOP VERSION 1.0.0 LANGUAGES CXX)
+# Stays on 0.x until the API is stable; see CHANGELOG.md.
+project(AnimationCHOP VERSION 0.4.0 LANGUAGES CXX)
 
 set(VERBOSE_STATUS ON CACHE BOOL "Verbose status messages" FORCE)
 set(SUPPRESS_NOT_REFERENCED_WARNINGS ON CACHE BOOL "Suppress not referenced warnings" FORCE)
@@ -23,6 +24,7 @@ set(PY_ANIM_BINDINGS_SRCS
 set(ANIMATION_CHOP_SOURCES
     ${PY_ANIM_BINDINGS_SRCS}
     ${SRC}/animation_chop.cpp
+    ${SRC}/animation_codec.cpp
 )
 
 # Explicitly define sources for AnimationViewCHOP
@@ -245,11 +247,9 @@ install(TARGETS animation_chop animation_view_chop
 # tests/python runs pytest against an extension that compiles the real operator
 # sources against a fake PY_Context. No TouchDesigner needed, so it runs in CI.
 #
-# There is deliberately no Catch2 suite yet: anim carries its own (5026
-# assertions), and what remains here is bound to TouchDesigner or to CPython,
-# so a C++ suite today would either test nothing meaningful or drag Python in.
-# The saveData()/loadData() codec is the natural subject and should bring
-# tests/cpp with it.
+# tests/cpp is Catch2 over the .toe persistence codec -- the one piece here that
+# is pure C++, and the one whose output lands in users' project files. Curve
+# behaviour is anim's to test; it carries its own suite.
 #
 # The TouchDesigner integration test is separate and local-only (TouchDesigner
 # needs a licence and a GPU, so it cannot run on a cloud runner); see
@@ -289,5 +289,6 @@ if(ANIMATIONCHOP_BUILD_TESTS)
         set(ANIMATIONCHOP_PYTHON_LIBRARIES Python3::Module)
     endif()
 
+    add_subdirectory(tests/cpp)
     add_subdirectory(tests/python)
 endif()

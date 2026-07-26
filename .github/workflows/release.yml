@@ -1,14 +1,18 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-and-release:
+  # Build, test and package on every platform as the release gate. Ubuntu is
+  # absent on purpose: TouchDesigner ships on Windows and macOS only.
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -19,11 +23,11 @@ jobs:
             platform: macos
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
     # anim is a public submodule, so the default checkout token is enough.
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -51,42 +55,97 @@ jobs:
       run: ctest --test-dir build --build-config Release --output-on-failure
 
     # Lay the archive out so it works on unzip: the example project sits beside
-    # the Plugins folder, which is the only place TouchDesigner looks for
-    # Custom Operators. A user who only wants the operators copies Plugins/
-    # into their own project.
-    - name: Stage release bundle (Windows)
-      if: runner.os == 'Windows'
+    # the Plugins folder, which is the only place TouchDesigner looks for Custom
+    # Operators. A user who only wants the operators copies Plugins/ into their
+    # own project.
+    - name: Package
       shell: bash
       run: |
-        stage="AnimationCHOP-${{ github.event.release.tag_name }}-windows"
+        version="${GITHUB_REF_NAME:-dev}"
+        stage="AnimationCHOP-${version}-${{ matrix.platform }}"
         mkdir -p "$stage/Plugins" "$stage/modules"
-        cp build/bin/Release/AnimationCHOP.dll     "$stage/Plugins/"
-        cp build/bin/Release/AnimationViewCHOP.dll "$stage/Plugins/"
-        cp td/AnimationCHOP.toe "$stage/"
-        cp td/Keyframer.tox     "$stage/"
-        cp td/animcurves.py     "$stage/"
-        cp -r td/modules/.      "$stage/modules/"
-        cp README.md LICENSE NOTICE "$stage/"
-        7z a "$stage.zip" "$stage"
 
-    - name: Stage release bundle (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      run: |
-        stage="AnimationCHOP-${{ github.event.release.tag_name }}-macos"
-        mkdir -p "$stage/Plugins" "$stage/modules"
-        cp -R build/bin/AnimationCHOP.plugin     "$stage/Plugins/"
-        cp -R build/bin/AnimationViewCHOP.plugin "$stage/Plugins/"
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          cp build/bin/Release/AnimationCHOP.dll     "$stage/Plugins/"
+          cp build/bin/Release/AnimationViewCHOP.dll "$stage/Plugins/"
+        else
+          cp -R build/bin/AnimationCHOP.plugin     "$stage/Plugins/"
+          cp -R build/bin/AnimationViewCHOP.plugin "$stage/Plugins/"
+        fi
+
         cp td/AnimationCHOP.toe "$stage/"
         cp td/Keyframer.tox     "$stage/"
         cp td/animcurves.py     "$stage/"
         cp -R td/modules/.      "$stage/modules/"
-        cp README.md LICENSE NOTICE "$stage/"
-        zip -r "$stage.zip" "$stage"
+        cp README.md LICENSE NOTICE CHANGELOG.md "$stage/"
 
-    - name: Upload release asset
+        # zip is present on both runners; 7z is not on macOS.
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          7z a "$stage.zip" "$stage" > /dev/null
+        else
+          zip -qr "$stage.zip" "$stage"
+        fi
+
+    - name: Upload package
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-${{ matrix.platform }}
+        path: AnimationCHOP-*-${{ matrix.platform }}.zip
+        if-no-files-found: error
+
+  # Publish the release.
+  #
+  # Only runs for tag pushes. A release cannot be published from a branch, so on
+  # workflow_dispatch this job is skipped and the workflow acts as a dry run of
+  # the cross-platform build, test and packaging gate above.
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download packages
+      uses: actions/download-artifact@v4
+      with:
+        pattern: package-*
+        merge-multiple: true
+
+    # Use the CHANGELOG entry for this tag as the release body, so the notes are
+    # written once and reviewed in the pull request that introduced them.
+    - name: Extract release notes from CHANGELOG
+      run: |
+        version="${GITHUB_REF_NAME#v}"
+        # Match the heading with a plain string prefix test, not a dynamic
+        # regex. Building one as "^## \\[" v "\\]" looks right but is not
+        # portable: gawk strips the backslashes when converting a string to a
+        # regex, leaving [0.4.0] as a character class that matches a single
+        # character. The bug is silent -- it yields empty notes, not an error.
+        awk -v hdr="## [$version]" '
+          index($0, hdr) == 1  { found = 1; next }   # heading for this version
+          found && /^## \[/    { exit }              # next version heading
+          found && /^\[.*\]: / { exit }              # link reference block
+          found && /^<!--/     { exit }              # trailing comments
+          found                { print }
+        ' CHANGELOG.md \
+          | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' > RELEASE_NOTES.md
+
+        if [ ! -s RELEASE_NOTES.md ]; then
+          echo "::error::CHANGELOG.md has no '## [$version]' section. Add one before tagging $GITHUB_REF_NAME." >&2
+          exit 1
+        fi
+        echo "Release notes for $version:"
+        cat RELEASE_NOTES.md
+
+    - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        files: AnimationCHOP-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        files: AnimationCHOP-*.zip
+        name: Release ${{ github.ref_name }}
+        body_path: RELEASE_NOTES.md
+        generate_release_notes: true
+        draft: false
+        prerelease: false

@@ -36,6 +36,13 @@ public:
 	virtual void		setupParameters(OP_ParameterManager* manager, void *reserved1) override;
 	virtual void		pulsePressed(const char* name, void* reserved1) override;
 
+	// Persist the animation into the .toe. TouchDesigner calls saveData() on
+	// every project save and whenever the operator is unloaded, and loadData()
+	// on load or reload -- so the channels a user keyframed survive a restart
+	// with no external file and no Python.
+	virtual void		saveData(OP_NodeSaveState* saver, void* reserved1) override;
+	virtual void		loadData(const OP_NodeLoadState* loader, void* reserved1) override;
+
 	anim::Animation* animation() { return m_animation.get(); }
 	const anim::Animation& animation() const { return *m_animation; }
 	float sampleRate() const { return m_sampleRate; }
@@ -51,6 +58,11 @@ private:
 	const OP_NodeInfo* m_nodeInfo;
 	const char* m_warning;
 	const char* m_error;
+	// A failure to restore the saved animation, kept separately because
+	// execute() clears m_error on every cook and this has to stay visible: the
+	// user's keyframes were in that .toe. Owns its text, unlike m_error, which
+	// only ever points at string literals.
+	std::string m_loadError;
 	float m_sampleRate { 60.0f };
 	std::unique_ptr<anim::Animation> m_animation;
 

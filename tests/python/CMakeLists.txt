@@ -5,6 +5,7 @@
 add_library(animationchop_testext MODULE
     extension/animationchop_module.cpp
     ${CMAKE_SOURCE_DIR}/src/animation_chop.cpp
+    ${CMAKE_SOURCE_DIR}/src/animation_codec.cpp
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_channel.cpp
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_extend.cpp
     ${CMAKE_SOURCE_DIR}/src/py_anim_bindings/py_function.cpp
