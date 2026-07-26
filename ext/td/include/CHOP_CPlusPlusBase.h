@@ -31,13 +31,13 @@
  *	Derivative Developers:: Make sure the virtual function order
  *	stays the same, otherwise changes won't be backwards compatible
  */
-#pragma warning(push)
-#pragma warning(disable : 4100)
 
 #ifndef __CHOP_CPlusPlusBase__
 #define __CHOP_CPlusPlusBase__
 
 #include "CPlusPlus_Common.h"
+
+class CHOP_CPlusPlus;
 
 namespace TD
 {
@@ -52,21 +52,64 @@ class CHOP_CPlusPlusBase;
 // from the samples folder in a newer TouchDesigner installation.
 // You may need to upgrade your plugin code in that case, to match
 // the new API requirements
-const int CHOPCPlusPlusAPIVersion = 9;
+const int CHOPCPlusPlusAPIVersion = 10 | (OP_CommonAPIVersion << 16);
 
 class CHOP_PluginInfo
 {
-public:
-	// Must be set to CHOPCPlusPlusAPIVersion in FillCHOPPluginInfo
+private:
+	// Set it by calling setAPIVersion()
 	int32_t			apiVersion = 0;
+public:
 
+	// Returns false if the API version is not supported
+	[[nodiscard]]
+	int32_t
+	getAPIVersion() const
+	{
+		return apiVersion;
+	}
+
+	// Should be called with a value of CHOPCPlusPlusAPIVersion
+	[[nodiscard]]
+	bool
+	setAPIVersion(int32_t version)
+	{
+		apiVersion = version;
+
+		if (!isAPIVersionSupported(version))
+			return false;
+
+		return true;
+	}
+	[[nodiscard]]
+	bool
+	isAPIVersionSupported(int32_t version)
+	{
+		return checkAPIVersionSupported(version, MinAPIVersion, MaxAPIVersion);
+	}
 	int32_t			reserved[100];
 
 	// Information used to describe this plugin as a custom OP.
 	OP_CustomOPInfo	customOPInfo;
 
-	int32_t			reserved2[20];
+	int32_t			reserved2[18];
+
+	static constexpr bool checkPrivateOffsets();
+
+private:
+	// Will be set by the caller of FillTOPPluginInfo()
+	const int32_t	MinAPIVersion = 0;
+	const int32_t	MaxAPIVersion = 0;
+	friend class ::CHOP_CPlusPlus;
 };
+
+constexpr bool
+CHOP_PluginInfo::checkPrivateOffsets()
+{
+	return offsetof(CHOP_PluginInfo, apiVersion) == 0 &&
+		offsetof(CHOP_PluginInfo, MinAPIVersion) == 408 + sizeof(customOPInfo) + 18 * 4 &&
+		offsetof(CHOP_PluginInfo, MaxAPIVersion) == 408 + sizeof(customOPInfo) + 18 * 4 + 4;
+}
 
 class CHOP_GeneralInfo
 {
@@ -133,7 +176,7 @@ public:
 	uint32_t		startIndex;
 
 	// Specify the sample rate of the channel data
-	// DEFAULT : whatever the timeline FPS is ($FPS)
+	// DEFAULT : whatever the component timeline FPS is. (me.time.rate)
 	float			sampleRate;
 
 	void*			reserved1;
@@ -178,8 +221,9 @@ public:
 
 /***** FUNCTION CALL ORDER DURING INITIALIZATION ******/
 /*
-	When the TOP loads the dll the functions will be called in this order
+	When the CHOP loads the dll the functions will be called in this order
 
+	loadData(const OP_NodeSaveState* saver);
 	setupParameters(OP_ParameterManager* m);
 
 */
@@ -347,9 +391,35 @@ public:
 	}
 
 	// This is called whenever a dynamic menu type custom parameter needs to have it's content's
-	// updated. It may happen often, so this could should be efficient.
+	// updated. It may happen often, so this call should be efficient.
 	virtual void
 	buildDynamicMenu(const OP_Inputs* inputs, OP_BuildDynamicMenuInfo* info, void* reserved1)
+	{
+	}
+
+	// Override this method if you want to save arbitrary bytedata with this operator into the toe file.
+	// `OP_NodeSaveState* saver` has methods like `saveEntry()` that are used to add key, value pairs to be saved.
+	// This is called whenever the project file is saved or the custom operator is unloaded.
+	// Usage example in Samples/CPlusPlus/CHOP sample project.
+	virtual void
+	saveData(OP_NodeSaveState* saver, void* reserved1)
+	{
+	}
+
+	// Override this method if you want to load the bytedata that was saved into the toe file through `saveData()`.
+	// `OP_NodeLoadState* loader` has methods like `getKey()`, `getKeyCount()`, `loadEntry()` that are used to retrieve key, value pairs.
+	// This is called during startup of the project file, or whenever the custom operator is loaded/reloaded.
+	// Usage example in Samples/CPlusPlus/CHOP sample project.
+	virtual void
+	loadData(const OP_NodeLoadState* loader, void* reserved1)
+	{
+	}
+
+	// Override this method if you want to specify a descriptor string when hovering over the input connectors of the node.
+	// `inputLabel->label->setString()` sets the label for the input index.
+	// Usage example in Samples/CPlusPlus/CHOP sample project.
+	virtual void
+	inputConnectorLabel(int index, OP_InputLabel* inputLabel, void* reserved1)
 	{
 	}
 
@@ -359,9 +429,6 @@ public:
 private:
 
 	// Reserved for future features
-	virtual int32_t	reservedFunc6() { return 0; }
-	virtual int32_t	reservedFunc7() { return 0; }
-	virtual int32_t	reservedFunc8() { return 0; }
 	virtual int32_t	reservedFunc9() { return 0; }
 	virtual int32_t	reservedFunc10() { return 0; }
 	virtual int32_t	reservedFunc11() { return 0; }
@@ -381,7 +448,7 @@ private:
 
 #pragma pack(pop)
 
-static_assert(offsetof(CHOP_PluginInfo, apiVersion) == 0, "Incorrect Alignment");
+static_assert(CHOP_PluginInfo::checkPrivateOffsets(), "Incorrect Alignment");
 static_assert(offsetof(CHOP_PluginInfo, customOPInfo) == 408, "Incorrect Alignment");
 static_assert(sizeof(CHOP_PluginInfo) == 944, "Incorrect Size");
 
@@ -405,8 +472,6 @@ static_assert(offsetof(CHOP_Output, startIndex) == 12, "Incorrect Alignment");
 static_assert(offsetof(CHOP_Output, names) == 16, "Incorrect Alignment");
 static_assert(offsetof(CHOP_Output, channels) == 24, "Incorrect Alignment");
 static_assert(sizeof(CHOP_Output) == 112, "Incorrect Size");
-#endif
 }; // namespace TD
 
-
-#pragma warning(pop)
+#endif

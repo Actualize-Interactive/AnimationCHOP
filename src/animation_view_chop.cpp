@@ -125,7 +125,12 @@ static PyMethodDef viewMethods[] = {
 DLLEXPORT void 
 FillCHOPPluginInfo(CHOP_PluginInfo* info)
 {
-    info->apiVersion = CHOPCPlusPlusAPIVersion;
+    // The version is recorded even when unsupported, so bailing out here lets
+    // TouchDesigner report the mismatch rather than loading a half-filled
+    // plugin info.
+    if (!info->setAPIVersion(CHOPCPlusPlusAPIVersion))
+        return;
+
     info->customOPInfo.opType->setString("Animationview");
     info->customOPInfo.opLabel->setString("Animation View");
     info->customOPInfo.opIcon->setString("AMV");

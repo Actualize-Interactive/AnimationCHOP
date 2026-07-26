@@ -13,3 +13,8 @@ build
 *.ilk
 *.dmp
 .DS_Store
+
+# Local plugin build output. CMake copies the built libraries here post-build,
+# and TouchDesigner writes a per-machine Plugins.json trust file alongside them.
+# Released binaries are published as release assets instead.
+td/Plugins/

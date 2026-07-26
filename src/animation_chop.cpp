@@ -116,8 +116,11 @@ DLLEXPORT
 void
 FillCHOPPluginInfo(CHOP_PluginInfo *info)
 {
-	// Always set this to CHOPCPlusPlusAPIVersion.
-	info->apiVersion = CHOPCPlusPlusAPIVersion;
+	// Always set this to CHOPCPlusPlusAPIVersion. The version is recorded even
+	// when unsupported, so bailing out here lets TouchDesigner report the
+	// mismatch rather than loading a half-filled plugin info.
+	if (!info->setAPIVersion(CHOPCPlusPlusAPIVersion))
+		return;
 
 	// The opType is the unique name for this BasicCHOP. It must start with a 
 	// capital A-Z character, and all the following characters must lower case
