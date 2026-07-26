@@ -110,6 +110,13 @@ def _build_steps():
         lambda: ac.check_cook_test(_anim_chop, _result),
     ]
 
+    # One configure/scan pair per NaN case. The list is a fixed length, so this
+    # unrolls rather than looping at run time -- the steps carry no state of
+    # their own, and the module tracks which case is current.
+    for _ in ac.NAN_CASES:
+        steps.append(lambda: ac.setup_nan_case(_anim_chop))
+        steps.append(lambda: ac.check_nan_case(_anim_chop, _result))
+
     if _view_chop is None:
         print("[td-test] no AnimationViewCHOP found; skipping its suites")
         steps.append(lambda: _result.record_exception(
@@ -177,6 +184,16 @@ def _finish():
         _anim_chop.clear()
     except Exception:
         pass
+
+    # Print these together at the end: a NaN in the cooked output means the
+    # operator declared more samples than it wrote, and which configurations
+    # trigger it is the whole diagnosis.
+    findings = animation_chop_test.nan_findings()
+    if findings:
+        print("\n[td-test] NaN found in cooked output:")
+        for f in findings:
+            print(f"  {f}")
+
     _result.print_summary()
     _write_results(_result)
 

@@ -1135,6 +1135,148 @@ def check_cook_test(anim_chop, result):
         result.record_exception("Cooked output values", e)
 
 
+# --- NaN in the cooked output (issue #15) -----------------------------------
+#
+# The reported symptom is a NaN in the final sample, appearing only when the
+# range end lands exactly on the last keyframe's time, and going away when the
+# range is nudged.
+#
+# It cannot come from the curve: evaluate() was swept over some 2000 channel
+# geometries -- every function and handle mode, degenerate segments, extreme
+# handles -- without producing one. So the NaN is a sample the operator declared
+# but never wrote. TouchDesigner does not clear the sample buffer between cooks,
+# so an unwritten sample keeps whatever was in that memory, and a CHOP's buffer
+# is filled with NaN precisely so that an unwritten sample is visible rather
+# than plausible.
+#
+# That makes a NaN here a real signal, not cosmetic: it means the fill loop
+# produced fewer samples than getOutputInfo asked for. These configurations are
+# the ones where the old sizing formula and the actual sample count could
+# disagree.
+
+NAN_RATE = 60.0
+
+# (label, keyframe times, range start, range end, sample rate)
+#
+# The first is the reported case exactly. The rest vary the things the old
+# formula was sensitive to: whether the range starts at zero, whether the span
+# is a whole number of sample periods, and whether the rate divides it evenly.
+NAN_CASES = [
+    ("range end on the last keyframe", [0.0, 10.0], 0.0, 10.0, NAN_RATE),
+    ("range end past the last keyframe", [0.0, 10.0], 0.0, 10.5, NAN_RATE),
+    ("range end before the last keyframe", [0.0, 10.0], 0.0, 9.5, NAN_RATE),
+    ("non-zero range start", [1.0, 11.0], 1.0, 11.0, NAN_RATE),
+    ("range start before the first key", [2.0, 8.0], 0.0, 10.0, NAN_RATE),
+    ("fractional span", [0.0, 1.05], 0.0, 1.05, 30.0),
+    ("NTSC rate", [0.0, 10.0], 0.0, 10.0, 59.94),
+    ("rate of 1", [0.0, 10.0], 0.0, 10.0, 1.0),
+    ("very high rate", [0.0, 2.0], 0.0, 2.0, 240.0),
+    ("single keyframe", [5.0], 0.0, 10.0, NAN_RATE),
+    ("zero-length range", [0.0, 10.0], 5.0, 5.0, NAN_RATE),
+    ("negative times", [-10.0, 0.0], -10.0, 0.0, NAN_RATE),
+]
+
+_nan_case_index = 0
+_nan_findings = []
+
+
+def _is_bad(x):
+    # NaN is the only value that is not equal to itself; inf is caught by the
+    # magnitude test. Written without math.isnan so this works on whatever
+    # numeric type TouchDesigner hands back.
+    return x != x or abs(x) > 1e30
+
+
+def setup_nan_case(anim_chop):
+    """Configure the next NaN case. Returns False when they are exhausted.
+
+    check_nan_case() is what advances the index, so the two stay paired even if
+    a step is skipped.
+    """
+    if _nan_case_index >= len(NAN_CASES):
+        return False
+
+    label, times, start, end, rate = NAN_CASES[_nan_case_index]
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'range'
+    anim_chop.par.Indexunit = 'seconds'
+    anim_chop.par.Timeslice = 0
+    anim_chop.par.Samplerate = rate
+    anim_chop.par.Range1 = start
+    anim_chop.par.Range2 = end
+
+    # Two channels, so a shortfall affecting only the last one is still caught.
+    for name, scale in (('nan_a', 1.0), ('nan_b', -3.0)):
+        ch = anim_chop.create_channel(name)
+        for i, t in enumerate(times):
+            ch.create_keyframe(t, i * 100.0 * scale)
+    return True
+
+
+def check_nan_case(anim_chop, result):
+    """Scan every cooked sample of the current case for NaN."""
+    global _nan_case_index
+
+    label, times, start, end, rate = NAN_CASES[_nan_case_index]
+    _nan_case_index += 1
+
+    result.begin_suite('cooked output: NaN')
+    try:
+        n = anim_chop.numSamples
+        bad = []
+        for c in range(anim_chop.numChans):
+            chan = anim_chop[c]
+            for i in range(n):
+                if _is_bad(chan[i]):
+                    bad.append((chan.name, i))
+                    if len(bad) > 4:
+                        break
+            if len(bad) > 4:
+                break
+
+        detail = f"{label} (range {start}..{end} @ {rate}, {n} samples)"
+        if bad:
+            _nan_findings.append(f"{detail}: {bad}")
+        result.assert_equal([], bad, f"No NaN in cooked output -- {detail}")
+
+        # getOutputInfo sizes the output from the Sample Rate parameter, and
+        # execute fills it from output->sampleRate. Those are supposed to be the
+        # same number, but nothing in the API guarantees TouchDesigner passes it
+        # through untouched -- and if it ever substitutes one (the header notes
+        # the rate defaults to the timeline FPS), the count and the data would
+        # be computed from different rates and the tail would go unwritten.
+        # That would be intermittent and range-sensitive, which is what was
+        # reported, so it is worth knowing rather than assuming.
+        if abs(anim_chop.rate - rate) > 1e-6:
+            _nan_findings.append(
+                f"{detail}: cooked rate {anim_chop.rate} != parameter {rate}")
+        result.assert_near(rate, anim_chop.rate, 1e-3,
+                           f"Cooked sample rate matches the parameter -- {detail}")
+
+        # The count TouchDesigner hands execute() should be the one we asked
+        # for. If it is not, a fill loop sized from our own figure would come up
+        # short no matter how correct that figure was.
+        expected = anim_chop.num_samples
+        result.assert_equal(expected, n,
+                            f"Cooked sample count matches Animation.num_samples -- {detail}")
+
+        # A shortfall would show up as a trailing run of untouched samples, so
+        # the last sample is the one to be sure about.
+        if n > 0 and anim_chop.numChans > 0:
+            result.assert_false(_is_bad(anim_chop[0][n - 1]),
+                                f"Final sample is a real number -- {detail}")
+    except Exception as e:
+        result.record_exception(f"NaN scan: {label}", e)
+
+
+def nan_cases_remaining():
+    return _nan_case_index < len(NAN_CASES)
+
+
+def nan_findings():
+    return list(_nan_findings)
+
+
 def run_api_tests(anim_chop, cleanup=True, result=None):
     """Run the binding suites against a real AnimationCHOP operator.
 
