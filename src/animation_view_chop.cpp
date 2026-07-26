@@ -541,9 +541,9 @@ AnimationViewCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1
 		np.name = "Samplerate";
 		np.label = "Sample Rate";
 		np.defaultValues[0] = 60.0;
-		np.minSliders[0] = 120.0;
+		np.minSliders[0] = 1.0;
         np.minValues[0] = 1.0;
-		np.maxSliders[0] =  30.0;
+		np.maxSliders[0] = 120.0;
         np.clampMins[0] = true;
 		
 		OP_ParAppendResult res = manager->appendFloat(np);

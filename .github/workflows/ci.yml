@@ -9,92 +9,60 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
         build_type: [Release]
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-    - name: Generate a token
-      id: generate-token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ vars.AUTH_PULL_REPO_ID }}
-        private-key: ${{ secrets.AUTH_PULL_REPO_SECRET }}
-        owner: Actualize-Interactive
-        repositories: AnimationCHOP,anim
 
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # anim is a public submodule, so the default checkout token is enough --
+    # no app token needed.
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        token: ${{ steps.generate-token.outputs.token }}
 
     - name: Setup CMake
       uses: jwlawson/actions-setup-cmake@v2
       with:
         cmake-version: '3.25'
-        
-    - name: Setup Python (Windows)
-      if: runner.os == 'Windows'
-      uses: actions/setup-python@v4
+
+    # uv provides the Python 3.11 that runs pytest. The operators themselves
+    # build against the vendored headers (Windows) or TouchDesigner's framework
+    # (macOS), not this interpreter.
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
-    - name: Setup Python (macOS)
-      if: runner.os == 'macOS'
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        
-    - name: Configure CMake (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        
-    - name: Configure CMake (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        mkdir build
-        cd build
-        # Find Python and set CMAKE variables
-        python3-config --cflags
-        python3-config --ldflags
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        
-    - name: Build project (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        cd build
-        cmake --build . --config ${{ matrix.build_type }}
-        echo "Listing build outputs:"
-        dir bin
-        
-    - name: Build project (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        cd build
-        cmake --build . --config ${{ matrix.build_type }}
-        echo "Listing build outputs:"
-        ls -la bin/
-        
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DANIMATIONCHOP_BUILD_TESTS=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Test
+      run: ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure
+
     - name: Upload build artifacts (Windows)
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
         name: AnimationCHOPs-windows-${{ matrix.build_type }}
         path: |
-          build/bin/Release/AnimationCHOP.dll
-          build/bin/Release/AnimationViewCHOP.dll
-        
+          build/bin/${{ matrix.build_type }}/AnimationCHOP.dll
+          build/bin/${{ matrix.build_type }}/AnimationViewCHOP.dll
+
     - name: Upload build artifacts (macOS)
       if: runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
         name: AnimationCHOPs-macos-${{ matrix.build_type }}
         path: |
-          build/bin/AnimationCHOP.dylib
-          build/bin/AnimationViewCHOP.dylib
+          build/bin/AnimationCHOP.plugin
+          build/bin/AnimationViewCHOP.plugin
