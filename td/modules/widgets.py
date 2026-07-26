@@ -153,11 +153,12 @@ class Element:
 			self.doUndo = ownerComp.par.Doundo.eval()	
 		else:
 			for i in range(vsu.getOpDepth(ownerComp)):
-				if hasattr(ownerComp.parent(i).par, 'Doundo'):
-					self.doUndo = ownerComp.parent(i).par.Doundo.eval()
-					break
-				else:
-					self.doUndo = True
+				if ownerComp.parent(i):
+					if hasattr(ownerComp.parent(i).par, 'Doundo'):
+						self.doUndo = ownerComp.parent(i).par.Doundo.eval()
+						break
+					else:
+						self.doUndo = True
 
 	def ExpandVal(self, low, high, value, Type):
 		value = ((high - low) * (value)) / 1 + low
@@ -769,23 +770,26 @@ class DroplistListView(Element):
 		compH = self.listItems.numRows * self.DroplistWidget.ItemHeight
 		height = min(maxHeight, compH)
 		width = self.DroplistWidget.ListWidth
+		self.ownerComp.par.w = width
 		self.listContainer.par.w = width
-		if self.listContainer.par.pvscrollbar.eval():
-			w2 = width - 12
-			self.list.par.w = w2
+		scrollbar_active = self.listContainer.par.pvscrollbar.eval() != 'off'
+		scrollbar_width = 12
+		if scrollbar_active:
+			self.list.par.w = width - scrollbar_width
 		else:
 			self.list.par.w = width
 		# self.list.par.w = width
 		self.listContainer.par.h = height
 
 		if opened == False:
+			absMouseX = self.absMouse['tx'].eval()
 			absMouseY = self.absMouse['ty'].eval()
-			mouseX = (self.DroplistWidget.panel.insideu 
-						* self.DroplistWidget.width)
+			mouseX = (self.DroplistWidget.op('Button').panel.insideu 
+						* self.DroplistWidget.op('Button').width)
 			mouseY = (self.DroplistWidget.panel.insidev 
 						* self.DroplistWidget.height)
 
-			x =  width - mouseX - 8
+			x = width * .5 - mouseX 
 			if absMouseY >= height + self.DroplistWidget.ItemHeight:
 				y = - height * 0.5 - mouseY
 			else:
@@ -874,9 +878,9 @@ class MultiButton(Element):
 					if n < len(prevToggles[i]):
 						row.append(prevToggles[i][n])
 					else:
-						row.append(self.ownerComp.par.Defaulttogglevalue.eval())	
+						row.append(False)	
 				else:
-					row.append(self.ownerComp.par.Defaulttogglevalue.eval())
+					row.append(False)
 			default.append(row)
 
 		if not init and numRows != len(self.Toggles):

@@ -1,3 +1,7 @@
+from cProfile import run
+import traceback
+
+
 vMath = op('vsu').module.VMath()
 TD_CHOP_CHANNEL = Channel
 pop_menu = op.TDResources.PopMenu
@@ -100,8 +104,10 @@ class KeyframerExt:
 				]
 			}
 		}	
-
 		self.init()
+
+
+
 
 	@property
 	def AnimationChop(self): 
