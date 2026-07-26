@@ -2,6 +2,12 @@
 
 A Keyframe represents a single animation key with position, handles, and interpolation settings.
 
+A Keyframe is a **value, not a handle**. One obtained from a channel is a
+detached copy, so the property setters below change the copy alone — write it
+back with `channel[index] = kf` to apply it, or use the channel's
+`set_keyframe_*` methods to edit in place. See
+[Keyframes are values, Channels are handles](README.md#keyframes-are-values-channels-are-handles).
+
 ## Properties
 
 | Property | Type | Description |
@@ -81,15 +87,21 @@ kf4 = anim_chop.Keyframe(
     handle_mode=anim_chop.HandleMode.FREE
 )
 
-# Modify properties
+# Modify properties (kf1 is standalone, so these are all it needs)
 kf1.time = 15
 kf1.value = 75
 kf1.function = anim_chop.Function.BEZIER
 kf1.handle_mode = anim_chop.HandleMode.SMOOTH
 
-# Handle manipulation
+# Handle manipulation. Assign a whole Point -- kf1.in_handle is itself a copy,
+# so kf1.in_handle.time = 10 would change nothing.
 kf1.in_handle = anim_chop.Point(10, 50)
 kf1.out_handle = anim_chop.Point(20, 100)
+
+# Editing a keyframe that came from a channel needs the write-back step
+kf = channel[0]
+kf.value = 55
+channel[0] = kf
 
 # State operations
 state = kf1.state  # Save keyframe state

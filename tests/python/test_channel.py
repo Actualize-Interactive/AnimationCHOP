@@ -124,6 +124,99 @@ def test_set_keyframe_position(ramp):
     assert ramp.keyframe(1).value == pytest.approx(75.0)
 
 
+# --- sequence protocol ------------------------------------------------------
+
+def test_len_is_the_keyframe_count(ramp):
+    assert len(ramp) == 2
+
+
+def test_subscript_reads_a_keyframe(ramp):
+    assert ramp[0].time == pytest.approx(0.0)
+    assert ramp[1].value == pytest.approx(100.0)
+
+
+def test_subscript_accepts_negative_indices(ramp):
+    assert ramp[-1].time == pytest.approx(30.0)
+    assert ramp[-2].time == pytest.approx(0.0)
+
+
+def test_iteration_yields_keyframes_in_time_order(ramp):
+    assert [kf.time for kf in ramp] == pytest.approx([0.0, 30.0])
+
+
+def test_subscript_out_of_range_raises_index_error(ramp):
+    with pytest.raises(IndexError):
+        ramp[99]
+
+
+def test_subscript_assignment_writes_the_keyframe_back(ramp):
+    kf = ramp[0]
+    kf.value = 42.0
+    ramp[0] = kf
+
+    assert ramp[0].value == pytest.approx(42.0)
+
+
+def test_subscript_assignment_matches_update_keyframe(op, ramp):
+    other = op.create_channel("other")
+    other.create_keyframe(0, 0)
+
+    kf = ramp[0]
+    kf.value = 42.0
+    kf.function = op.Function.LINEAR
+
+    ramp[0] = kf
+    other.update_keyframe(0, kf)
+
+    assert ramp[0].value == pytest.approx(other[0].value)
+    assert ramp[0].function == other[0].function
+
+
+def test_subscript_assignment_accepts_negative_indices(ramp):
+    kf = ramp[-1]
+    kf.value = 7.0
+    ramp[-1] = kf
+
+    assert ramp[1].value == pytest.approx(7.0)
+
+
+def test_subscript_assignment_clamps_time_to_the_neighbour(ramp):
+    """Keyframes never reorder: a time past a neighbour clamps to it.
+
+    Writing frame 60 into keyframe 0 pins it at its neighbour's frame 30
+    rather than swapping the two, so indices stay stable under time edits.
+    """
+    kf = ramp[0]
+    kf.time = 60.0
+    ramp[0] = kf
+
+    assert [k.time for k in ramp] == pytest.approx([30.0, 30.0])
+
+
+def test_set_keyframe_time_clamps_the_same_way(ramp):
+    """The in-place mutator clamps identically -- it is the same code path."""
+    ramp.set_keyframe_time(0, 60.0)
+    assert [k.time for k in ramp] == pytest.approx([30.0, 30.0])
+
+
+def test_subscript_assignment_out_of_range_raises_index_error(ramp):
+    kf = ramp[0]
+    with pytest.raises(IndexError):
+        ramp[99] = kf
+
+
+def test_subscript_assignment_rejects_non_keyframes(ramp):
+    with pytest.raises(TypeError):
+        ramp[0] = 5.0
+
+
+def test_subscript_deletion_is_not_supported(ramp):
+    """del points at delete_keyframe rather than silently doing nothing."""
+    with pytest.raises(TypeError):
+        del ramp[0]
+    assert ramp.num_keyframes == 2
+
+
 # --- extend -----------------------------------------------------------------
 
 def test_extend_defaults_to_hold(op, ramp):

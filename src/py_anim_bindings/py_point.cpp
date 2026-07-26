@@ -226,7 +226,12 @@ PyTypeObject PY_PointType = {
     PyObject_GenericSetAttr,   // tp_setattro
     0,                         // tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // tp_flags
-    "Point objects",           // tp_doc 
+    // tp_doc
+    "A (time, value) pair, used for keyframe positions and Bezier handles.\n\n"
+    "Like Keyframe, a Point is a value: one read from a keyframe is a detached\n"
+    "copy, so kf.in_handle.time = x changes nothing. Assign a whole Point\n"
+    "instead -- kf.in_handle = Point(x, y), or\n"
+    "channel.set_keyframe_in_handle(index, Point(x, y)).", // tp_doc
     0,                         // tp_traverse 
     0,                         // tp_clear 
     PY_Point_richcompare,       // tp_richcompare 

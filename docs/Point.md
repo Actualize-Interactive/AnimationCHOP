@@ -2,6 +2,11 @@
 
 A Point represents a time-value pair used for keyframe positions and handle coordinates.
 
+Like [Keyframe](Keyframe.md), a Point is a **value**: one read from a keyframe is
+a detached copy, so `kf.in_handle.time = 5` changes nothing. Assign a whole Point
+instead — `kf.in_handle = Point(5, 20)`, or
+`channel.set_keyframe_in_handle(index, Point(5, 20))`.
+
 ## Properties
 
 | Property | Type | Description |

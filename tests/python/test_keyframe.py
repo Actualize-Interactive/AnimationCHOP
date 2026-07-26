@@ -12,7 +12,12 @@ def test_time_and_value(ramp):
 
 
 def test_keyframe_is_a_detached_copy(ramp):
-    """keyframe(i) hands back a fresh object each call, not a live view."""
+    """keyframe(i) hands back a fresh object each call, not a live view.
+
+    Keyframes are values rather than handles: anim exposes them only as
+    const&, because any edit has to clamp the time between its neighbours and
+    re-solve their handles, so only the channel can perform one.
+    """
     assert ramp.keyframe(1) is not ramp.keyframe(1)
 
 
@@ -20,9 +25,9 @@ def test_assigning_to_a_keyframe_does_not_reach_the_channel(ramp):
     """Setting a property on a returned Keyframe updates only that copy.
 
     The assignment succeeds and reads back on the copy, but the channel is
-    untouched -- Channel.set_keyframe_* are the mutators that persist. This
-    pins current behaviour; the silent divergence is a sharp edge worth
-    revisiting.
+    untouched. This is the documented contract -- the setters exist so a
+    standalone Keyframe can be built to hand to the channel. The two ways to
+    persist an edit are covered by the two tests below.
     """
     kf = ramp.keyframe(1)
     kf.value = 55.0
@@ -32,8 +37,28 @@ def test_assigning_to_a_keyframe_does_not_reach_the_channel(ramp):
 
 
 def test_set_keyframe_value_persists(ramp):
+    """Editing in place, via the channel's index-based mutators."""
     ramp.set_keyframe_value(1, 55.0)
     assert ramp.keyframe(1).value == pytest.approx(55.0)
+
+
+def test_round_tripping_a_copy_persists(ramp):
+    """Editing by round trip: read a copy, change it, write it back."""
+    kf = ramp.keyframe(1)
+    kf.value = 55.0
+    ramp[1] = kf
+
+    assert ramp.keyframe(1).value == pytest.approx(55.0)
+
+
+def test_a_handle_read_from_a_keyframe_is_also_a_copy(ramp):
+    """Point is a value too, so kf.in_handle.time = x changes nothing."""
+    kf = ramp.keyframe(1)
+    original = kf.in_handle.time
+
+    kf.in_handle.time = original + 5.0
+
+    assert kf.in_handle.time == pytest.approx(original)
 
 
 def test_handles_are_points(ramp):

@@ -2,6 +2,12 @@
 
 A Channel represents an individual animation curve containing keyframes. Channels support sequence operations for easy keyframe access and iteration.
 
+A Channel is a **live handle**: it resolves to the operator's channel on every
+access, so two Channel objects naming the same channel see each other's edits,
+and one held past a `remove_channel()` raises `RuntimeError`. The keyframes it
+returns are **detached copies** — see
+[Keyframes are values, Channels are handles](README.md#keyframes-are-values-channels-are-handles).
+
 ## Properties
 
 | Property | Type | Description |
@@ -45,17 +51,21 @@ Insert an existing keyframe into the channel.
 
 ### Keyframe Access
 
+All accessors below return a **detached copy**. Setting a property on the
+returned Keyframe changes the copy only; write it back with
+`channel[index] = kf` to apply it.
+
 #### `keyframe(index: int) -> Keyframe`
-Get keyframe at specified index.
+Get a copy of the keyframe at specified index.
 
 #### `prev_keyframe(time: float) -> Keyframe | None`
-Get the keyframe immediately before the specified time.
+Get a copy of the keyframe immediately before the specified time.
 
 #### `next_keyframe(time: float) -> Keyframe | None`
-Get the keyframe immediately after the specified time.
+Get a copy of the keyframe immediately after the specified time.
 
 #### `closest_keyframe(time: float) -> Keyframe | None`
-Get the keyframe closest to the specified time.
+Get a copy of the keyframe closest to the specified time.
 
 #### `delete_keyframe(index: int) -> None`
 Remove keyframe at specified index.
@@ -63,7 +73,10 @@ Remove keyframe at specified index.
 ### Keyframe Modification
 
 #### `update_keyframe(index: int, keyframe: Keyframe) -> None`
-Replace keyframe at index with new keyframe.
+Replace keyframe at index with new keyframe. Equivalent to
+`channel[index] = keyframe`. The time is clamped between the neighbouring
+keyframes — keyframes never reorder — and the neighbouring handles are re-solved
+as needed.
 
 #### `set_keyframe_time(index: int, time: float) -> None`
 Set the time of keyframe at index.
@@ -119,9 +132,14 @@ channel = anim_chop.get_channel("tx")
 # Length
 count = len(channel)
 
-# Indexing
+# Indexing -- returns a detached copy
 first_keyframe = channel[0]
 last_keyframe = channel[-1]
+
+# Assignment -- writes a keyframe back, same as update_keyframe(index, kf)
+kf = channel[0]
+kf.value = 55.0
+channel[0] = kf
 
 # Iteration
 for keyframe in channel:
@@ -131,6 +149,9 @@ for keyframe in channel:
 if keyframe in channel:
     print("Keyframe exists in channel")
 ```
+
+Indices may be negative. `del channel[index]` is not supported — use
+`delete_keyframe(index)`.
 
 ## Examples
 

@@ -521,7 +521,17 @@ PyTypeObject PY_KeyframeType = {
     PyObject_GenericSetAttr,   // tp_setattro
     0,                         // tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // tp_flags
-    "Keyframe object",        // tp_doc
+    // tp_doc
+    "A single key on an animation curve: position, Bezier handles,\n"
+    "interpolation function and handle mode.\n\n"
+    "Keyframes are values, not handles into a channel. One obtained from a\n"
+    "channel is a detached copy, so setting its properties changes the copy\n"
+    "alone; write it back with channel[index] = kf to apply it. Keyframes are\n"
+    "also constructible standalone, which is what the property setters are\n"
+    "mainly for:\n\n"
+    "    kf = anim_chop.Keyframe(time=30, value=100)\n"
+    "    kf.function = anim_chop.Function.LINEAR\n"
+    "    channel.emplace_keyframe(kf)",       // tp_doc
     0,                         // tp_traverse
     0,                         // tp_clear
     PY_Keyframe_richcompare,    // tp_richcompare
