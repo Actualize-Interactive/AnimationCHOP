@@ -6,7 +6,10 @@ build
 .vscode
 .vs
 *.*.toe
-/Backup
+# TouchDesigner's incremental saves, beside any project rather than only the
+# root one. Their contents already match *.*.toe, but only because TD happens to
+# name them that way.
+Backup/
 *.exp
 *.obj
 *.pdb

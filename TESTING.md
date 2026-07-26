@@ -93,9 +93,11 @@ The operators are passed in, so no module needs to know where they live.
 TouchDesigner is left running; the host script terminates it once the sentinel
 appears.
 
-### One-time wiring
+### The test project
 
-`tests/td/test.toe` is not in the repo — create it once and save it. The steps:
+`tests/td/test.toe` is in the repo, already wired, so `run_td_tests.ps1` works
+without setup. The rest of this section is how it is put together — worth
+reading if you are changing the suites, or rebuilding the project from scratch.
 
 **1. Create the project and the operator.**
 
@@ -177,6 +179,22 @@ is sitting on the trust modal for a freshly rebuilt operator; or the project was
 saved with the timeline paused, in which case the frame-delayed cook checks never
 fire. Open the project by hand once and check the textport — if the API suites
 printed but nothing else did, it is the paused-timeline case.
+
+**The build fails copying into `Plugins/`** — TouchDesigner has the operator
+loaded and Windows will not let anything overwrite a DLL that is in use. The
+compile itself succeeded; only the copy failed. Close TouchDesigner and build
+again.
+
+There is no way around this short of killing the process, which the harness
+deliberately does not do — you may have unsaved work open. The copy is left to
+fail loudly rather than be skipped, since a silently stale plugin would mean
+testing the previous build without knowing it. If you only want to compile and
+run the unit tests, build the test targets alone, which do not touch `Plugins/`:
+
+```powershell
+cmake --build build --config Release --target animationchop_testext animationchop_cpp_tests
+ctest --test-dir build -C Release
+```
 
 **The operator does not appear in the palette** — `tests/td/Plugins/` is missing
 or empty. Run `.\build.ps1`.
