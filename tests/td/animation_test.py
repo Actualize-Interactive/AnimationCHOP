@@ -1168,17 +1168,16 @@ def test_state_roundtrip(anim_chop, result):
 # evaluate to. They are split in half because the node has to cook between them,
 # which takes a frame -- td_test_runner supplies the delay.
 
-COOK_START = 0.0
-COOK_END = 2.0
+import math
+
+# Deliberately a non-zero start: range mode used to size its output as
+# end_time * sample_rate, which ignored the start and over-ran the range. The
+# count is ceil(length * rate) + 1, spanning start..end inclusive -- the same
+# convention as Animation.num_samples.
+COOK_START = 1.0
+COOK_END = 3.0
 COOK_RATE = 60.0
-
-# Range mode sizes its output as end_time * sample_rate. Note it does NOT
-# subtract start_time, so this expectation only holds while COOK_START is 0 --
-# see the note in check_cook_test().
-COOK_SAMPLES = int(COOK_END * COOK_RATE)
-
-# The samples themselves span start..end inclusive (Channel::evaluate_range
-# steps by (end - start) / (n - 1)), so the sample spacing is not 1/rate.
+COOK_SAMPLES = int(math.ceil((COOK_END - COOK_START) * COOK_RATE)) + 1
 COOK_STEP = (COOK_END - COOK_START) / (COOK_SAMPLES - 1)
 
 
@@ -1212,11 +1211,10 @@ def check_cook_test(anim_chop, result):
         result.assert_equal(['cook_ramp', 'cook_flat'],
                             [c.name for c in anim_chop.chans()],
                             "Cooked channel names match the animation channels")
-        # NOTE: range mode computes this as end_time * sample_rate, ignoring the
-        # range start. With COOK_START at 0 the two agree; with a non-zero start
-        # the output is longer than the range, which is worth revisiting.
         result.assert_equal(COOK_SAMPLES, anim_chop.numSamples,
                             "Cooked sample count covers the range at the sample rate")
+        result.assert_equal(anim_chop.num_samples, anim_chop.numSamples,
+                            "Cooked sample count agrees with Animation.num_samples")
     except Exception as e:
         result.record_exception("Cooked output shape", e)
         return

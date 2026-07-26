@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 
@@ -252,9 +253,18 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
             m_samplesStartTime = rangeStart / info->sampleRate;
             m_samplesEndTime = rangeEnd / info->sampleRate;
         } else { // Seconds
-            info->numSamples = static_cast<int32_t>(range_delta * info->sampleRate);
+            // + 1 to include the start, matching the samples branch above and
+            // the evaluate_range() call in execute(), which spans start..end
+            // inclusive. Without it the output is one sample short of the range.
+            info->numSamples =
+                static_cast<int32_t>(std::ceil(range_delta * info->sampleRate)) + 1;
             m_samplesStartTime = rangeStart;
             m_samplesEndTime = rangeEnd;
+        }
+        // An inverted range would otherwise ask TouchDesigner for a negative
+        // sample count.
+        if (info->numSamples < 1) {
+            info->numSamples = 1;
         }
         return true;
     } case ViewMode::keyframes: {

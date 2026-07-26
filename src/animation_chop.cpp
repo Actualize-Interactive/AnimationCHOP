@@ -36,6 +36,45 @@
 	#include <structmember.h>
 #endif
 
+namespace {
+
+// The output length for the range/auto-range modes.
+//
+// This has to agree with execute(), which fills the output with
+// evaluate_range(start, end, numSamples) -- a span inclusive of both ends. That
+// makes the count ceil(length * rate) + 1, the same convention as anim's own
+// Animation::num_samples(). Computing the span here rather than calling
+// length() avoids its throw-on-inverted-range, so this can never raise across
+// TouchDesigner's C API.
+int32_t rangeSampleCount(const anim::Animation& animation, double sampleRate)
+{
+    if (sampleRate <= 0.0)
+        return 1;
+
+    const double length = animation.end_time() - animation.start_time();
+    if (length <= 0.0)
+        return 1;
+
+    const int32_t count = static_cast<int32_t>(std::ceil(length * sampleRate)) + 1;
+    return count < 1 ? 1 : count;
+}
+
+// Move the animation's range to [start, end].
+//
+// set_start_time/set_end_time each clamp against the current opposite bound, so
+// assigning in a fixed order clamps against a stale one whenever the whole
+// range moves (a [0,30] node told to become [50,70] would land on [30,70] for a
+// frame). Widening before narrowing settles it in one cook, and an inverted
+// range collapses to a zero-length one rather than throwing.
+void setAnimationRange(anim::Animation& animation, double start, double end)
+{
+    animation.set_end_time(std::max(start, end));
+    animation.set_start_time(start);
+    animation.set_end_time(end);
+}
+
+} // namespace
+
 // static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
 static PyObject* py_create_channel(PyObject* self, PyObject* args);
 static PyObject* py_emplace_channel(PyObject* self, PyObject* args);
@@ -245,12 +284,8 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
     } case OutputMode::range: {
         auto start_time = inputs->getParDouble("Range", 0);
         auto end_time = inputs->getParDouble("Range", 1);
-        m_animation->set_start_time(start_time);
-        m_animation->set_end_time(end_time);
-        info->numSamples = static_cast<int32_t>(end_time * info->sampleRate);
-        if (info->numSamples < 1) {
-            info->numSamples = 1;
-        }
+        setAnimationRange(*m_animation, start_time, end_time);
+        info->numSamples = rangeSampleCount(*m_animation, info->sampleRate);
         break;
     } case OutputMode::autoRange: default: {
         double max_length = 0.0;
@@ -258,9 +293,8 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
             const auto& channel = m_animation->channel(i);
             max_length = std::max(max_length, channel.length());
         }
-        info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
-        m_animation->set_start_time(0.0);
-        m_animation->set_end_time(max_length);
+        setAnimationRange(*m_animation, 0.0, max_length);
+        info->numSamples = rangeSampleCount(*m_animation, info->sampleRate);
         break;
     }
     }
@@ -455,7 +489,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 		OP_StringParameter	sp;
 		sp.name = "Outputmode";
 		sp.label = "Output Mode";
-		sp.defaultValue = "fullrange";
+		sp.defaultValue = "range";
 		const char *names[] = { "range", "autorange", "input", "sequence" };
 		const char *labels[] = { "Range", "Auto Range", "Input Index (first channel)", "Sequence Index" };
 
@@ -485,9 +519,9 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 		np.name = "Samplerate";
 		np.label = "Sample Rate";
 		np.defaultValues[0] = 60.0;
-		np.minSliders[0] = 120.0;
+		np.minSliders[0] = 1.0;
         np.minValues[0] = 1.0;
-		np.maxSliders[0] =  30.0;
+		np.maxSliders[0] = 120.0;
         np.clampMins[0] = true;
 		
 		OP_ParAppendResult res = manager->appendFloat(np);

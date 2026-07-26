@@ -91,6 +91,40 @@ def test_animation_range_is_settable(op):
     assert op.length == pytest.approx(60.0)
 
 
+def test_range_setters_push_the_opposite_bound(op):
+    """Setting one bound past the other drags that one along, never inverts.
+
+    This matters because the setters are assigned one at a time: if start
+    merely clamped, moving a whole range forward would silently land on the
+    wrong start for as long as the old end held it back.
+    """
+    op.start_time = 0.0
+    op.end_time = 30.0
+
+    op.start_time = 40.0
+    assert (op.start_time, op.end_time) == pytest.approx((40.0, 40.0))
+
+    op.end_time = 10.0
+    assert (op.start_time, op.end_time) == pytest.approx((10.0, 10.0))
+
+
+def test_range_can_be_moved_forward_in_either_order(op):
+    """A consequence of the above: neither assignment order loses the range."""
+    op.start_time = 0.0
+    op.end_time = 30.0
+
+    op.start_time = 40.0
+    op.end_time = 70.0
+    assert (op.start_time, op.end_time) == pytest.approx((40.0, 70.0))
+
+    op.start_time = 0.0
+    op.end_time = 30.0
+
+    op.end_time = 70.0
+    op.start_time = 40.0
+    assert (op.start_time, op.end_time) == pytest.approx((40.0, 70.0))
+
+
 def test_clear_leaves_the_range_alone(op):
     """clear() removes channels but keeps the configured range."""
     op.start_time = 10.0
