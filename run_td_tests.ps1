@@ -1,0 +1,137 @@
+<#
+.SYNOPSIS
+    TouchDesigner integration test: launch TouchDesigner, run the AnimationCHOP
+    test suites inside it, and gate the exit code on the result.
+
+.DESCRIPTION
+    TouchDesigner cannot run in cloud CI (it needs a license and a GPU), so this
+    is a LOCAL pre-release gate. It launches tests/td/test.toe, which must
+    contain a one-time bootstrap Execute DAT that calls td_test_runner.start()
+    on start (see TESTING.md). The in-TD runner writes results.json (and leaves
+    TouchDesigner running); this script waits for that sentinel, terminates
+    TouchDesigner, parses the results, and exits 0 (pass) or 1 (fail / timeout).
+
+.PARAMETER NoBuild    Skip building; use the operator already in td/Plugins/.
+.PARAMETER Toe        Path to the .toe to run. Default: tests/td/test.toe
+.PARAMETER OpName     Name of the AnimationCHOP operator in the project. Default: animation1
+.PARAMETER TimeoutSec How long to wait for results.json. Default: 180
+.PARAMETER TdPath     Path to TouchDesigner.exe. Default: newest install found.
+
+.EXAMPLE
+    .\run_td_tests.ps1            # builds, copies the plugin, runs, reports pass/fail
+.EXAMPLE
+    .\run_td_tests.ps1 -NoBuild   # reuse the already-built plugin
+#>
+[CmdletBinding()]
+param(
+    [switch] $NoBuild,
+    [string] $Toe = (Join-Path $PSScriptRoot "tests/td/test.toe"),
+    [string] $OpName = "animation1",
+    [int]    $TimeoutSec = 180,
+    [string] $TdPath = ""
+)
+
+$ErrorActionPreference = "Stop"
+
+function Resolve-TouchDesigner {
+    param([string] $Explicit)
+    if ($Explicit) {
+        if (Test-Path $Explicit) { return $Explicit }
+        throw "TouchDesigner.exe not found at: $Explicit"
+    }
+    if ($env:ANIMATIONCHOP_TD -and (Test-Path $env:ANIMATIONCHOP_TD)) { return $env:ANIMATIONCHOP_TD }
+    $candidates = Get-ChildItem "C:/Program Files/Derivative/TouchDesigner*/bin/TouchDesigner.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending
+    if ($candidates) { return $candidates[0].FullName }
+    throw "Could not find TouchDesigner.exe. Pass -TdPath or set ANIMATIONCHOP_TD."
+}
+
+# Build by default so the operators are always freshly compiled AND copied into
+# td/Plugins/ (CMake's POST_BUILD step handles the copy). The dev just runs this
+# script; no manual build-or-copy step.
+if (-not $NoBuild) {
+    Write-Host "Building AnimationCHOP (compiles + copies to td/Plugins/)..." -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot "build.ps1")
+    if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+}
+
+if (-not (Test-Path $Toe)) {
+    Write-Host "No project at: $Toe" -ForegroundColor Red
+    Write-Host "Create it and wire the bootstrap Execute DAT -- see TESTING.md." -ForegroundColor Yellow
+    exit 1
+}
+
+$toeFull = (Resolve-Path $Toe).Path
+$td = Resolve-TouchDesigner -Explicit $TdPath
+$resultsPath = Join-Path (Split-Path -Parent $toeFull) "results.json"
+
+Write-Host "TouchDesigner : $td"      -ForegroundColor DarkGray
+Write-Host "Project       : $toeFull" -ForegroundColor DarkGray
+Write-Host "Results file  : $resultsPath" -ForegroundColor DarkGray
+
+# Clear any stale results so we only ever read this run's output.
+if (Test-Path $resultsPath) { Remove-Item $resultsPath -Force }
+
+# The in-TD runner reads these (inherited by the child process).
+$env:ANIMATIONCHOP_RESULTS = $resultsPath
+$env:ANIMATIONCHOP_OP = $OpName
+
+Write-Host "Launching TouchDesigner..." -ForegroundColor Cyan
+$proc = Start-Process -FilePath $td -ArgumentList "`"$toeFull`"" -PassThru
+
+# Wait for the sentinel or timeout.
+$deadline = (Get-Date).AddSeconds($TimeoutSec)
+$found = $false
+while ((Get-Date) -lt $deadline) {
+    if (Test-Path $resultsPath) { $found = $true; break }
+    if ($proc.HasExited -and -not (Test-Path $resultsPath)) {
+        Start-Sleep -Milliseconds 500   # let a last-moment write flush
+        if (Test-Path $resultsPath) { $found = $true }
+        break
+    }
+    Start-Sleep -Milliseconds 500
+}
+
+# The in-TD runner leaves TouchDesigner running; terminate it now.
+if (-not $proc.HasExited) {
+    Write-Host "Stopping TouchDesigner..." -ForegroundColor DarkGray
+    try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+}
+
+if (-not $found) {
+    Write-Host ""
+    Write-Host "FAILED: no results.json after $TimeoutSec s." -ForegroundColor Red
+    Write-Host "Is test.toe wired with the bootstrap Execute DAT? See TESTING.md." -ForegroundColor Yellow
+    Write-Host "A freshly rebuilt operator also needs a one-time trust click." -ForegroundColor Yellow
+    exit 1
+}
+
+$summary = Get-Content $resultsPath -Raw | ConvertFrom-Json
+Write-Host ""
+Write-Host "==== AnimationCHOP integration results ====" -ForegroundColor Cyan
+foreach ($r in $summary.results) {
+    $tag = if ($r.passed) { "PASS" } else { "FAIL" }
+    $color = if ($r.passed) { "Green" } else { "Red" }
+    Write-Host ("  [{0}] {1} -- {2}" -f $tag, $r.name, $r.detail) -ForegroundColor $color
+}
+
+# The suites run several hundred assertions, so the per-suite lines above are the
+# summary and these are the detail that actually tells you what broke.
+if ($summary.failures -and $summary.failures.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Failures:" -ForegroundColor Red
+    foreach ($f in $summary.failures) {
+        Write-Host ("  [{0}] {1} -- {2}" -f $f.suite, $f.name, $f.detail) -ForegroundColor Red
+    }
+}
+
+Write-Host ""
+Write-Host ("Total: {0} passed, {1} failed" -f $summary.passed, $summary.failed) -ForegroundColor Cyan
+
+if ($summary.success) {
+    Write-Host "`nAll integration tests passed." -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "`nIntegration tests failed." -ForegroundColor Red
+    exit 1
+}

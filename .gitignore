@@ -18,6 +18,10 @@ build
 # and TouchDesigner writes a per-machine Plugins.json trust file alongside them.
 # Released binaries are published as release assets instead.
 td/Plugins/
+tests/td/Plugins/
+
+# Sentinel written by the in-TD integration run, consumed by run_td_tests.*
+tests/td/results.json
 
 # The pytest extension is copied next to its tests so `import animationchop`
 # resolves; it is a build artifact.

@@ -1,7 +1,13 @@
-﻿"""
-Test suite for AnimationCHOP Python API
-This script tests all the exposed Python functions for channel and keyframe management.
-Run this in TouchDesigner with an AnimationCHOP node.
+﻿"""In-TouchDesigner test suite for the AnimationCHOP Python API.
+
+This is the integration half of the test story. The pytest suite under
+tests/python covers the same bindings without TouchDesigner, against a fake
+node; this one runs against the real operator inside a real project, so it also
+exercises the parts that only exist there -- the node cooking, its output
+channels, and the parameters.
+
+Loaded as a DAT under /local/modules and driven by td_test_runner, which passes
+the operator in. Importing this module runs nothing; call run_api_tests().
 """
 
 import traceback
@@ -9,11 +15,30 @@ import inspect
 import sys
 
 class TestResult:
+    """Collects assertions, printing as it goes and recording for results.json.
+
+    Assertions are grouped into suites so a run of several hundred can be
+    reported as a handful of lines plus the individual failures.
+    """
+
     def __init__(self):
         self.passed = 0
         self.failed = 0
         self.errors = []
-    
+        self.records = []
+        self.suite = "general"
+
+    def begin_suite(self, name):
+        self.suite = name
+
+    def _record(self, passed, message, detail=""):
+        self.records.append({
+            "suite": self.suite,
+            "name": message,
+            "passed": bool(passed),
+            "detail": detail,
+        })
+
     def _get_caller_line(self):
         """Get the line number of the calling test function"""
         frame = inspect.currentframe()
@@ -44,44 +69,53 @@ class TestResult:
         line_no = self._get_caller_line()
         if condition:
             self.passed += 1
+            self._record(True, message)
             print(f"✓ PASS: {message}")
         else:
             self.failed += 1
             error_msg = f"✗ FAIL: {message} (line {line_no})"
+            self._record(False, message, f"line {line_no}")
             print(error_msg)
             self.errors.append(error_msg)
-    
+
     def assert_false(self, condition, message):
         self.assert_true(not condition, message)
-    
+
     def assert_equal(self, expected, actual, message):
         line_no = self._get_caller_line()
         if expected == actual:
             self.passed += 1
+            self._record(True, message)
             print(f"✓ PASS: {message} (expected: {expected}, got: {actual})")
         else:
             self.failed += 1
             error_msg = f"✗ FAIL: {message} (expected: {expected}, got: {actual}) (line {line_no})"
+            self._record(False, message,
+                         f"expected {expected}, got {actual} (line {line_no})")
             print(error_msg)
             self.errors.append(error_msg)
-    
+
     def assert_not_none(self, value, message):
         self.assert_true(value is not None, message)
-    
+
     def assert_none(self, value, message):
         self.assert_true(value is None, message)
-    
+
     def assert_near(self, expected, actual, tolerance, message):
         line_no = self._get_caller_line()
         if abs(expected - actual) <= tolerance:
             self.passed += 1
+            self._record(True, message)
             print(f"✓ PASS: {message} (expected: {expected}, got: {actual}, tolerance: {tolerance})")
         else:
             self.failed += 1
             error_msg = f"✗ FAIL: {message} (expected: {expected}, got: {actual}, tolerance: {tolerance}) (line {line_no})"
+            self._record(False, message,
+                         f"expected {expected}, got {actual} "
+                         f"(tolerance {tolerance}, line {line_no})")
             print(error_msg)
             self.errors.append(error_msg)
-    
+
     def record_exception(self, test_name, exception):
         """Record an exception with its actual line number"""
         try:
@@ -92,11 +126,12 @@ class TestResult:
                 error_msg = f"✗ FAIL: {test_name} - {exception}"
         except:
             error_msg = f"✗ FAIL: {test_name} - {exception}"
-        
+
         self.failed += 1
+        self._record(False, test_name, str(exception))
         print(error_msg)
         self.errors.append(error_msg)
-    
+
     def print_summary(self):
         total = self.passed + self.failed
         print(f"\n{'='*50}")
@@ -1125,60 +1160,158 @@ def test_state_roundtrip(anim_chop, result):
         result.record_exception("State roundtrip test error", e)
 
 
-def run_tests(cleanup=False):
-    # Get the current operator (this should be called from the AnimationCHOP node)
+# --- cooked output -----------------------------------------------------------
+#
+# Everything above tests the Python bindings, which the pytest suite also covers
+# headlessly. These two do what only an in-TouchDesigner run can: check that the
+# operator actually cooks, and that the samples it emits match what the channels
+# evaluate to. They are split in half because the node has to cook between them,
+# which takes a frame -- td_test_runner supplies the delay.
+
+COOK_START = 0.0
+COOK_END = 2.0
+COOK_RATE = 60.0
+
+# Range mode sizes its output as end_time * sample_rate. Note it does NOT
+# subtract start_time, so this expectation only holds while COOK_START is 0 --
+# see the note in check_cook_test().
+COOK_SAMPLES = int(COOK_END * COOK_RATE)
+
+# The samples themselves span start..end inclusive (Channel::evaluate_range
+# steps by (end - start) / (n - 1)), so the sample spacing is not 1/rate.
+COOK_STEP = (COOK_END - COOK_START) / (COOK_SAMPLES - 1)
+
+
+def setup_cook_test(anim_chop):
+    """Put the operator in a known output configuration and key a ramp."""
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'range'
+    anim_chop.par.Indexunit = 'seconds'
+    anim_chop.par.Timeslice = 0
+    anim_chop.par.Samplerate = COOK_RATE
+    anim_chop.par.Range1 = COOK_START
+    anim_chop.par.Range2 = COOK_END
+
+    ramp = anim_chop.create_channel('cook_ramp')
+    ramp.create_keyframe(COOK_START, 0.0)
+    ramp.create_keyframe(COOK_END, 100.0)
+
+    flat = anim_chop.create_channel('cook_flat')
+    flat.create_keyframe(COOK_START, 7.0)
+    flat.create_keyframe(COOK_END, 7.0)
+
+
+def check_cook_test(anim_chop, result):
+    """Compare the cooked CHOP output against the evaluated channels."""
+    result.begin_suite('cooked output')
+    print("\n--- Testing cooked CHOP output ---")
+
     try:
-        # In TouchDesigner, 'me' refers to the current operator
-        anim_chop = op('Animation1')
-        print(f"Running tests on node: {anim_chop}")
-    except NameError:
-        print("ERROR: This script must be run from within TouchDesigner")
-        print("Use: op('your_animationchop_name').run_tests()")
+        result.assert_equal(2, anim_chop.numChans,
+                            "Cooked output has one CHOP channel per animation channel")
+        result.assert_equal(['cook_ramp', 'cook_flat'],
+                            [c.name for c in anim_chop.chans()],
+                            "Cooked channel names match the animation channels")
+        # NOTE: range mode computes this as end_time * sample_rate, ignoring the
+        # range start. With COOK_START at 0 the two agree; with a non-zero start
+        # the output is longer than the range, which is worth revisiting.
+        result.assert_equal(COOK_SAMPLES, anim_chop.numSamples,
+                            "Cooked sample count covers the range at the sample rate")
+    except Exception as e:
+        result.record_exception("Cooked output shape", e)
         return
-    
+
+    try:
+        ramp_out = anim_chop['cook_ramp']
+        ramp_src = anim_chop.get_channel('cook_ramp')
+
+        result.assert_near(0.0, ramp_out[0], 1e-4,
+                           "First cooked sample matches the first keyframe")
+        result.assert_near(100.0, ramp_out[COOK_SAMPLES - 1], 1e-4,
+                           "Last cooked sample matches the last keyframe")
+
+        # The interesting one: every sample has to agree with evaluate(), which
+        # is the contract the CHOP output rests on. Tolerance is loose because
+        # the CHOP stores float32 while evaluate() returns double.
+        mismatches = 0
+        worst = 0.0
+        for i in range(COOK_SAMPLES):
+            t = COOK_START + i * COOK_STEP
+            delta = abs(ramp_out[i] - ramp_src.evaluate(t))
+            worst = max(worst, delta)
+            if delta > 1e-3:
+                mismatches += 1
+        result.assert_equal(0, mismatches,
+                            f"Every cooked sample matches Channel.evaluate() "
+                            f"(worst delta {worst:.6f})")
+
+        flat_out = anim_chop['cook_flat']
+        result.assert_near(7.0, flat_out[COOK_SAMPLES // 2], 1e-4,
+                           "A flat channel cooks to its constant value")
+    except Exception as e:
+        result.record_exception("Cooked output values", e)
+
+
+def run_api_tests(anim_chop, cleanup=True):
+    """Run the binding suites against a real AnimationCHOP operator.
+
+    Returns the TestResult. The operator is passed in rather than looked up, so
+    this module never needs to know where it lives in the network.
+    """
+    if anim_chop is None:
+        print("ERROR: run_api_tests() needs an AnimationCHOP operator.")
+        print("Use: animation_test.run_api_tests(op('animation1'))")
+        return None
+
+    print(f"Running tests on node: {anim_chop}")
+
     try:
         anim_chop.clear()  # Clear any existing channels
         print("Cleared existing channels in AnimationCHOP")
     except Exception as e:
         print(f"Failed to clear channels: {e}")
-        return
+        return None
 
     # Initialize test results
     result = TestResult()
-    
+
     print("="*60)
     print("ANIMATIONCHOP PYTHON API TEST SUITE")
     print("="*60)
-    
 
-    try:
-        # Run all test suites
-        test_point_api(anim_chop, result)
-        test_keyframe_api(anim_chop, result)
-        test_enum_apis(anim_chop, result)
-        test_animation_chop_core_api(anim_chop, result)
-        test_channel_api(anim_chop, result)
-        test_advanced_features(anim_chop, result)
-        test_error_handling(anim_chop, result)
-        test_state_apis(anim_chop, result)
-        test_state_error_handling(anim_chop, result)
-        test_state_roundtrip(anim_chop, result)
+    suites = [
+        ('point', test_point_api),
+        ('keyframe', test_keyframe_api),
+        ('enums', test_enum_apis),
+        ('animation core', test_animation_chop_core_api),
+        ('channel', test_channel_api),
+        ('advanced', test_advanced_features),
+        ('error handling', test_error_handling),
+        ('state', test_state_apis),
+        ('state errors', test_state_error_handling),
+        ('state roundtrip', test_state_roundtrip),
+    ]
 
-    except Exception as e:
-        print(f"\nUNEXPECTED ERROR: {e}")
-        print(traceback.format_exc())
-        result.failed += 1
-        result.errors.append(f"Unexpected error: {e}")
-    
-    finally:
-        if cleanup:
+    for name, suite in suites:
+        result.begin_suite(name)
+        # Isolate the suites from each other: one blowing up should not take the
+        # rest of the run with it, or the first failure hides everything after.
+        try:
+            suite(anim_chop, result)
+        except Exception as e:
+            print(f"\nUNEXPECTED ERROR in {name}: {e}")
+            print(traceback.format_exc())
+            result.record_exception(f"{name} suite aborted", e)
+
+    if cleanup:
+        try:
             anim_chop.clear()
-        else:
-            print("\nSkipping cleanup. Test channels will remain in AnimationCHOP.")
+        except Exception as e:
+            print(f"Failed to clear channels during cleanup: {e}")
+    else:
+        print("\nSkipping cleanup. Test channels will remain in AnimationCHOP.")
 
     # Print final results
     result.print_summary()
-    
-    return result
 
-run_tests()
+    return result

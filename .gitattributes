@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must keep LF even when checked out on Windows -- a CRLF shebang
+# line makes them unrunnable on macOS/Linux.
+*.sh text eol=lf
+
+# TouchDesigner project and component files are binary; never touch line endings
+# or try to merge them.
+*.toe binary
+*.tox binary

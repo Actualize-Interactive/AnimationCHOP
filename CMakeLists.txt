@@ -167,30 +167,42 @@ if(SUPPRESS_NOT_REFERENCED_WARNINGS)
     endforeach()
 endif()
 
-# Add post-build commands to copy both DLLs to the Plugins folder
+# Add post-build commands to copy both DLLs to the Plugins folders.
+#
+# TouchDesigner only loads Custom Operators from a Plugins/ folder beside the
+# .toe, with no way to point it at a build directory, so every project that
+# needs the operators gets its own copy: td/ for the example project, and
+# tests/td/ for the integration-test project (see TESTING.md).
+set(ANIMATIONCHOP_PLUGIN_DIRS
+    "${CMAKE_SOURCE_DIR}/td/Plugins"
+    "${CMAKE_SOURCE_DIR}/tests/td/Plugins"
+)
+
 foreach(TARGET animation_chop animation_view_chop)
-    add_custom_command(TARGET ${TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
-        COMMENT "Creating Plugins directory"
-    )
-    
-    if(APPLE)
-        # On macOS, copy the entire .plugin bundle
+    foreach(PLUGIN_DIR ${ANIMATIONCHOP_PLUGIN_DIRS})
         add_custom_command(TARGET ${TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory 
-                    "$<TARGET_BUNDLE_DIR:${TARGET}>" 
-                    "${CMAKE_SOURCE_DIR}/td/Plugins/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
-            COMMENT "Copying ${TARGET}.plugin bundle to Plugins directory"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${PLUGIN_DIR}"
+            COMMENT "Creating Plugins directory: ${PLUGIN_DIR}"
         )
-    else()
-        # On other platforms, copy the library file
-        add_custom_command(TARGET ${TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy 
-                    "$<TARGET_FILE:${TARGET}>" 
-                    "${CMAKE_SOURCE_DIR}/td/Plugins/"
-            COMMENT "Copying ${TARGET} to Plugins directory"
-        )
-    endif()
+
+        if(APPLE)
+            # On macOS, copy the entire .plugin bundle
+            add_custom_command(TARGET ${TARGET} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        "$<TARGET_BUNDLE_DIR:${TARGET}>"
+                        "${PLUGIN_DIR}/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
+                COMMENT "Copying ${TARGET}.plugin bundle to ${PLUGIN_DIR}"
+            )
+        else()
+            # On other platforms, copy the library file
+            add_custom_command(TARGET ${TARGET} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                        "$<TARGET_FILE:${TARGET}>"
+                        "${PLUGIN_DIR}/"
+                COMMENT "Copying ${TARGET} to ${PLUGIN_DIR}"
+            )
+        endif()
+    endforeach()
 endforeach()
 
 # Add platform-specific settings for both targets
