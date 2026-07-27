@@ -31,10 +31,15 @@ jobs:
       with:
         submodules: recursive
 
+    # CMake 3.25 predates Visual Studio 2026, which windows-latest now ships
+    # (runner image windows-2025-vs2026). With no generator for it, CMake finds
+    # no Visual Studio instance, silently falls back to NMake Makefiles, and
+    # then fails with CMAKE_CXX_COMPILER not set. This is the version anim
+    # builds with, on the same images.
     - name: Setup CMake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@v4.4.0
       with:
-        cmake-version: '3.25'
+        cmakeVersion: '4.4.0'
 
     - name: Setup uv
       uses: astral-sh/setup-uv@v5
