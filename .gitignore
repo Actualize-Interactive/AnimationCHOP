@@ -5,11 +5,11 @@ build
 *.egg-info
 .vscode
 .vs
+
+# TouchDesigner's incremental saves.
 *.*.toe
-# TouchDesigner's incremental saves, beside any project rather than only the
-# root one. Their contents already match *.*.toe, but only because TD happens to
-# name them that way.
 Backup/
+
 *.exp
 *.obj
 *.pdb
@@ -18,8 +18,6 @@ Backup/
 .DS_Store
 
 # Local plugin build output. CMake copies the built libraries here post-build,
-# and TouchDesigner writes a per-machine Plugins.json trust file alongside them.
-# Released binaries are published as release assets instead.
 td/Plugins/
 tests/td/Plugins/
 

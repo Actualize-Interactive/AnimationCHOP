@@ -112,6 +112,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Squash-merging a pull request rewrites the commit, so a tag pushed to the
+    # pre-merge branch tip builds and tests green while pointing at a commit
+    # reachable only from the tag. Publishing that produces a release whose
+    # history is not on main, which is only noticed much later by whoever pins
+    # it. Refuse the tag instead.
+    - name: Verify the tag is on main
+      run: |
+        git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+        if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+          echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not an ancestor of main. Delete the tag, then re-tag the merged commit on main." >&2
+          exit 1
+        fi
+        echo "$GITHUB_REF_NAME is on main."
 
     - name: Download packages
       uses: actions/download-artifact@v4
