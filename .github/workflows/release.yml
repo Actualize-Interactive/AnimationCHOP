@@ -1,103 +1,171 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-release:
+  # Build, test and package on every platform as the release gate. Ubuntu is
+  # absent on purpose: TouchDesigner ships on Windows and macOS only.
+  build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            asset_name: AnimationCHOP.dll
+            platform: windows
           - os: macos-latest
-            asset_name: AnimationCHOP.dylib
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-    - name: Generate a token
-      id: generate-token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ vars.AUTH_PULL_REPO_ID }}
-        private-key: ${{ secrets.AUTH_PULL_REPO_SECRET }}
-        owner: Actualize-Interactive
-        repositories: AnimationCHOP,anim
+            platform: macos
 
-    - name: Checkout code
-      uses: actions/checkout@v4
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+    # anim is a public submodule, so the default checkout token is enough.
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-        token: ${{ steps.generate-token.outputs.token }}
-      
+
+    # CMake 3.25 predates Visual Studio 2026, which windows-latest now ships
+    # (runner image windows-2025-vs2026). With no generator for it, CMake finds
+    # no Visual Studio instance, silently falls back to NMake Makefiles, and
+    # then fails with CMAKE_CXX_COMPILER not set. This is the version anim
+    # builds with, on the same images.
     - name: Setup CMake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: lukka/get-cmake@v4.4.0
       with:
-        cmake-version: '3.25'
-        
-    - name: Setup Python (Windows)
-      if: runner.os == 'Windows'
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        
-    - name: Setup Python (macOS)
-      if: runner.os == 'macOS'
-      uses: actions/setup-python@v4
+        cmakeVersion: '4.4.0'
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
-    - name: Configure CMake (Windows)
-      if: runner.os == 'Windows'
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DANIMATIONCHOP_BUILD_TESTS=ON
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    # Don't publish a release that fails its own tests.
+    - name: Test
+      run: ctest --test-dir build --build-config Release --output-on-failure
+
+    # Lay the archive out so it works on unzip: the example project sits beside
+    # the Plugins folder, which is the only place TouchDesigner looks for Custom
+    # Operators. A user who only wants the operators copies Plugins/ into their
+    # own project.
+    - name: Package
+      shell: bash
       run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        
-    - name: Configure CMake (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        mkdir build
-        cd build
-        # Find Python and set CMAKE variables
-        python3-config --cflags
-        python3-config --ldflags
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        
-    - name: Build project (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        cd build
-        cmake --build . --config Release
-        echo "Listing build outputs:"
-        dir bin
-        
-    - name: Build project (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        cd build
-        cmake --build . --config Release
-        echo "Listing build outputs:"
-        ls -la bin/
-        
-    - name: Upload Release Asset (Windows)
-      if: runner.os == 'Windows'
-      uses: softprops/action-gh-release@v1
+        version="${GITHUB_REF_NAME:-dev}"
+        stage="AnimationCHOP-${version}-${{ matrix.platform }}"
+        mkdir -p "$stage/Plugins" "$stage/modules"
+
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          cp build/bin/Release/AnimationCHOP.dll     "$stage/Plugins/"
+          cp build/bin/Release/AnimationViewCHOP.dll "$stage/Plugins/"
+        else
+          cp -R build/bin/AnimationCHOP.plugin     "$stage/Plugins/"
+          cp -R build/bin/AnimationViewCHOP.plugin "$stage/Plugins/"
+        fi
+
+        cp td/AnimationCHOP.toe "$stage/"
+        cp td/Keyframer.tox     "$stage/"
+        cp td/animcurves.py     "$stage/"
+        cp -R td/modules/.      "$stage/modules/"
+        cp README.md LICENSE NOTICE CHANGELOG.md "$stage/"
+
+        # zip is present on both runners; 7z is not on macOS.
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          7z a "$stage.zip" "$stage" > /dev/null
+        else
+          zip -qr "$stage.zip" "$stage"
+        fi
+
+    - name: Upload package
+      uses: actions/upload-artifact@v4
       with:
-        files: |
-          build/bin/Release/AnimationCHOP.dll
-          build/bin/Release/AnimationViewCHOP.dll
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Upload Release Asset (macOS)
-      if: runner.os == 'macOS'
-      uses: softprops/action-gh-release@v1
+        name: package-${{ matrix.platform }}
+        path: AnimationCHOP-*-${{ matrix.platform }}.zip
+        if-no-files-found: error
+
+  # Publish the release.
+  #
+  # Only runs for tag pushes. A release cannot be published from a branch, so on
+  # workflow_dispatch this job is skipped and the workflow acts as a dry run of
+  # the cross-platform build, test and packaging gate above.
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
       with:
-        files: |
-          build/bin/AnimationCHOP.dylib
-          build/bin/AnimationViewCHOP.dylib
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    # Squash-merging a pull request rewrites the commit, so a tag pushed to the
+    # pre-merge branch tip builds and tests green while pointing at a commit
+    # reachable only from the tag. Publishing that produces a release whose
+    # history is not on main, which is only noticed much later by whoever pins
+    # it. Refuse the tag instead.
+    - name: Verify the tag is on main
+      run: |
+        git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+        if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+          echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not an ancestor of main. Delete the tag, then re-tag the merged commit on main." >&2
+          exit 1
+        fi
+        echo "$GITHUB_REF_NAME is on main."
+
+    - name: Download packages
+      uses: actions/download-artifact@v4
+      with:
+        pattern: package-*
+        merge-multiple: true
+
+    # Use the CHANGELOG entry for this tag as the release body, so the notes are
+    # written once and reviewed in the pull request that introduced them.
+    - name: Extract release notes from CHANGELOG
+      run: |
+        version="${GITHUB_REF_NAME#v}"
+        # Match the heading by prefix rather than by regex: a version string
+        # interpolated into a regex turns "[0.4.0]" into a character class, and
+        # whether the escaping survives depends on the awk in use (mawk keeps
+        # the backslash, gawk drops it and silently matches nothing).
+        awk -v head="## [$version]" '
+          index($0, head) == 1      { found = 1; next }  # heading for this version
+          found && index($0, "## [") == 1 { exit }       # next version heading
+          found && /^\[.*\]: /      { exit }             # link reference block
+          found && index($0, "<!--") == 1 { exit }       # trailing comments
+          found                     { print }
+        ' CHANGELOG.md \
+          | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' > RELEASE_NOTES.md
+
+        if [ ! -s RELEASE_NOTES.md ]; then
+          echo "::error::CHANGELOG.md has no '## [$version]' section. Add one before tagging $GITHUB_REF_NAME." >&2
+          exit 1
+        fi
+        echo "Release notes for $version:"
+        cat RELEASE_NOTES.md
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: AnimationCHOP-*.zip
+        name: Release ${{ github.ref_name }}
+        body_path: RELEASE_NOTES.md
+        generate_release_notes: true
+        draft: false
+        prerelease: false

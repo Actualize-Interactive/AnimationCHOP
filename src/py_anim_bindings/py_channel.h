@@ -6,6 +6,7 @@
 #include "py_point.h"
 #include "py_handle_mode.h"
 #include "py_function.h"
+#include "py_range_end.h"
 
 #ifdef _WIN32
 	#include <Python.h>
@@ -22,7 +23,10 @@ namespace TD { struct PY_Struct; }
 
 typedef struct {
     PyObject_HEAD
-    anim::Id channel_id; // Unique identifier for the channel - the internal Id is const and anim::Id has explicit constructor so we need to set on construction
+    // Unique identifier for the channel. Id holds a const member and its raw
+    // constructor is private to the library, so this is placement-new copied
+    // from Channel::id() rather than assigned.
+    anim::Id channel_id;
     PyObject* parent; // Reference to the parent AnimationCHOP to keep it alive
 } PY_Channel;
 

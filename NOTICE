@@ -1,0 +1,50 @@
+AnimationCHOP
+Copyright (c) 2025-2026 Actualize Interactive Inc.
+
+This product bundles or depends on the following third-party components.
+
+-------------------------------------------------------------------------------
+TouchDesigner Custom Operator SDK headers
+  Files: ext/td/include/CPlusPlus_Common.h
+         ext/td/include/CHOP_CPlusPlusBase.h
+  Copyright (c) Derivative Inc.
+
+These headers are part of the TouchDesigner Custom Operator SDK (the C++ CHOP
+API, version 10, with common API version 2, as shipped with TouchDesigner
+2025.33070) and are redistributed here so the operators can be built without a
+separate SDK download. They remain the
+property of Derivative Inc. and are governed by Derivative's licensing terms
+(the "Shared Use License" reproduced at the top of each file), not the MIT
+license that covers the rest of this repository. The matching or newer versions
+ship with TouchDesigner under
+
+  Samples/CPlusPlus/CHOP/
+
+in your TouchDesigner installation.
+
+-------------------------------------------------------------------------------
+CPython
+  https://www.python.org/  (Python 3.11.1)
+  Copyright (c) 2001-2024 Python Software Foundation. All Rights Reserved.
+  Licensed under the PSF License Agreement.
+
+  Files: ext/Python/Include/**, ext/Python/lib/x64/**
+
+The Windows build vendors the CPython 3.11 headers and import libraries so the
+operators can be compiled without a local Python installation matching
+TouchDesigner's. Only headers and import libraries are redistributed — no
+CPython runtime binaries. TouchDesigner supplies the Python runtime when the
+operators are loaded. The macOS build uses TouchDesigner's own Python framework
+instead and vendors nothing.
+
+The full PSF License Agreement is at
+  https://docs.python.org/3/license.html
+
+-------------------------------------------------------------------------------
+anim
+  https://github.com/Actualize-Interactive/anim
+  Copyright (c) 2025-2026 Actualize Interactive Inc.
+  Licensed under the MIT License.
+
+The animation curve library the operators are built on. Included as a git
+submodule at ext/anim and built from source; not vendored in this repository.

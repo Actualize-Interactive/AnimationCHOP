@@ -13,12 +13,14 @@
 */
 
 #include "animation_chop.h"
+#include "animation_codec.h"
 #include "py_anim_bindings/py_bindings.h"
 #include "py_anim_bindings/py_extend.h"
 
 
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 #include <cmath>
 #include <assert.h>
 
@@ -36,6 +38,67 @@
 	#include <structmember.h>
 #endif
 
+namespace {
+
+// The output length for the range/auto-range modes.
+//
+// Delegates to the animation rather than recomputing, so the count cannot drift
+// from the data: num_samples() shares its half-open span and its rounding rule
+// with evaluate_range_by_rate(), which execute() fills the output from. A span
+// of n sample periods is n samples -- end_time is not sampled -- which is also
+// what a CHOP means by a sample count.
+//
+// Guards the rate because num_samples() throws on a non-positive one, and an
+// exception must not cross TouchDesigner's C API. Clamps up because a CHOP
+// cannot have zero samples, while an animation with no channels has none.
+int32_t rangeSampleCount(const anim::Animation& animation, double sampleRate)
+{
+    if (sampleRate <= 0.0)
+        return 1;
+
+    const size_t count = animation.num_samples(sampleRate);
+    return count < 1 ? 1 : static_cast<int32_t>(count);
+}
+
+// Move the animation's range to [start, end].
+//
+// set_start_time/set_end_time each clamp against the current opposite bound, so
+// assigning in a fixed order clamps against a stale one whenever the whole
+// range moves (a [0,30] node told to become [50,70] would land on [30,70] for a
+// frame). Widening before narrowing settles it in one cook, and an inverted
+// range collapses to a zero-length one rather than throwing.
+void setAnimationRange(anim::Animation& animation, double start, double end)
+{
+    animation.set_end_time(std::max(start, end));
+    animation.set_start_time(start);
+    animation.set_end_time(end);
+}
+
+// Zero one output channel.
+//
+// TouchDesigner allocates the sample buffer but does not initialise it -- the
+// SDK header promises only that it is "already allocated for you" -- so a
+// sample left unwritten keeps whatever was in that memory, which surfaces as
+// NaN. Every sample the CHOP asks for has to be written exactly once, so this
+// is only for the cases with no data to write: an error return, or an output
+// channel with no animation channel behind it. The normal path fills the buffer
+// itself and must not be pre-cleared -- that would write every sample twice,
+// every cook.
+void silenceChannel(CHOP_Output* output, int32_t index)
+{
+    std::fill_n(output->channels[index], output->numSamples, 0.0f);
+}
+
+// Zero the whole output, for the paths that bail out before producing anything.
+void silenceOutput(CHOP_Output* output)
+{
+    for (int32_t i = 0; i < output->numChannels; ++i) {
+        silenceChannel(output, i);
+    }
+}
+
+} // namespace
+
 // static PyObject* py_animationFromDict(PyObject* self, PyObject* args);
 static PyObject* py_create_channel(PyObject* self, PyObject* args);
 static PyObject* py_emplace_channel(PyObject* self, PyObject* args);
@@ -49,7 +112,10 @@ static PyObject* py_get_state_method(PyObject* self, PyObject* args);
 static PyObject* py_set_state_method(PyObject* self, PyObject* args);
 
 // --- Python method table for AnimationCHOP ---
-static PyMethodDef methods[] = {
+// Externally linked (and declared in animation_chop.h) so the pytest extension
+// under tests/python can expose the very same table, rather than a copy that
+// would drift.
+PyMethodDef AnimationCHOP_pythonMethods[] = {
     {"create_channel", (PyCFunction)py_create_channel, METH_VARARGS, "Create a new channel."},
     {"remove_channel", (PyCFunction)py_remove_channel, METH_VARARGS, "Remove a channel by name or index."},
     {"has_channel", (PyCFunction)py_has_channel, METH_VARARGS, "Check if a channel exists."},
@@ -75,12 +141,14 @@ static PyObject* py_get_state(PyObject* self, void* closure);
 static int py_set_state(PyObject* self, PyObject* value, void* closure);
 
 // This struct lists the different getters and/or settings the Custom Operator will expose.
-static PyGetSetDef getSets[] =
+// Externally linked for the same reason as AnimationCHOP_pythonMethods above.
+PyGetSetDef AnimationCHOP_pythonGetSets[] =
 {
     {"Point", get_point_type, nullptr, "Point type for representing time-value pairs.", nullptr},
     {"HandleMode", get_handle_mode_enum, nullptr, "HandleMode enum for keyframe handle behavior.", nullptr},
     {"Function", get_function_enum, nullptr, "Function enum for keyframe interpolation type.", nullptr},
     {"Extend", get_extend_enum, nullptr, "Extend enum for channel extrapolation behavior.", nullptr},
+    {"RangeEnd", get_range_end_enum, nullptr, "RangeEnd enum controlling whether a sampled range includes its end time.", nullptr},
     {"Keyframe", get_keyframe_type, nullptr, "Keyframe type for animation curves.", nullptr},
     {"channels", py_get_channels, nullptr, "Get all channels.", nullptr}, 
     {"channel_names", py_get_channel_names, nullptr, "Get all channel names.", nullptr},
@@ -116,8 +184,11 @@ DLLEXPORT
 void
 FillCHOPPluginInfo(CHOP_PluginInfo *info)
 {
-	// Always set this to CHOPCPlusPlusAPIVersion.
-	info->apiVersion = CHOPCPlusPlusAPIVersion;
+	// Always set this to CHOPCPlusPlusAPIVersion. The version is recorded even
+	// when unsupported, so bailing out here lets TouchDesigner report the
+	// mismatch rather than loading a half-filled plugin info.
+	if (!info->setAPIVersion(CHOPCPlusPlusAPIVersion))
+		return;
 
 	// The opType is the unique name for this BasicCHOP. It must start with a 
 	// capital A-Z character, and all the following characters must lower case
@@ -141,8 +212,8 @@ FillCHOPPluginInfo(CHOP_PluginInfo *info)
 	info->customOPInfo.maxInputs = 1;
 
 	info->customOPInfo.pythonVersion->setString(PY_VERSION);
-	info->customOPInfo.pythonMethods = methods;
-	info->customOPInfo.pythonGetSets = getSets;
+	info->customOPInfo.pythonMethods = AnimationCHOP_pythonMethods;
+	info->customOPInfo.pythonGetSets = AnimationCHOP_pythonGetSets;
 	info->customOPInfo.pythonCallbacksDAT = PythonCallbacksDATStubs;
 }
 
@@ -238,12 +309,8 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
     } case OutputMode::range: {
         auto start_time = inputs->getParDouble("Range", 0);
         auto end_time = inputs->getParDouble("Range", 1);
-        m_animation->set_start_time(start_time);
-        m_animation->set_end_time(end_time);
-        info->numSamples = static_cast<int32_t>(end_time * info->sampleRate);
-        if (info->numSamples < 1) {
-            info->numSamples = 1;
-        }
+        setAnimationRange(*m_animation, start_time, end_time);
+        info->numSamples = rangeSampleCount(*m_animation, info->sampleRate);
         break;
     } case OutputMode::autoRange: default: {
         double max_length = 0.0;
@@ -251,9 +318,8 @@ AnimationCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs, voi
             const auto& channel = m_animation->channel(i);
             max_length = std::max(max_length, channel.length());
         }
-        info->numSamples = static_cast<int32_t>(std::ceil(max_length * info->sampleRate));
-        m_animation->set_start_time(0.0);
-        m_animation->set_end_time(max_length);
+        setAnimationRange(*m_animation, 0.0, max_length);
+        info->numSamples = rangeSampleCount(*m_animation, info->sampleRate);
         break;
     }
     }
@@ -288,18 +354,26 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
 
     switch(m_outputMode) {
     case OutputMode::input: {
+        // Each of these bails out with nothing to write, so the output has to
+        // be silenced rather than left as it was. Reporting the problem is not
+        // enough on its own: an untouched buffer reads as NaN, which looks like
+        // a fault in the data rather than a missing connection.
         const OP_CHOPInput* input_chop = inputs->getInputCHOP(0);
         if (!input_chop) {
             m_error = "No input CHOP connected.";
+            silenceOutput(output);
             return;
         } else if (input_chop->numChannels < 1) {
             m_error = "Input CHOP has no channels.";
+            silenceOutput(output);
             return;
         } else if (input_chop->numSamples != output->numSamples) {
             m_error = "Input CHOP and output CHOP have different number of samples.";
+            silenceOutput(output);
             return;
         } else if (input_chop->sampleRate != output->sampleRate) {
             m_error = "Input CHOP and output CHOP have different sample rates.";
+            silenceOutput(output);
             return;
         }
 
@@ -325,10 +399,25 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
                 for (int j = 0; j < output->numSamples; ++j) {
                     output->channels[i][j] = static_cast<float>(m_animation->channel(i).evaluate(eval_times[j]));
                 }
-            } 
+            } else {
+                // No animation channel or no input channel to drive it, so
+                // nothing to evaluate -- but the sample still has to be written.
+                silenceChannel(output, static_cast<int32_t>(i));
+            }
         }
         return;
     } case OutputMode::sequence: {
+        // The fill loops below skip any output channel with no animation
+        // channel behind it. getOutputInfo sized the output from that same
+        // count, so this is only reachable if the animation shrank in between
+        // -- from Python, between cooks -- but those samples still have to be
+        // written. Done once here rather than as an else on each of the six
+        // fill loops.
+        for (int32_t i = static_cast<int32_t>(m_animation->num_channels());
+             i < output->numChannels; ++i) {
+            silenceChannel(output, i);
+        }
+
         auto index_unit = inputs->getParString("Indexunit");
         auto eval_time = inputs->getParDouble("Sequence");
 
@@ -401,15 +490,37 @@ AnimationCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* reser
     } case OutputMode::range: case OutputMode::autoRange: default: {
         size_t num_anim_channels = m_animation->num_channels();
         for (int i = 0; i < output->numChannels; i++) {
-            if (i < static_cast<int>(num_anim_channels)) {
-                auto samples = m_animation->channel(i).evaluate_range(
+            if (i >= static_cast<int>(num_anim_channels)) {
+                silenceChannel(output, i);  // no animation channel behind it
+            } else {
+                // By rate, not by count. A CHOP's samples are implicitly one
+                // period apart -- the format stores no per-sample times -- so
+                // the data has to be generated at exactly 1/sampleRate.
+                // evaluate_range() spreads a count across a closed interval
+                // instead, which only lands on that spacing for one particular
+                // count and skews the whole channel otherwise.
+                auto samples = m_animation->channel(i).evaluate_range_by_rate(
                     m_animation->start_time(),
                     m_animation->end_time(),
-                    output->numSamples
+                    output->sampleRate
                 );
-                // std::copy(samples.begin(), samples.end(), (output->channels[i]));
-                for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
+
+                const int32_t written = static_cast<int32_t>(std::min<size_t>(
+                    samples.size(), static_cast<size_t>(output->numSamples)));
+                for (int32_t j = 0; j < written; ++j) {
                     output->channels[i][j] = static_cast<float>(samples[j]);
+                }
+
+                // getOutputInfo sized the output from Animation::num_samples,
+                // and this fills it from evaluate_range_by_rate over the same
+                // span -- both route through the same rounding, so a shortfall
+                // should be impossible. Say so rather than absorbing it: the
+                // tail reads as a run of zeros either way, and a silent
+                // shortfall is exactly what made this class of bug hard to
+                // place.
+                if (written < output->numSamples) {
+                    m_warning = "Generated fewer samples than the output declares. "
+                                "Please report this.";
                 }
             }
         }
@@ -427,6 +538,12 @@ AnimationCHOP::getWarningString(OP_String *warning, void* reserved1)
 void
 AnimationCHOP::getErrorString(OP_String *error, void* reserved1)
 {
+	// A failed restore outranks a cooking error: it explains why the node has
+	// no channels, which is usually the cause of whatever else is complaining.
+	if (!m_loadError.empty()) {
+		error->setString(m_loadError.c_str());
+		return;
+	}
 	error->setString(m_error);
 }
 
@@ -448,7 +565,7 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 		OP_StringParameter	sp;
 		sp.name = "Outputmode";
 		sp.label = "Output Mode";
-		sp.defaultValue = "fullrange";
+		sp.defaultValue = "range";
 		const char *names[] = { "range", "autorange", "input", "sequence" };
 		const char *labels[] = { "Range", "Auto Range", "Input Index (first channel)", "Sequence Index" };
 
@@ -478,9 +595,9 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 		np.name = "Samplerate";
 		np.label = "Sample Rate";
 		np.defaultValues[0] = 60.0;
-		np.minSliders[0] = 120.0;
+		np.minSliders[0] = 1.0;
         np.minValues[0] = 1.0;
-		np.maxSliders[0] =  30.0;
+		np.maxSliders[0] = 120.0;
         np.clampMins[0] = true;
 		
 		OP_ParAppendResult res = manager->appendFloat(np);
@@ -500,6 +617,39 @@ AnimationCHOP::setupParameters(OP_ParameterManager* manager,void *reserved1)
 void
 AnimationCHOP::pulsePressed(const char* name, void* reserved1)
 {
+}
+
+void
+AnimationCHOP::saveData(OP_NodeSaveState* saver, void* reserved1)
+{
+    if (!saver || !m_animation)
+        return;
+
+    const std::vector<uint8_t> blob = animation_codec::encode(*m_animation);
+    saver->saveEntry(animation_codec::kSaveKey,
+                     blob.data(),
+                     static_cast<int64_t>(blob.size()));
+}
+
+void
+AnimationCHOP::loadData(const OP_NodeLoadState* loader, void* reserved1)
+{
+    if (!loader || !m_animation)
+        return;
+
+    int64_t byteSize = 0;
+    const void* blob = loader->loadEntry(animation_codec::kSaveKey, &byteSize);
+    if (!blob || byteSize <= 0)
+        return;  // A project saved before this operator persisted anything.
+
+    std::string error;
+    if (!animation_codec::decode(blob, static_cast<size_t>(byteSize), *m_animation, &error)) {
+        // Surface it rather than silently starting empty: the user's keyframes
+        // are in that .toe, and a node that comes back blank with no
+        // explanation looks like data loss. decode() leaves the animation
+        // untouched on failure, so the node is still usable.
+        m_loadError = "Could not restore saved animation: " + error;
+    }
 }
 
 
@@ -942,8 +1092,8 @@ static PyObject* py_get_num_samples(PyObject *self, void* closure) {
     }
  
     try {
-        int samples = animation->num_samples(static_cast<double>(inst->sampleRate()));
-        return PyLong_FromLong(samples);
+        size_t samples = animation->num_samples(static_cast<double>(inst->sampleRate()));
+        return PyLong_FromSize_t(samples);
     } catch (const std::exception& e) {
         PyErr_SetString(PyExc_ValueError, e.what());
         return NULL;

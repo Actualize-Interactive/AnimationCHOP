@@ -3,7 +3,25 @@
 
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 #include <iostream>
+
+namespace {
+
+// Zero the whole output, for the paths that bail out before producing anything.
+//
+// TouchDesigner allocates the sample buffer but does not initialise it, so a
+// sample left unwritten keeps whatever was in that memory and shows up as NaN.
+// This is only for the no-data cases: the view fill loops write every sample
+// themselves, and pre-clearing them would write the buffer twice every cook.
+void silenceOutput(TD::CHOP_Output* output)
+{
+    for (int32_t i = 0; i < output->numChannels; ++i) {
+        std::fill_n(output->channels[i], output->numSamples, 0.0f);
+    }
+}
+
+} // namespace
 
 
 #ifdef _WIN32
@@ -125,7 +143,12 @@ static PyMethodDef viewMethods[] = {
 DLLEXPORT void 
 FillCHOPPluginInfo(CHOP_PluginInfo* info)
 {
-    info->apiVersion = CHOPCPlusPlusAPIVersion;
+    // The version is recorded even when unsupported, so bailing out here lets
+    // TouchDesigner report the mismatch rather than loading a half-filled
+    // plugin info.
+    if (!info->setAPIVersion(CHOPCPlusPlusAPIVersion))
+        return;
+
     info->customOPInfo.opType->setString("Animationview");
     info->customOPInfo.opLabel->setString("Animation View");
     info->customOPInfo.opIcon->setString("AMV");
@@ -198,7 +221,13 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
         int32_t total_segments = 0;
         for (const auto& channel : animation->channels()) {
             total_keyframes += static_cast<int32_t>(channel->size());
-            total_segments += static_cast<int32_t>(channel->size() - 1);
+            // size() is unsigned, so an empty channel would make size() - 1
+            // wrap to SIZE_MAX and land here as -1, undercounting the segment
+            // vector that the loop below then writes past the end of. A channel
+            // with fewer than two keyframes simply has no segments.
+            if (channel->size() >= 2) {
+                total_segments += static_cast<int32_t>(channel->size() - 1);
+            }
         }
         
         // Initialize keyframe views with proper indices
@@ -247,9 +276,18 @@ AnimationViewCHOP::getOutputInfo(CHOP_OutputInfo* info, const OP_Inputs* inputs,
             m_samplesStartTime = rangeStart / info->sampleRate;
             m_samplesEndTime = rangeEnd / info->sampleRate;
         } else { // Seconds
-            info->numSamples = static_cast<int32_t>(range_delta * info->sampleRate);
+            // Half-open, matching the evaluate_range_by_rate() call in
+            // execute(): a span of n sample periods is n samples, and the end
+            // time is not sampled.
+            info->numSamples = static_cast<int32_t>(
+                std::ceil(range_delta * info->sampleRate));
             m_samplesStartTime = rangeStart;
             m_samplesEndTime = rangeEnd;
+        }
+        // An inverted range would otherwise ask TouchDesigner for a negative
+        // sample count.
+        if (info->numSamples < 1) {
+            info->numSamples = 1;
         }
         return true;
     } case ViewMode::keyframes: {
@@ -330,11 +368,19 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
     m_error = nullptr;
     m_warning = nullptr;
 
+    // Both of these bail out with nothing to write. TouchDesigner allocates the
+    // sample buffer but does not initialise it, so returning without writing
+    // leaves whatever was in that memory, which surfaces as NaN -- and the
+    // first case is the state a freshly created node is in, before a source
+    // operator has been picked. Only the no-data paths are silenced; the fill
+    // loops below write every sample themselves and must not be pre-cleared.
     if (!setDataInstance(inputs)) {
+        silenceOutput(output);
         return;
     }
     auto animation = animationCHOP()->animation();
     if (!animation) {
+        silenceOutput(output);
         return;
     }
     
@@ -344,10 +390,13 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_anim_channels = animation->num_channels();
         for (int i = 0; i < output->numChannels; ++i) {
             if (i < static_cast<int>(num_anim_channels)) {
-                auto samples = animation->channel(i).evaluate_range(
+                // By rate, matching AnimationCHOP: a CHOP's samples are one
+                // period apart by definition, so the data has to be generated
+                // at 1/sampleRate rather than spread across a closed range.
+                auto samples = animation->channel(i).evaluate_range_by_rate(
                     m_samplesStartTime,
                     m_samplesEndTime,
-                    output->numSamples
+                    output->sampleRate
                 );
                 // std::copy(samples.begin(), samples.end(), output->channels[i]);
                 for (size_t j = 0; j < output->numSamples && j < samples.size(); ++j) {
@@ -360,6 +409,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_keyframe_channels = m_keyframes_chan_names.size();
         if (output->numChannels > num_keyframe_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         size_t i = 0;
@@ -388,12 +438,21 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_segment_info_channels = m_segments_chan_names.size();
         if (output->numChannels > num_segment_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         size_t i = 0;
         for (size_t c = 0; c < animation->size(); ++c) {
             auto& channel = animation->channel(c);
+            // Same unsigned wrap as in setDataInstance(): without this an empty
+            // channel loops to SIZE_MAX and writes far past the output.
+            if (channel.size() < 2) {
+                continue; // No segments in a channel with fewer than two keyframes
+            }
             for (size_t k = 0; k < channel.size() - 1; ++k) {
+                if (i >= output->numSamples) {
+                    break;
+                }
                 auto start_keyframe = channel.keyframe(k);
                 auto end_keyframe = channel.keyframe(k + 1);
                 output->channels[0][i] = static_cast<float>(c); // Channel index
@@ -420,6 +479,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_channel_info_channels = m_channels_chan_names.size();
         if (output->numChannels > num_channel_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         int32_t start_index = 0;
@@ -441,6 +501,7 @@ AnimationViewCHOP::execute(CHOP_Output* output, const OP_Inputs* inputs, void* r
         size_t num_animation_info_channels = m_animation_chan_names.size();
         if (output->numChannels > num_animation_info_channels) {
             m_error = "Not enough channels allocated";
+            silenceOutput(output);
             return;
         }
         double min_keyframe_time = std::numeric_limits<double>::max();
@@ -526,9 +587,9 @@ AnimationViewCHOP::setupParameters(OP_ParameterManager* manager, void* reserved1
 		np.name = "Samplerate";
 		np.label = "Sample Rate";
 		np.defaultValues[0] = 60.0;
-		np.minSliders[0] = 120.0;
+		np.minSliders[0] = 1.0;
         np.minValues[0] = 1.0;
-		np.maxSliders[0] =  30.0;
+		np.maxSliders[0] = 120.0;
         np.clampMins[0] = true;
 		
 		OP_ParAppendResult res = manager->appendFloat(np);

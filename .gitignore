@@ -5,11 +5,27 @@ build
 *.egg-info
 .vscode
 .vs
+
+# TouchDesigner's incremental saves.
 *.*.toe
-/Backup
+Backup/
+
 *.exp
 *.obj
 *.pdb
 *.ilk
 *.dmp
 .DS_Store
+
+# Local plugin build output. CMake copies the built libraries here post-build,
+td/Plugins/
+tests/td/Plugins/
+
+# Sentinel written by the in-TD integration run, consumed by run_td_tests.*
+tests/td/results.json
+
+# The pytest extension is copied next to its tests so `import animationchop`
+# resolves; it is a build artifact.
+tests/python/*.pyd
+tests/python/*.so
+.pytest_cache/

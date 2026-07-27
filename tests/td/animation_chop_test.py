@@ -1,116 +1,20 @@
-﻿"""
-Test suite for AnimationCHOP Python API
-This script tests all the exposed Python functions for channel and keyframe management.
-Run this in TouchDesigner with an AnimationCHOP node.
+"""In-TouchDesigner test suite for the AnimationCHOP Python API.
+
+This is the integration half of the test story. The pytest suite under
+tests/python covers the same bindings without TouchDesigner, against a fake
+node; this one runs against the real operator inside a real project, so it also
+exercises the parts that only exist there -- the node cooking, its output
+channels, and the parameters.
+
+Loaded as a DAT under /local/modules and driven by td_test_runner, which passes
+the operator in. Importing this module runs nothing; call run_api_tests().
 """
 
+import math
 import traceback
-import inspect
-import sys
 
-class TestResult:
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.errors = []
-    
-    def _get_caller_line(self):
-        """Get the line number of the calling test function"""
-        frame = inspect.currentframe()
-        try:
-            # Go up the stack to find the test function call
-            # currentframe -> assert_* method -> test function
-            caller_frame = frame.f_back.f_back
-            return caller_frame.f_lineno
-        finally:
-            del frame
-    
-    def _get_exception_line(self):
-        """Get the line number where the current exception occurred"""
-        try:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            if exc_traceback:
-                # Walk up the traceback to find the line in our test file
-                tb = exc_traceback
-                while tb.tb_next:
-                    tb = tb.tb_next
-                return tb.tb_lineno
-        except:
-            # If anything goes wrong getting line number, just return None
-            pass
-        return None
-    
-    def assert_true(self, condition, message):
-        line_no = self._get_caller_line()
-        if condition:
-            self.passed += 1
-            print(f"✓ PASS: {message}")
-        else:
-            self.failed += 1
-            error_msg = f"✗ FAIL: {message} (line {line_no})"
-            print(error_msg)
-            self.errors.append(error_msg)
-    
-    def assert_false(self, condition, message):
-        self.assert_true(not condition, message)
-    
-    def assert_equal(self, expected, actual, message):
-        line_no = self._get_caller_line()
-        if expected == actual:
-            self.passed += 1
-            print(f"✓ PASS: {message} (expected: {expected}, got: {actual})")
-        else:
-            self.failed += 1
-            error_msg = f"✗ FAIL: {message} (expected: {expected}, got: {actual}) (line {line_no})"
-            print(error_msg)
-            self.errors.append(error_msg)
-    
-    def assert_not_none(self, value, message):
-        self.assert_true(value is not None, message)
-    
-    def assert_none(self, value, message):
-        self.assert_true(value is None, message)
-    
-    def assert_near(self, expected, actual, tolerance, message):
-        line_no = self._get_caller_line()
-        if abs(expected - actual) <= tolerance:
-            self.passed += 1
-            print(f"✓ PASS: {message} (expected: {expected}, got: {actual}, tolerance: {tolerance})")
-        else:
-            self.failed += 1
-            error_msg = f"✗ FAIL: {message} (expected: {expected}, got: {actual}, tolerance: {tolerance}) (line {line_no})"
-            print(error_msg)
-            self.errors.append(error_msg)
-    
-    def record_exception(self, test_name, exception):
-        """Record an exception with its actual line number"""
-        try:
-            line_no = self._get_exception_line()
-            if line_no:
-                error_msg = f"✗ FAIL: {test_name} - {exception} (line {line_no})"
-            else:
-                error_msg = f"✗ FAIL: {test_name} - {exception}"
-        except:
-            error_msg = f"✗ FAIL: {test_name} - {exception}"
-        
-        self.failed += 1
-        print(error_msg)
-        self.errors.append(error_msg)
-    
-    def print_summary(self):
-        total = self.passed + self.failed
-        print(f"\n{'='*50}")
-        print(f"TEST SUMMARY")
-        print(f"{'='*50}")
-        print(f"Total tests: {total}")
-        print(f"Passed: {self.passed}")
-        print(f"Failed: {self.failed}")
-        print(f"Success rate: {(self.passed/total*100) if total > 0 else 0:.1f}%")
-        
-        if self.errors:
-            print(f"\nFAILED TESTS:")
-            for error in self.errors:
-                print(f"  {error}")
+from test_result import TestResult
+
 
 
 def test_point_api(anim_chop, result):
@@ -447,18 +351,27 @@ def test_channel_api(anim_chop, result):
         result.assert_equal(5, len(values_range), "Channel.evaluate_range returns correct number of samples")
         result.assert_true(all(isinstance(v, float) for v in values_range), "Channel.evaluate_range returns floats")
         
+        # Half-open by default: a 2-second span at 1 Hz is 2 samples, at 0.0 and
+        # 1.0. The end is an edge, not a sample, so looping does not repeat it.
         values_by_rate = channel.evaluate_range_by_rate(0.0, 2.0, 1.0)
-        result.assert_equal(3, len(values_by_rate), "Channel.evaluate_range_by_rate returns correct samples")
+        result.assert_equal(2, len(values_by_rate), "Channel.evaluate_range_by_rate returns correct samples")
+
+        values_inclusive = channel.evaluate_range_by_rate(
+            0.0, 2.0, 1.0, anim_chop.RangeEnd.INCLUSIVE)
+        result.assert_equal(3, len(values_inclusive),
+                            "Channel.evaluate_range_by_rate with RangeEnd.INCLUSIVE samples the end")
         
         # Test channel timing properties
         result.assert_equal(0.0, channel.start_time, "Channel.start_time")
         result.assert_equal(4.0, channel.end_time, "Channel.end_time")
         result.assert_equal(4.0, channel.length, "Channel.length")
         
-        # Test num_samples calculation
-        num_samples = channel.num_samples(30.0)
-        result.assert_true(isinstance(num_samples, int), "Channel.num_samples returns int")
-        result.assert_true(num_samples > 0, "Channel.num_samples returns positive value")
+        # A channel deliberately has no num_samples: it knows only the extent
+        # of its own keyframes, which is not the range a host samples over, so
+        # a count taken from it would answer about the wrong span. Count over
+        # the operator's range instead, or read TouchDesigner's numSamples.
+        result.assert_false(hasattr(channel, "num_samples"),
+                            "Channel has no num_samples")
         
         # Test keyframe removal
         channel.delete_keyframe(1)
@@ -539,10 +452,10 @@ def test_advanced_features(anim_chop, result):
         # Test multiple evaluation ranges
         sample_rates = [30.0, 60.0, 120.0]
         for rate in sample_rates:
-            samples = pos_x.num_samples(rate)
             values = pos_x.evaluate_range_by_rate(0.0, 4.0, rate)
-            expected_samples = int(4.0 * rate) + 1
-            result.assert_near(expected_samples, len(values), 1, f"Sample count at {rate} Hz")
+            # Half-open: a 4-second span is exactly 4 * rate samples.
+            result.assert_equal(int(4.0 * rate), len(values),
+                                f"Sample count at {rate} Hz")
         
         result.assert_true(True, "Complex animation scenario completed")
         
@@ -1125,60 +1038,347 @@ def test_state_roundtrip(anim_chop, result):
         result.record_exception("State roundtrip test error", e)
 
 
-def run_tests(cleanup=False):
-    # Get the current operator (this should be called from the AnimationCHOP node)
+# --- cooked output -----------------------------------------------------------
+#
+# Everything above tests the Python bindings, which the pytest suite also covers
+# headlessly. These two do what only an in-TouchDesigner run can: check that the
+# operator actually cooks, and that the samples it emits match what the channels
+# evaluate to. They are split in half because the node has to cook between them,
+# which takes a frame -- td_test_runner supplies the delay.
+
+# Deliberately a non-zero start: range mode used to size its output as
+# end_time * sample_rate, which ignored the start and over-ran the range.
+#
+# The range is half-open, matching Animation.num_samples and a CHOP's own
+# meaning of a sample count: a span of n sample periods is n samples, spaced
+# exactly 1/rate apart, and the end time is not sampled.
+COOK_START = 1.0
+COOK_END = 3.0
+COOK_RATE = 60.0
+COOK_SAMPLES = int(math.ceil((COOK_END - COOK_START) * COOK_RATE))
+COOK_STEP = 1.0 / COOK_RATE
+
+
+def setup_cook_test(anim_chop):
+    """Put the operator in a known output configuration and key a ramp."""
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'range'
+    anim_chop.par.Indexunit = 'seconds'
+    anim_chop.par.Timeslice = 0
+    anim_chop.par.Samplerate = COOK_RATE
+    anim_chop.par.Range1 = COOK_START
+    anim_chop.par.Range2 = COOK_END
+
+    ramp = anim_chop.create_channel('cook_ramp')
+    ramp.create_keyframe(COOK_START, 0.0)
+    ramp.create_keyframe(COOK_END, 100.0)
+
+    flat = anim_chop.create_channel('cook_flat')
+    flat.create_keyframe(COOK_START, 7.0)
+    flat.create_keyframe(COOK_END, 7.0)
+
+
+def check_cook_test(anim_chop, result):
+    """Compare the cooked CHOP output against the evaluated channels."""
+    result.begin_suite('cooked output')
+    print("\n--- Testing cooked CHOP output ---")
+
     try:
-        # In TouchDesigner, 'me' refers to the current operator
-        anim_chop = op('Animation1')
-        print(f"Running tests on node: {anim_chop}")
-    except NameError:
-        print("ERROR: This script must be run from within TouchDesigner")
-        print("Use: op('your_animationchop_name').run_tests()")
+        result.assert_equal(2, anim_chop.numChans,
+                            "Cooked output has one CHOP channel per animation channel")
+        result.assert_equal(['cook_ramp', 'cook_flat'],
+                            [c.name for c in anim_chop.chans()],
+                            "Cooked channel names match the animation channels")
+        result.assert_equal(COOK_SAMPLES, anim_chop.numSamples,
+                            "Cooked sample count covers the range at the sample rate")
+        result.assert_equal(anim_chop.num_samples, anim_chop.numSamples,
+                            "Cooked sample count agrees with Animation.num_samples")
+    except Exception as e:
+        result.record_exception("Cooked output shape", e)
         return
-    
+
+    try:
+        ramp_out = anim_chop['cook_ramp']
+        ramp_src = anim_chop.get_channel('cook_ramp')
+
+        result.assert_near(0.0, ramp_out[0], 1e-4,
+                           "First cooked sample matches the first keyframe")
+
+        # Half-open: the last sample sits one period short of the range end, so
+        # it is NOT the final keyframe's value. Asserting that explicitly, since
+        # an off-by-one here is otherwise invisible on a smooth curve.
+        result.assert_near(ramp_src.evaluate(COOK_END - COOK_STEP),
+                           ramp_out[COOK_SAMPLES - 1], 1e-3,
+                           "Last cooked sample sits one period before the range end")
+        result.assert_true(ramp_out[COOK_SAMPLES - 1] < 100.0,
+                           "The range end itself is not sampled")
+
+        # The interesting one: every sample has to agree with evaluate(), which
+        # is the contract the CHOP output rests on. Tolerance is loose because
+        # the CHOP stores float32 while evaluate() returns double.
+        mismatches = 0
+        worst = 0.0
+        for i in range(COOK_SAMPLES):
+            t = COOK_START + i * COOK_STEP
+            delta = abs(ramp_out[i] - ramp_src.evaluate(t))
+            worst = max(worst, delta)
+            if delta > 1e-3:
+                mismatches += 1
+        result.assert_equal(0, mismatches,
+                            f"Every cooked sample matches Channel.evaluate() "
+                            f"(worst delta {worst:.6f})")
+
+        flat_out = anim_chop['cook_flat']
+        result.assert_near(7.0, flat_out[COOK_SAMPLES // 2], 1e-4,
+                           "A flat channel cooks to its constant value")
+    except Exception as e:
+        result.record_exception("Cooked output values", e)
+
+
+# --- NaN in the cooked output (issue #15) -----------------------------------
+#
+# The reported symptom is a NaN in the final sample, appearing only when the
+# range end lands exactly on the last keyframe's time, and going away when the
+# range is nudged.
+#
+# It cannot come from the curve: evaluate() was swept over some 2000 channel
+# geometries -- every function and handle mode, degenerate segments, extreme
+# handles -- without producing one. So the NaN is a sample the operator declared
+# but never wrote. TouchDesigner does not clear the sample buffer between cooks,
+# so an unwritten sample keeps whatever was in that memory, and a CHOP's buffer
+# is filled with NaN precisely so that an unwritten sample is visible rather
+# than plausible.
+#
+# That makes a NaN here a real signal, not cosmetic: it means the fill loop
+# produced fewer samples than getOutputInfo asked for. These configurations are
+# the ones where the old sizing formula and the actual sample count could
+# disagree.
+
+NAN_RATE = 60.0
+
+# (label, keyframe times, range start, range end, sample rate)
+#
+# The first is the reported case exactly. The rest vary the things the old
+# formula was sensitive to: whether the range starts at zero, whether the span
+# is a whole number of sample periods, and whether the rate divides it evenly.
+NAN_CASES = [
+    ("range end on the last keyframe", [0.0, 10.0], 0.0, 10.0, NAN_RATE),
+    ("range end past the last keyframe", [0.0, 10.0], 0.0, 10.5, NAN_RATE),
+    ("range end before the last keyframe", [0.0, 10.0], 0.0, 9.5, NAN_RATE),
+    ("non-zero range start", [1.0, 11.0], 1.0, 11.0, NAN_RATE),
+    ("range start before the first key", [2.0, 8.0], 0.0, 10.0, NAN_RATE),
+    ("fractional span", [0.0, 1.05], 0.0, 1.05, 30.0),
+    ("NTSC rate", [0.0, 10.0], 0.0, 10.0, 59.94),
+    ("rate of 1", [0.0, 10.0], 0.0, 10.0, 1.0),
+    ("very high rate", [0.0, 2.0], 0.0, 2.0, 240.0),
+    ("single keyframe", [5.0], 0.0, 10.0, NAN_RATE),
+    ("zero-length range", [0.0, 10.0], 5.0, 5.0, NAN_RATE),
+    ("negative times", [-10.0, 0.0], -10.0, 0.0, NAN_RATE),
+]
+
+_nan_case_index = 0
+_nan_findings = []
+
+
+def _is_bad(x):
+    # NaN is the only value that is not equal to itself; inf is caught by the
+    # magnitude test. Written without math.isnan so this works on whatever
+    # numeric type TouchDesigner hands back.
+    return x != x or abs(x) > 1e30
+
+
+def setup_nan_case(anim_chop):
+    """Configure the next NaN case. Returns False when they are exhausted.
+
+    check_nan_case() is what advances the index, so the two stay paired even if
+    a step is skipped.
+    """
+    if _nan_case_index >= len(NAN_CASES):
+        return False
+
+    label, times, start, end, rate = NAN_CASES[_nan_case_index]
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'range'
+    anim_chop.par.Indexunit = 'seconds'
+    anim_chop.par.Timeslice = 0
+    anim_chop.par.Samplerate = rate
+    anim_chop.par.Range1 = start
+    anim_chop.par.Range2 = end
+
+    # Two channels, so a shortfall affecting only the last one is still caught.
+    for name, scale in (('nan_a', 1.0), ('nan_b', -3.0)):
+        ch = anim_chop.create_channel(name)
+        for i, t in enumerate(times):
+            ch.create_keyframe(t, i * 100.0 * scale)
+    return True
+
+
+def check_nan_case(anim_chop, result):
+    """Scan every cooked sample of the current case for NaN."""
+    global _nan_case_index
+
+    label, times, start, end, rate = NAN_CASES[_nan_case_index]
+    _nan_case_index += 1
+
+    result.begin_suite('cooked output: NaN')
+    try:
+        n = anim_chop.numSamples
+        bad = []
+        for c in range(anim_chop.numChans):
+            chan = anim_chop[c]
+            for i in range(n):
+                if _is_bad(chan[i]):
+                    bad.append((chan.name, i))
+                    if len(bad) > 4:
+                        break
+            if len(bad) > 4:
+                break
+
+        detail = f"{label} (range {start}..{end} @ {rate}, {n} samples)"
+        if bad:
+            _nan_findings.append(f"{detail}: {bad}")
+        result.assert_equal([], bad, f"No NaN in cooked output -- {detail}")
+
+        # getOutputInfo sizes the output from the Sample Rate parameter, and
+        # execute fills it from output->sampleRate. Those are supposed to be the
+        # same number, but nothing in the API guarantees TouchDesigner passes it
+        # through untouched -- and if it ever substitutes one (the header notes
+        # the rate defaults to the timeline FPS), the count and the data would
+        # be computed from different rates and the tail would go unwritten.
+        # That would be intermittent and range-sensitive, which is what was
+        # reported, so it is worth knowing rather than assuming.
+        if abs(anim_chop.rate - rate) > 1e-6:
+            _nan_findings.append(
+                f"{detail}: cooked rate {anim_chop.rate} != parameter {rate}")
+        result.assert_near(rate, anim_chop.rate, 1e-3,
+                           f"Cooked sample rate matches the parameter -- {detail}")
+
+        # The count TouchDesigner hands execute() should be the one we asked
+        # for. If it is not, a fill loop sized from our own figure would come up
+        # short no matter how correct that figure was.
+        expected = anim_chop.num_samples
+        result.assert_equal(expected, n,
+                            f"Cooked sample count matches Animation.num_samples -- {detail}")
+
+        # A shortfall would show up as a trailing run of untouched samples, so
+        # the last sample is the one to be sure about.
+        if n > 0 and anim_chop.numChans > 0:
+            result.assert_false(_is_bad(anim_chop[0][n - 1]),
+                                f"Final sample is a real number -- {detail}")
+    except Exception as e:
+        result.record_exception(f"NaN scan: {label}", e)
+
+
+def setup_unconnected_input_case(anim_chop):
+    """Input mode with nothing connected -- an error state that still cooks.
+
+    execute() sets an error and returns without writing anything, so every
+    sample used to keep whatever was in TouchDesigner's buffer. The node is
+    meant to report the problem, not emit NaN, and this configuration is one
+    parameter click away from the default.
+    """
+    anim_chop.clear()
+    anim_chop.par.Outputmode = 'input'
+    ch = anim_chop.create_channel('orphan')
+    ch.create_keyframe(0.0, 0.0)
+    ch.create_keyframe(1.0, 100.0)
+
+
+def check_unconnected_input_case(anim_chop, result):
+    result.begin_suite('cooked output: NaN')
+    try:
+        bad = []
+        for c in range(anim_chop.numChans):
+            chan = anim_chop[c]
+            for i in range(anim_chop.numSamples):
+                if _is_bad(chan[i]):
+                    bad.append((chan.name, i))
+                    break
+        if bad:
+            _nan_findings.append(f"Input mode with no input connected: {bad}")
+        result.assert_equal([], bad,
+                            "No NaN in cooked output -- Input mode, nothing connected")
+        # The node should say why it has no data rather than only looking odd.
+        result.assert_true(bool(anim_chop.errors()),
+                           "Input mode with no input reports an error")
+    except Exception as e:
+        result.record_exception("NaN scan: unconnected input", e)
+    finally:
+        try:
+            anim_chop.par.Outputmode = 'range'
+            anim_chop.clear()
+        except Exception:
+            pass
+
+
+def nan_cases_remaining():
+    return _nan_case_index < len(NAN_CASES)
+
+
+def nan_findings():
+    return list(_nan_findings)
+
+
+def run_api_tests(anim_chop, cleanup=True, result=None):
+    """Run the binding suites against a real AnimationCHOP operator.
+
+    Returns the TestResult. Pass one in to share it with the other modules in a
+    run, so the summary covers everything rather than this module alone. The
+    operator is passed in rather than looked up, so this module never needs to
+    know where it lives in the network.
+    """
+    if anim_chop is None:
+        print("ERROR: run_api_tests() needs an AnimationCHOP operator.")
+        print("Use: animation_chop_test.run_api_tests(op('animation1'))")
+        return None
+
+    print(f"Running tests on node: {anim_chop}")
+
+    if result is None:
+        result = TestResult()
+
     try:
         anim_chop.clear()  # Clear any existing channels
         print("Cleared existing channels in AnimationCHOP")
     except Exception as e:
         print(f"Failed to clear channels: {e}")
-        return
+        result.record_exception("Could not clear the AnimationCHOP", e)
+        return result
 
-    # Initialize test results
-    result = TestResult()
-    
     print("="*60)
     print("ANIMATIONCHOP PYTHON API TEST SUITE")
     print("="*60)
-    
 
-    try:
-        # Run all test suites
-        test_point_api(anim_chop, result)
-        test_keyframe_api(anim_chop, result)
-        test_enum_apis(anim_chop, result)
-        test_animation_chop_core_api(anim_chop, result)
-        test_channel_api(anim_chop, result)
-        test_advanced_features(anim_chop, result)
-        test_error_handling(anim_chop, result)
-        test_state_apis(anim_chop, result)
-        test_state_error_handling(anim_chop, result)
-        test_state_roundtrip(anim_chop, result)
+    suites = [
+        ('point', test_point_api),
+        ('keyframe', test_keyframe_api),
+        ('enums', test_enum_apis),
+        ('animation core', test_animation_chop_core_api),
+        ('channel', test_channel_api),
+        ('advanced', test_advanced_features),
+        ('error handling', test_error_handling),
+        ('state', test_state_apis),
+        ('state errors', test_state_error_handling),
+        ('state roundtrip', test_state_roundtrip),
+    ]
 
-    except Exception as e:
-        print(f"\nUNEXPECTED ERROR: {e}")
-        print(traceback.format_exc())
-        result.failed += 1
-        result.errors.append(f"Unexpected error: {e}")
-    
-    finally:
-        if cleanup:
+    for name, suite in suites:
+        result.begin_suite(name)
+        # Isolate the suites from each other: one blowing up should not take the
+        # rest of the run with it, or the first failure hides everything after.
+        try:
+            suite(anim_chop, result)
+        except Exception as e:
+            print(f"\nUNEXPECTED ERROR in {name}: {e}")
+            print(traceback.format_exc())
+            result.record_exception(f"{name} suite aborted", e)
+
+    if cleanup:
+        try:
             anim_chop.clear()
-        else:
-            print("\nSkipping cleanup. Test channels will remain in AnimationCHOP.")
+        except Exception as e:
+            print(f"Failed to clear channels during cleanup: {e}")
+    else:
+        print("\nSkipping cleanup. Test channels will remain in AnimationCHOP.")
 
-    # Print final results
-    result.print_summary()
-    
     return result
-
-run_tests()

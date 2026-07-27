@@ -4,6 +4,7 @@
 #include "py_extend.h" // For Extend enum support
 #include <vector>
 #include <optional>
+#include <stdexcept>
 
 // Allocation/deallocation functions
 static PyObject* PY_Channel_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
@@ -570,10 +571,14 @@ static PyObject* PY_Channel_evaluate_range(PY_Channel *self, PyObject *args) {
     }
     double start_time, end_time;
     int num_samples;
-    if (!PyArg_ParseTuple(args, "ddi", &start_time, &end_time, &num_samples))
+    PyObject* range_end_obj = NULL;
+    if (!PyArg_ParseTuple(args, "ddi|O", &start_time, &end_time, &num_samples, &range_end_obj))
+        return NULL;
+    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
+    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
         return NULL;
     try {
-        std::vector<double> values = channelData.channel->evaluate_range(start_time, end_time, num_samples);
+        std::vector<double> values = channelData.channel->evaluate_range(start_time, end_time, num_samples, range_end);
         PyObject* list = PyList_New(values.size());
         for (size_t i = 0; i < values.size(); ++i)
             PyList_SET_ITEM(list, i, PyFloat_FromDouble(values[i]));
@@ -591,10 +596,14 @@ static PyObject* PY_Channel_evaluate_range_by_rate(PY_Channel *self, PyObject *a
         return NULL;
     }
     double start_time, end_time, sample_rate;
-    if (!PyArg_ParseTuple(args, "ddd", &start_time, &end_time, &sample_rate))
+    PyObject* range_end_obj = NULL;
+    if (!PyArg_ParseTuple(args, "ddd|O", &start_time, &end_time, &sample_rate, &range_end_obj))
+        return NULL;
+    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
+    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
         return NULL;
     try {
-        std::vector<double> values = channelData.channel->evaluate_range_by_rate(start_time, end_time, sample_rate);
+        std::vector<double> values = channelData.channel->evaluate_range_by_rate(start_time, end_time, sample_rate, range_end);
         PyObject* list = PyList_New(values.size());
         for (size_t i = 0; i < values.size(); ++i)
             PyList_SET_ITEM(list, i, PyFloat_FromDouble(values[i]));
@@ -687,24 +696,6 @@ static PyObject* PY_Channel_length(PY_Channel *self, void*) {
         return NULL;
     }
     return PyFloat_FromDouble(channelData.channel->length());
-}
-
-static PyObject* PY_Channel_num_samples(PY_Channel *self, PyObject* args) {
-    auto channelData = getChannelData(self, false);
-    if (!channelData.channel) {
-        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
-        return NULL;
-    }
-    double sample_rate;
-    if (!PyArg_ParseTuple(args, "d", &sample_rate))
-        return NULL;
-    try {
-        size_t n = channelData.channel->num_samples(sample_rate);
-        return PyLong_FromSize_t(n);
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
 }
 
 static PyObject* PY_Channel_get_extend_start(PY_Channel *self, void*) {
@@ -970,11 +961,30 @@ static PyMethodDef PY_Channel_methods[] = {
     {"create_keyframe_from_state", (PyCFunction)PY_Channel_create_keyframe_from_state, METH_VARARGS, "Create a keyframe from a state dictionary"},
     {"emplace_keyframe", (PyCFunction)PY_Channel_emplace_keyframe, METH_VARARGS, "Emplace a keyframe (move) into the channel"},
     {"delete_keyframe", (PyCFunction)PY_Channel_remove_keyframe, METH_VARARGS, "Delete a keyframe by index"},
-    {"keyframe", (PyCFunction)PY_Channel_get_keyframe, METH_VARARGS, "Get a keyframe by index"},
-    {"prev_keyframe", (PyCFunction)PY_Channel_prev_keyframe, METH_VARARGS, "Get previous keyframe before time"},
-    {"next_keyframe", (PyCFunction)PY_Channel_next_keyframe, METH_VARARGS, "Get next keyframe after time"},
-    {"closest_keyframe", (PyCFunction)PY_Channel_closest_keyframe, METH_VARARGS, "Get closest keyframe to time"},
-    {"update_keyframe", (PyCFunction)PY_Channel_update_keyframe, METH_VARARGS, "Update a keyframe at index with a new keyframe object"},
+    {"keyframe", (PyCFunction)PY_Channel_get_keyframe, METH_VARARGS,
+     "keyframe(index) -> Keyframe\n\n"
+     "Return a detached copy of the keyframe at index. Assigning to the copy's\n"
+     "properties does not touch the channel; write it back with\n"
+     "channel[index] = kf (or update_keyframe), or use the set_keyframe_*\n"
+     "methods to edit in place."},
+    {"prev_keyframe", (PyCFunction)PY_Channel_prev_keyframe, METH_VARARGS,
+     "prev_keyframe(time) -> Keyframe\n\n"
+     "Return a detached copy of the keyframe immediately before time. See\n"
+     "keyframe() for how to write changes back."},
+    {"next_keyframe", (PyCFunction)PY_Channel_next_keyframe, METH_VARARGS,
+     "next_keyframe(time) -> Keyframe\n\n"
+     "Return a detached copy of the keyframe immediately after time. See\n"
+     "keyframe() for how to write changes back."},
+    {"closest_keyframe", (PyCFunction)PY_Channel_closest_keyframe, METH_VARARGS,
+     "closest_keyframe(time) -> Keyframe\n\n"
+     "Return a detached copy of the keyframe nearest to time. See keyframe()\n"
+     "for how to write changes back."},
+    {"update_keyframe", (PyCFunction)PY_Channel_update_keyframe, METH_VARARGS,
+     "update_keyframe(index, keyframe) -> None\n\n"
+     "Replace the keyframe at index. This is the write half of the\n"
+     "read-modify-write round trip, and the same as channel[index] = keyframe.\n"
+     "The time is clamped between the neighbouring keyframes, so keyframes\n"
+     "never reorder, and the neighbouring handles are re-solved as needed."},
     {"set_keyframe_time", (PyCFunction)PY_Channel_set_keyframe_time, METH_VARARGS, "Set keyframe time at index"},
     {"set_keyframe_value", (PyCFunction)PY_Channel_set_keyframe_value, METH_VARARGS, "Set keyframe value at index"},
     {"set_keyframe_position", (PyCFunction)PY_Channel_set_keyframe_position, METH_VARARGS, "Set keyframe position at index"},
@@ -983,9 +993,18 @@ static PyMethodDef PY_Channel_methods[] = {
     {"set_keyframe_function", (PyCFunction)PY_Channel_set_keyframe_function, METH_VARARGS, "Set keyframe function at index"},
     {"set_keyframe_handle_mode", (PyCFunction)PY_Channel_set_keyframe_handle_mode, METH_VARARGS, "Set keyframe handle mode at index"},
     {"evaluate", (PyCFunction)PY_Channel_evaluate, METH_VARARGS, "Evaluate the channel at a specific time"},
-    {"evaluate_range", (PyCFunction)PY_Channel_evaluate_range, METH_VARARGS, "Evaluate the channel over a range (start_time, end_time, num_samples)"},
-    {"evaluate_range_by_rate", (PyCFunction)PY_Channel_evaluate_range_by_rate, METH_VARARGS, "Evaluate the channel over a range by sample rate (start_time, end_time, sample_rate)"},
-    {"num_samples", (PyCFunction)PY_Channel_num_samples, METH_VARARGS, "Get the number of samples for a given sample rate"},
+    {"evaluate_range", (PyCFunction)PY_Channel_evaluate_range, METH_VARARGS,
+     "evaluate_range(start_time, end_time, num_samples, range_end=RangeEnd.EXCLUSIVE) -> list[float]\n\n"
+     "Evaluate num_samples evenly spaced values across the range. The range is\n"
+     "half-open by default: end_time is not sampled, so looping or joining\n"
+     "adjacent ranges does not repeat a value at the seam. Pass\n"
+     "RangeEnd.INCLUSIVE to land the last sample on end_time, which is what\n"
+     "plotting a curve or building a lookup table wants."},
+    {"evaluate_range_by_rate", (PyCFunction)PY_Channel_evaluate_range_by_rate, METH_VARARGS,
+     "evaluate_range_by_rate(start_time, end_time, sample_rate, range_end=RangeEnd.EXCLUSIVE) -> list[float]\n\n"
+     "Evaluate the range at a fixed rate, so samples are exactly one period\n"
+     "apart however long the range is. Half-open by default: a span of n\n"
+     "periods gives n values. This is what the operator's own output uses."},
     {"get_state", (PyCFunction)PY_Channel_get_state_method, METH_NOARGS, "Get Channel state as dictionary"},
     {"set_state", (PyCFunction)PY_Channel_set_state_method, METH_VARARGS, "Set Channel state from dictionary"},
     {NULL}  // Sentinel
@@ -1037,10 +1056,66 @@ static PyObject* PY_Channel_mp_subscript(PY_Channel *self, PyObject *key) {
     return NULL;
 }
 
+// channel[index] = keyframe -- a synonym for update_keyframe(index, keyframe).
+// Keyframes come out of a channel as detached copies (anim only exposes them as
+// const&, since every edit has to clamp the time between its neighbours,
+// re-solve the neighbouring handles and invalidate the eval cache), so
+// read-modify-write is the only way to edit one through a Keyframe object.
+// Assignment makes that round trip visible; without it the natural-looking
+// channel[0].value = x silently updates the copy alone.
+static int PY_Channel_mp_ass_subscript(PY_Channel *self, PyObject *key, PyObject *value) {
+    auto channelData = getChannelData(self, false);
+    if (!channelData.channel) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
+        return -1;
+    }
+
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "Channel indices must be integers");
+        return -1;
+    }
+
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Channel does not support keyframe deletion by subscript; "
+                        "use delete_keyframe(index)");
+        return -1;
+    }
+
+    Py_ssize_t index = PyLong_AsSsize_t(key);
+    if (index == -1 && PyErr_Occurred()) {
+        return -1;
+    }
+
+    // Handle negative indices
+    if (index < 0) {
+        index += (Py_ssize_t)channelData.channel->num_keyframes();
+    }
+
+    anim::Keyframe kf;
+    if (!PY_ObjectToKeyframe(value, kf)) {
+        // PY_ObjectToKeyframe already sets the error
+        return -1;
+    }
+
+    try {
+        channelData.channel->update_keyframe(static_cast<size_t>(index), kf);
+        if (channelData.node_struct) {
+            channelData.node_struct->context->makeNodeDirty();
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        // update_keyframe throws out_of_range for a bad index, matching the
+        // IndexError that reading channel[index] raises for the same input.
+        PyErr_SetString(PyExc_IndexError, e.what());
+        return -1;
+    }
+}
+
 static PyMappingMethods PY_Channel_as_mapping = {
     (lenfunc)PY_Channel_len,        // mp_length
     (binaryfunc)PY_Channel_mp_subscript,  // mp_subscript
-    0,                              // mp_ass_subscript
+    (objobjargproc)PY_Channel_mp_ass_subscript, // mp_ass_subscript
 };
 
 // --- Properties ---
@@ -1080,7 +1155,23 @@ PyTypeObject PY_ChannelType = {
     PyObject_GenericSetAttr,   // tp_setattro
     0,                         // tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // tp_flags
-    "Channel object",         // tp_doc
+    // tp_doc
+    "A named animation curve: a time-sorted sequence of keyframes.\n\n"
+    "A Channel is a live handle. It resolves to the operator's channel on every\n"
+    "access, so two Channel objects naming the same channel see each other's\n"
+    "edits, and one held past a remove_channel() raises rather than reading\n"
+    "freed memory.\n\n"
+    "Keyframes are the opposite: values, not handles. keyframe(), the iterator\n"
+    "and channel[index] all hand back detached copies, because a keyframe has no\n"
+    "identity of its own -- editing one has to clamp its time between its\n"
+    "neighbours, re-solve their handles and invalidate the eval cache, which\n"
+    "only the channel can do. Edit them either in place:\n\n"
+    "    channel.set_keyframe_value(0, 55.0)\n\n"
+    "or by round trip:\n\n"
+    "    kf = channel[0]\n"
+    "    kf.value = 55.0\n"
+    "    channel[0] = kf\n\n"
+    "Setting a property on a copy alone leaves the channel unchanged.",
     0,                         // tp_traverse
     0,                         // tp_clear
     0,                         // tp_richcompare
@@ -1135,7 +1226,10 @@ PyObject* ChannelToPY_Object(anim::Channel* channel, PyObject* parent) {
     self->parent = nullptr;
 
     try {
-        new (&self->channel_id) anim::Id(channel->id().id); // Use placement new to initialize id
+        // Placement new to initialize the const id member. Copy the Id itself
+        // rather than rebuilding one from its raw value: anim only hands ids
+        // out from the library, so the raw constructor is private.
+        new (&self->channel_id) anim::Id(channel->id());
         Py_XINCREF(parent); // Increase reference count for parent
         self->parent = parent; // Assign parent
     } catch (const std::exception& e) {
@@ -1195,6 +1289,15 @@ ChannelData getChannelData(PY_Channel *self, bool autoCook) {
         PyErr_SetString(PyExc_RuntimeError, "Cannot retrieve anim::Animation instance.");
         return ChannelData();
     }
-    // anim::Animation would need a method like getChannelById
-    return { animation->channel(self->channel_id), inst, td_struct };
+    // channel(Id) returns a reference and throws std::out_of_range when the
+    // channel is gone -- which is reachable, since Python can hold a Channel
+    // past a remove_channel(). Every caller tests for a null channel, so
+    // translate the miss into that rather than letting a C++ exception escape
+    // through the CPython boundary.
+    try {
+        return { &animation->channel(self->channel_id), inst, td_struct };
+    } catch (const std::out_of_range&) {
+        PyErr_SetString(PyExc_RuntimeError, "Channel no longer exists.");
+        return ChannelData();
+    }
 }

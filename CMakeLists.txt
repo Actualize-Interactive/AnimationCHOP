@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
-project(AnimationCHOP VERSION 1.0.0 LANGUAGES CXX)
+# Stays on 0.x until the API is stable; see CHANGELOG.md.
+project(AnimationCHOP VERSION 0.4.0 LANGUAGES CXX)
 
 set(VERBOSE_STATUS ON CACHE BOOL "Verbose status messages" FORCE)
 set(SUPPRESS_NOT_REFERENCED_WARNINGS ON CACHE BOOL "Suppress not referenced warnings" FORCE)
@@ -17,12 +18,14 @@ set(PY_ANIM_BINDINGS_SRCS
     ${SRC}/py_anim_bindings/py_handle_mode.cpp
     ${SRC}/py_anim_bindings/py_keyframe.cpp
     ${SRC}/py_anim_bindings/py_point.cpp
+    ${SRC}/py_anim_bindings/py_range_end.cpp
 )
 
 # Explicitly define sources for AnimationCHOP
 set(ANIMATION_CHOP_SOURCES
     ${PY_ANIM_BINDINGS_SRCS}
     ${SRC}/animation_chop.cpp
+    ${SRC}/animation_codec.cpp
 )
 
 # Explicitly define sources for AnimationViewCHOP
@@ -167,30 +170,42 @@ if(SUPPRESS_NOT_REFERENCED_WARNINGS)
     endforeach()
 endif()
 
-# Add post-build commands to copy both DLLs to the Plugins folder
+# Add post-build commands to copy both DLLs to the Plugins folders.
+#
+# TouchDesigner only loads Custom Operators from a Plugins/ folder beside the
+# .toe, with no way to point it at a build directory, so every project that
+# needs the operators gets its own copy: td/ for the example project, and
+# tests/td/ for the integration-test project (see TESTING.md).
+set(ANIMATIONCHOP_PLUGIN_DIRS
+    "${CMAKE_SOURCE_DIR}/td/Plugins"
+    "${CMAKE_SOURCE_DIR}/tests/td/Plugins"
+)
+
 foreach(TARGET animation_chop animation_view_chop)
-    add_custom_command(TARGET ${TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/td/Plugins"
-        COMMENT "Creating Plugins directory"
-    )
-    
-    if(APPLE)
-        # On macOS, copy the entire .plugin bundle
+    foreach(PLUGIN_DIR ${ANIMATIONCHOP_PLUGIN_DIRS})
         add_custom_command(TARGET ${TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory 
-                    "$<TARGET_BUNDLE_DIR:${TARGET}>" 
-                    "${CMAKE_SOURCE_DIR}/td/Plugins/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
-            COMMENT "Copying ${TARGET}.plugin bundle to Plugins directory"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${PLUGIN_DIR}"
+            COMMENT "Creating Plugins directory: ${PLUGIN_DIR}"
         )
-    else()
-        # On other platforms, copy the library file
-        add_custom_command(TARGET ${TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy 
-                    "$<TARGET_FILE:${TARGET}>" 
-                    "${CMAKE_SOURCE_DIR}/td/Plugins/"
-            COMMENT "Copying ${TARGET} to Plugins directory"
-        )
-    endif()
+
+        if(APPLE)
+            # On macOS, copy the entire .plugin bundle
+            add_custom_command(TARGET ${TARGET} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        "$<TARGET_BUNDLE_DIR:${TARGET}>"
+                        "${PLUGIN_DIR}/$<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
+                COMMENT "Copying ${TARGET}.plugin bundle to ${PLUGIN_DIR}"
+            )
+        else()
+            # On other platforms, copy the library file
+            add_custom_command(TARGET ${TARGET} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                        "$<TARGET_FILE:${TARGET}>"
+                        "${PLUGIN_DIR}/"
+                COMMENT "Copying ${TARGET} to ${PLUGIN_DIR}"
+            )
+        endif()
+    endforeach()
 endforeach()
 
 # Add platform-specific settings for both targets
@@ -226,3 +241,55 @@ install(TARGETS animation_chop animation_view_chop
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
+
+# ---------------------------------------------------------------------------
+# Tests
+#
+# tests/python runs pytest against an extension that compiles the real operator
+# sources against a fake PY_Context. No TouchDesigner needed, so it runs in CI.
+#
+# tests/cpp is Catch2 over the .toe persistence codec -- the one piece here that
+# is pure C++, and the one whose output lands in users' project files. Curve
+# behaviour is anim's to test; it carries its own suite.
+#
+# The TouchDesigner integration test is separate and local-only (TouchDesigner
+# needs a licence and a GPU, so it cannot run on a cloud runner); see
+# run_td_tests.ps1 and TESTING.md.
+#
+# Configure with -DANIMATIONCHOP_BUILD_TESTS=ON, or use the `dev` preset.
+# ---------------------------------------------------------------------------
+option(ANIMATIONCHOP_BUILD_TESTS "Build the Catch2 and pytest unit tests" OFF)
+
+if(ANIMATIONCHOP_BUILD_TESTS)
+    enable_testing()
+
+    # TouchDesigner embeds CPython 3.11, so the extension must be built and
+    # imported by 3.11. uv is preferred: it can supply both the interpreter and
+    # pytest without anything being installed globally.
+    find_program(UV_EXECUTABLE uv)
+    if(UV_EXECUTABLE)
+        message(STATUS "AnimationCHOP: using uv at ${UV_EXECUTABLE} to run pytest")
+    else()
+        find_package(Python3 3.11 COMPONENTS Interpreter REQUIRED)
+        set(ANIMATIONCHOP_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+        message(STATUS "AnimationCHOP: uv not found; running pytest with ${Python3_EXECUTABLE}")
+    endif()
+
+    # A CPython extension is .pyd on Windows and .so everywhere else, including
+    # macOS -- CMake's default MODULE suffix there is .so already, but .dylib
+    # would not be importable, so be explicit.
+    if(WIN32)
+        set(ANIMATIONCHOP_PYEXT_SUFFIX ".pyd")
+        # Windows builds against the vendored headers/import library, matching
+        # the operator targets above.
+        set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include)
+    else()
+        set(ANIMATIONCHOP_PYEXT_SUFFIX ".so")
+        find_package(Python3 3.11 COMPONENTS Development.Module REQUIRED)
+        set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+        set(ANIMATIONCHOP_PYTHON_LIBRARIES Python3::Module)
+    endif()
+
+    add_subdirectory(tests/cpp)
+    add_subdirectory(tests/python)
+endif()
