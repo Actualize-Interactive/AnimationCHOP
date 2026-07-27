@@ -698,28 +698,6 @@ static PyObject* PY_Channel_length(PY_Channel *self, void*) {
     return PyFloat_FromDouble(channelData.channel->length());
 }
 
-static PyObject* PY_Channel_num_samples(PY_Channel *self, PyObject* args) {
-    auto channelData = getChannelData(self, false);
-    if (!channelData.channel) {
-        PyErr_SetString(PyExc_RuntimeError, "Channel is not valid");
-        return NULL;
-    }
-    double sample_rate;
-    PyObject* range_end_obj = NULL;
-    if (!PyArg_ParseTuple(args, "d|O", &sample_rate, &range_end_obj))
-        return NULL;
-    anim::RangeEnd range_end = anim::RangeEnd::Exclusive;
-    if (!PY_ObjectToRangeEnd(range_end_obj, range_end))
-        return NULL;
-    try {
-        size_t n = channelData.channel->num_samples(sample_rate, range_end);
-        return PyLong_FromSize_t(n);
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-}
-
 static PyObject* PY_Channel_get_extend_start(PY_Channel *self, void*) {
     auto channelData = getChannelData(self, false);
     if (!channelData.channel) {
@@ -1027,10 +1005,6 @@ static PyMethodDef PY_Channel_methods[] = {
      "Evaluate the range at a fixed rate, so samples are exactly one period\n"
      "apart however long the range is. Half-open by default: a span of n\n"
      "periods gives n values. This is what the operator's own output uses."},
-    {"num_samples", (PyCFunction)PY_Channel_num_samples, METH_VARARGS,
-     "num_samples(sample_rate, range_end=RangeEnd.EXCLUSIVE) -> int\n\n"
-     "How many samples evaluate_range_by_rate() returns over this channel's\n"
-     "keyframe range at the given rate."},
     {"get_state", (PyCFunction)PY_Channel_get_state_method, METH_NOARGS, "Get Channel state as dictionary"},
     {"set_state", (PyCFunction)PY_Channel_set_state_method, METH_VARARGS, "Set Channel state from dictionary"},
     {NULL}  // Sentinel

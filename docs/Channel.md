@@ -126,8 +126,11 @@ Evaluate the channel over a time range with specified number of samples.
 #### `evaluate_range_by_rate(start_time: float, end_time: float, sample_rate: float, range_end: RangeEnd = RangeEnd.EXCLUSIVE) -> list[float]`
 Evaluate the channel over a time range with specified sample rate.
 
-#### `num_samples(sample_rate: float, range_end: RangeEnd = RangeEnd.EXCLUSIVE) -> int`
-Get the number of samples needed for the channel's duration at given sample rate.
+A channel has no `num_samples`. It knows only the extent of its own keyframes,
+which is an editing concept rather than the range a host samples over, so a
+count taken from it would quietly answer about the wrong span. Use the
+operator's [`num_samples`](AnimationCHOP.md), or TouchDesigner's own
+`numSamples` on the cooked output.
 
 ### State Management
 

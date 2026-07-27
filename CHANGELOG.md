@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While the major version is `0`, breaking changes may land in a minor release.
 
-## [Unreleased]
+## [0.4.0] - 2026-07-26
 
 First release prepared for the public repository.
 
@@ -32,10 +32,9 @@ First release prepared for the public repository.
   modes -- it has no Python API of its own, so integration is the only place it
   can be tested at all.
 - `RangeEnd` is exposed to Python, as a trailing argument on
-  `Channel.evaluate_range`, `Channel.evaluate_range_by_rate` and
-  `Channel.num_samples`. It defaults to `RangeEnd.EXCLUSIVE`; pass
-  `RangeEnd.INCLUSIVE` when samples are points on the curve rather than spans of
-  time, as when plotting or building a lookup table.
+  `Channel.evaluate_range` and `Channel.evaluate_range_by_rate`. It defaults to
+  `RangeEnd.EXCLUSIVE`; pass `RangeEnd.INCLUSIVE` when samples are points on the
+  curve rather than spans of time, as when plotting or building a lookup table.
 - `LICENSE`, `NOTICE`, `README.md` and `CONTRIBUTING.md`.
 
 ### Fixed
@@ -86,9 +85,15 @@ First release prepared for the public repository.
 
 ### Changed
 
-- Updated to anim, which makes `Id`'s constructor private, returns references
-  rather than pointers from its `Id` lookups, and moves rate-based sampling to a
+- Updated to anim v0.4.0, which makes `Id`'s constructor private, returns
+  references rather than pointers from its `Id` lookups, and moves sampling to a
   half-open range.
+- **Breaking:** removed `Channel.num_samples(rate)`, following anim, which
+  removed the method behind it in 0.4.0. A channel knows only the extent of its
+  own keyframes -- an editing concept, not the range a host samples over -- so a
+  count taken from it silently answered about the wrong span. Use the operator's
+  `num_samples`, which counts over the configured range, or TouchDesigner's own
+  `numSamples` on the cooked output.
 - CI builds now run the test suites, and publish release archives that work on
   unzip: the operators in a `Plugins/` folder beside the example project,
   `Keyframer.tox`, the modules the project loads, and the licence files.

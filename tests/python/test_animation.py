@@ -152,11 +152,16 @@ def test_animation_num_samples_covers_the_range(ramp, op):
     assert op.num_samples == 30 * 60
 
 
-def test_channel_num_samples_takes_a_sample_rate(ramp):
-    """Channel.num_samples(rate) is a method because it is rate-dependent,
-    unlike the operator's num_samples, which reads the configured range."""
-    assert ramp.num_samples(60.0) == 30 * 60
-    assert ramp.num_samples(30.0) == 30 * 30
+def test_channel_has_no_num_samples(ramp):
+    """Counting is the operator's job, not a channel's.
+
+    A channel only knows the extent of its own keyframes, which is an editing
+    concept rather than the range a host samples over -- so a count taken from
+    it silently answers about the wrong span. anim removed the equivalent in
+    0.4.0 for the same reason. Use the operator's num_samples, or TouchDesigner's
+    own numSamples on the cooked output.
+    """
+    assert not hasattr(ramp, "num_samples")
 
 
 def test_num_samples_is_a_whole_number_of_periods(op):
@@ -168,7 +173,6 @@ def test_num_samples_is_a_whole_number_of_periods(op):
     ch.create_keyframe(0, 0)
     ch.create_keyframe(4, 1)
 
-    assert ch.num_samples(30.0) == 120
     assert op.num_samples == 4 * 60
 
 
@@ -211,9 +215,14 @@ def test_range_end_inclusive_adds_the_closing_sample_by_rate(op, ramp):
     assert inclusive[-1] == pytest.approx(ramp.evaluate(30.0))
 
 
-def test_num_samples_follows_range_end(op, ramp):
-    assert ramp.num_samples(60.0) == 30 * 60
-    assert ramp.num_samples(60.0, op.RangeEnd.INCLUSIVE) == 30 * 60 + 1
+def test_operator_num_samples_is_the_exclusive_count(op, ramp):
+    """The operator's num_samples is a plain property with no RangeEnd.
+
+    It reports what the CHOP actually outputs, which is always the half-open
+    count. RangeEnd is reachable through the evaluate_range calls above, where
+    the caller is asking for values rather than reading the node's own length.
+    """
+    assert op.num_samples == 30 * 60
 
 
 def test_range_end_rejects_nonsense(op, ramp):

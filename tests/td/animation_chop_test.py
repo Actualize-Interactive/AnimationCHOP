@@ -366,12 +366,12 @@ def test_channel_api(anim_chop, result):
         result.assert_equal(4.0, channel.end_time, "Channel.end_time")
         result.assert_equal(4.0, channel.length, "Channel.length")
         
-        # Test num_samples calculation
-        num_samples = channel.num_samples(30.0)
-        result.assert_true(isinstance(num_samples, int), "Channel.num_samples returns int")
-        result.assert_equal(120, num_samples, "Channel.num_samples counts whole periods")
-        result.assert_equal(121, channel.num_samples(30.0, anim_chop.RangeEnd.INCLUSIVE),
-                            "Channel.num_samples with RangeEnd.INCLUSIVE counts the end")
+        # A channel deliberately has no num_samples: it knows only the extent
+        # of its own keyframes, which is not the range a host samples over, so
+        # a count taken from it would answer about the wrong span. Count over
+        # the operator's range instead, or read TouchDesigner's numSamples.
+        result.assert_false(hasattr(channel, "num_samples"),
+                            "Channel has no num_samples")
         
         # Test keyframe removal
         channel.delete_keyframe(1)
@@ -452,10 +452,10 @@ def test_advanced_features(anim_chop, result):
         # Test multiple evaluation ranges
         sample_rates = [30.0, 60.0, 120.0]
         for rate in sample_rates:
-            samples = pos_x.num_samples(rate)
             values = pos_x.evaluate_range_by_rate(0.0, 4.0, rate)
-            expected_samples = int(4.0 * rate) + 1
-            result.assert_near(expected_samples, len(values), 1, f"Sample count at {rate} Hz")
+            # Half-open: a 4-second span is exactly 4 * rate samples.
+            result.assert_equal(int(4.0 * rate), len(values),
+                                f"Sample count at {rate} Hz")
         
         result.assert_true(True, "Complex animation scenario completed")
         

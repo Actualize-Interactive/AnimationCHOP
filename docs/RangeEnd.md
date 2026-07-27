@@ -2,7 +2,7 @@
 
 Whether a sampled range includes its end time. Passed as an optional trailing
 argument to [`Channel.evaluate_range`](Channel.md),
-`Channel.evaluate_range_by_rate` and `Channel.num_samples`.
+`Channel.evaluate_range_by_rate`.
 
 ## Values
 
@@ -48,9 +48,9 @@ ch.evaluate_range_by_rate(0, 2, 60)
 # 121 values, the last exactly at 2.0
 ch.evaluate_range_by_rate(0, 2, 60, n.RangeEnd.INCLUSIVE)
 
-# The counts match what num_samples reports for the same setting
-ch.num_samples(60)                          # 120
-ch.num_samples(60, n.RangeEnd.INCLUSIVE)    # 121
+# The operator's own count is always the half-open one, matching what it
+# outputs; RangeEnd applies to the evaluate calls, not the node's length.
+n.num_samples                               # 120 over a 0..2 range at 60
 
 # By count rather than by rate, the two differ in spacing, not length:
 # both return 100 values, but INCLUSIVE lands the last one on the end.
