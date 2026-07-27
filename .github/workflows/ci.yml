@@ -7,6 +7,49 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  # release.yml takes its release body from the CHANGELOG section matching the
+  # tag, and refuses to publish if there is none. That check only ever runs on a
+  # tag, which is the worst moment to find the section missing or renamed. Run
+  # the same extraction on every push instead.
+  #
+  # The version comes from CMakeLists.txt rather than a tag, so this also keeps
+  # the declared project version and the CHANGELOG from drifting apart -- they
+  # were out of step before 0.4.0, the build claiming 1.0.0 while the tags were
+  # 0.3.x.
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check the CHANGELOG covers the declared version
+      run: |
+        version=$(sed -n 's/^project(AnimationCHOP VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)
+        if [ -z "$version" ]; then
+          echo "::error::Could not read the project version from CMakeLists.txt." >&2
+          exit 1
+        fi
+        echo "Project version: $version"
+
+        # The same extraction release.yml uses, matching the heading by prefix
+        # rather than by regex -- a version interpolated into one turns [0.4.0]
+        # into a character class.
+        awk -v head="## [$version]" '
+          index($0, head) == 1      { found = 1; next }
+          found && index($0, "## [") == 1 { exit }
+          found && /^\[.*\]: /      { exit }
+          found && index($0, "<!--") == 1 { exit }
+          found                     { print }
+        ' CHANGELOG.md \
+          | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' > RELEASE_NOTES.md
+
+        if [ ! -s RELEASE_NOTES.md ]; then
+          echo "::error::CHANGELOG.md has no '## [$version]' section, or it is empty. Add one before releasing $version." >&2
+          exit 1
+        fi
+        echo "Release notes for $version would be $(wc -l < RELEASE_NOTES.md) lines:"
+        cat RELEASE_NOTES.md
+
   build:
     strategy:
       fail-fast: false
