@@ -55,6 +55,38 @@ jobs:
     - name: Build
       run: cmake --build build --config Release
 
+    # The macOS plugin loads inside TouchDesigner on users' machines, so nothing
+    # about this runner may leak into it: no link against a Python that only
+    # exists here (v0.4.0 shipped linked to Homebrew's 3.14 and failed to load
+    # on every Mac), a minimum OS TouchDesigner supports, both architectures,
+    # and a bundle signature codesign accepts.
+    - name: Verify macOS plugins
+      if: runner.os == 'macOS'
+      run: |
+        status=0
+        for plugin in build/bin/AnimationCHOP.plugin build/bin/AnimationViewCHOP.plugin; do
+          bin="$plugin/Contents/MacOS/$(basename "${plugin%.plugin}")"
+          echo "== $plugin"
+          otool -L "$bin"
+          if otool -L "$bin" | grep -qi python; then
+            echo "::error::$plugin links a Python library; it must resolve Python from the host process." >&2; status=1
+          fi
+          archs=$(lipo -archs "$bin")
+          echo "archs: $archs"
+          case "$archs" in *arm64*x86_64*|*x86_64*arm64*) ;; *)
+            echo "::error::$plugin is not a universal binary (got: $archs)." >&2; status=1 ;;
+          esac
+          minos=$(otool -l "$bin" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
+          echo "minos: $minos"
+          if [ "$minos" != "13.3" ]; then
+            echo "::error::$plugin minimum macOS is $minos, expected 13.3." >&2; status=1
+          fi
+          if ! codesign --verify --deep --strict -vv "$plugin"; then
+            echo "::error::$plugin has no valid bundle signature." >&2; status=1
+          fi
+        done
+        exit $status
+
     # Don't publish a release that fails its own tests.
     - name: Test
       run: ctest --test-dir build --build-config Release --output-on-failure
@@ -66,7 +98,15 @@ jobs:
     - name: Package
       shell: bash
       run: |
-        version="${GITHUB_REF_NAME:-dev}"
+        # The archive is named after the tag. A workflow_dispatch dry run from
+        # a branch has no tag, and a branch name can contain a slash, which
+        # would turn the stage name into a nested directory the upload glob
+        # never sees -- so those are named after the commit instead.
+        if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          version="${GITHUB_REF_NAME}"
+        else
+          version="dev-${GITHUB_SHA::7}"
+        fi
         stage="AnimationCHOP-${version}-${{ matrix.platform }}"
         mkdir -p "$stage/Plugins" "$stage/modules"
 

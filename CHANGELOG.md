@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While the major version is `0`, breaking changes may land in a minor release.
 
+## [0.4.1] - 2026-09-08
+
+### Fixed
+
+- The macOS release did not load: TouchDesigner reported the plugins as
+  corrupted. They were built on a runner without TouchDesigner, so CMake fell
+  back to the runner's Homebrew Python 3.14 and linked against a path that
+  exists on no user's Mac; they also required macOS 26 and Apple silicon, and
+  carried only the linker's partial ad-hoc signature, which `codesign` rejects
+  for the bundle. The plugins now link no Python library at all (the symbols
+  resolve from TouchDesigner's own interpreter at load time, as for any
+  CPython extension), build universal with a minimum of macOS 13.3, and are
+  ad-hoc signed as complete bundles. The release workflow verifies all four
+  properties before it will publish.
+- The plugins are not notarized, so macOS still refuses a copy that carries the
+  browser's quarantine flag, with the same "corrupted" report. The README's
+  installation steps now include clearing the flag.
+- `run_td_tests.sh` is executable.
+
 ## [0.4.0] - 2026-07-26
 
 First release prepared for the public repository.

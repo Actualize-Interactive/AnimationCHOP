@@ -44,6 +44,9 @@ else()
     # Extension modules leave Python's symbols undefined; the host interpreter
     # supplies them at import.
     target_link_libraries(animationchop_testext PRIVATE ${ANIMATIONCHOP_PYTHON_LIBRARIES})
+    if(APPLE)
+        target_link_options(animationchop_testext PRIVATE "LINKER:-undefined,dynamic_lookup")
+    endif()
     target_compile_definitions(animationchop_testext PRIVATE __cdecl=)
     target_compile_options(animationchop_testext PRIVATE
         -Wno-unused-parameter -Wno-unused-variable)
