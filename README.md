@@ -44,7 +44,8 @@ it.
   operators. That build is where the Custom Operator API gained node data
   persistence (`saveData`/`loadData`), which is how animations are stored in the
   `.toe`; the operators target CHOP API version 10 / common API version 2.
-- **Windows or macOS.** Windows builds are x64.
+- **Windows or macOS.** Windows builds are x64. macOS builds are universal and
+  need macOS 13.3 or newer.
 
 ## Installation
 
@@ -62,9 +63,17 @@ it.
 
    TouchDesigner only loads Custom Operators from a `Plugins` folder next to the
    project file, or from the system-wide plugin folder.
-3. Open the project. The first load of a new operator build shows a prompt
+3. **macOS only:** clear the quarantine flag the browser put on the download,
+   or macOS refuses to load the plugins and TouchDesigner reports them as
+   corrupted. The plugins are not notarized with Apple, so this is a one-time
+   step per download. In Terminal, from the folder holding `Plugins`:
+
+   ```bash
+   xattr -dr com.apple.quarantine Plugins
+   ```
+4. Open the project. The first load of a new operator build shows a prompt
    asking you to trust it — approve it once.
-4. Add an **AnimationCHOP** from the operator palette, or drop in the included
+5. Add an **AnimationCHOP** from the operator palette, or drop in the included
    `Keyframer.tox` for the full editor.
 
 The release archive also contains an example project you can open directly.
@@ -137,8 +146,12 @@ Either way the built operators are copied into `td/Plugins/` so the example
 project picks them up.
 
 Windows vendors the CPython 3.11 headers and import libraries it needs, so there
-is nothing to install. macOS builds against TouchDesigner's own Python framework
-and expects TouchDesigner in `/Applications`.
+is nothing to install. macOS compiles against the Python 3.11 headers inside
+TouchDesigner when it is in `/Applications` (pass
+`-DANIMATIONCHOP_TD_APP=<path>` for another location), and otherwise against any
+CPython 3.11 it can find; the plugins never link a Python library, taking the
+symbols from TouchDesigner's own interpreter at load time. Builds are universal
+(Apple silicon and Intel) with a minimum of macOS 13.3.
 
 ## Testing
 

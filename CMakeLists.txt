@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.14)
+
+# macOS: TouchDesigner 2025 runs on macOS 13 and later, on Apple silicon and
+# Intel. Without these the plugin inherits the build machine's OS release as its
+# minimum and its CPU as its only architecture -- the CI runner is macOS 26 on
+# arm64, so v0.4.0 would only ever have loaded on a Mac newer than most users'.
+# 13.3 rather than 13.0 because the bindings format floats with std::format,
+# which libc++ only provides from 13.3. They must be set before project(), and
+# are ignored on other platforms.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "Minimum macOS version the plugins load on")
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures to build the plugins for")
+
 # Stays on 0.x until the API is stable; see CHANGELOG.md.
-project(AnimationCHOP VERSION 0.4.0 LANGUAGES CXX)
+project(AnimationCHOP VERSION 0.4.1 LANGUAGES CXX)
 
 set(VERBOSE_STATUS ON CACHE BOOL "Verbose status messages" FORCE)
 set(SUPPRESS_NOT_REFERENCED_WARNINGS ON CACHE BOOL "Suppress not referenced warnings" FORCE)
@@ -90,45 +101,52 @@ if(WIN32)
         )
     endforeach()
 elseif(APPLE)
-    # On macOS, use TouchDesigner's Python specifically
-    set(TD_PYTHON_EXECUTABLE "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3.11")
-    set(TD_PYTHON_INCLUDE_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/include/python3.11")
-    set(TD_PYTHON_LIBRARY_DIR "/Applications/TouchDesigner.app/Contents/Frameworks/Python.framework/Versions/Current/lib")
-    
-    # Check if TouchDesigner's Python exists, otherwise fall back to system Python
-    if(EXISTS "${TD_PYTHON_EXECUTABLE}" AND EXISTS "${TD_PYTHON_INCLUDE_DIR}")
-        message(STATUS "Using TouchDesigner's Python: ${TD_PYTHON_EXECUTABLE}")
-        
-        # Force CMake to use TouchDesigner's Python by setting the paths explicitly
-        set(Python3_EXECUTABLE "${TD_PYTHON_EXECUTABLE}" CACHE FILEPATH "Path to Python3 executable" FORCE)
-        set(Python3_INCLUDE_DIR "${TD_PYTHON_INCLUDE_DIR}" CACHE PATH "Path to Python3 include directory" FORCE)
-        set(Python3_LIBRARY_DIRS "${TD_PYTHON_LIBRARY_DIR}" CACHE PATH "Path to Python3 library directory" FORCE)
-        
-        # Set the find strategy to prioritize our specified paths
-        set(Python3_FIND_STRATEGY LOCATION)
-        set(Python3_FIND_REGISTRY NEVER)
-        set(Python3_FIND_FRAMEWORK NEVER)
-        
-        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-        
-        foreach(TARGET animation_chop animation_view_chop)
-            target_link_libraries(${TARGET} PRIVATE 
-                Python3::Python
-                anim
-            )
-            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
-        endforeach()
+    # TouchDesigner embeds CPython 3.11 and loads the plugin into its own
+    # process, so the plugin must not link a libpython of its own: whatever it
+    # linked would have to exist, at that exact path, on every user's Mac.
+    # (v0.4.0 was built on a runner without TouchDesigner, linked the runner's
+    # Homebrew Python 3.14, and failed to load everywhere.) Instead, as every
+    # CPython extension module does, leave the Python symbols undefined and let
+    # dyld resolve them from the host process at load time. All the build needs
+    # from Python is the 3.11 headers.
+    #
+    # TouchDesigner's own copy is preferred, because it is exactly the ABI the
+    # plugin runs against. Without a TouchDesigner install (CI), any CPython
+    # 3.11 supplies identical headers. EXACT matters: FindPython otherwise
+    # returns the newest interpreter it can find, and headers from another
+    # minor version would silently build against the wrong ABI.
+    set(ANIMATIONCHOP_TD_APP "/Applications/TouchDesigner.app"
+        CACHE PATH "TouchDesigner install to take the Python 3.11 headers from")
+    set(TD_PYTHON_INCLUDE_DIR
+        "${ANIMATIONCHOP_TD_APP}/Contents/Frameworks/Python.framework/Versions/3.11/include/python3.11")
+
+    if(EXISTS "${TD_PYTHON_INCLUDE_DIR}/Python.h")
+        message(STATUS "Using TouchDesigner's Python 3.11 headers: ${TD_PYTHON_INCLUDE_DIR}")
+        set(ANIMATIONCHOP_MACOS_PYTHON_INCLUDE_DIRS "${TD_PYTHON_INCLUDE_DIR}")
     else()
-        message(WARNING "TouchDesigner's Python not found at ${TD_PYTHON_EXECUTABLE}, falling back to system Python")
-        find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-        foreach(TARGET animation_chop animation_view_chop)
-            target_link_libraries(${TARGET} PRIVATE 
-                Python3::Python
-                anim
-            )
-            target_compile_definitions(${TARGET} PRIVATE __cdecl=)
-        endforeach()
+        set(Python3_FIND_FRAMEWORK LAST)
+        find_package(Python3 3.11 EXACT COMPONENTS Interpreter Development.Module REQUIRED)
+        message(STATUS "TouchDesigner not found at ${ANIMATIONCHOP_TD_APP}; "
+                       "using Python ${Python3_VERSION} headers: ${Python3_INCLUDE_DIRS}")
+        set(ANIMATIONCHOP_MACOS_PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
     endif()
+
+    foreach(TARGET animation_chop animation_view_chop)
+        target_include_directories(${TARGET} PRIVATE ${ANIMATIONCHOP_MACOS_PYTHON_INCLUDE_DIRS})
+        target_link_libraries(${TARGET} PRIVATE anim)
+        target_link_options(${TARGET} PRIVATE "LINKER:-undefined,dynamic_lookup")
+        target_compile_definitions(${TARGET} PRIVATE __cdecl=)
+
+        # The linker's implicit ad-hoc signature covers only the Mach-O, not the
+        # bundle, so `codesign --verify` rejects the .plugin and Gatekeeper
+        # reports a downloaded copy as damaged. Sign the whole bundle (still
+        # ad-hoc: no certificate needed). Runs before the copies below, which
+        # are added later in this file, so every copy carries the signature.
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND codesign --force --sign - "$<TARGET_BUNDLE_DIR:${TARGET}>"
+            COMMENT "Ad-hoc signing $<TARGET_PROPERTY:${TARGET},OUTPUT_NAME>.plugin"
+        )
+    endforeach()
 else()
     # On other platforms, use pkg-config to find Python
     find_package(PkgConfig REQUIRED)
@@ -283,9 +301,14 @@ if(ANIMATIONCHOP_BUILD_TESTS)
         # Windows builds against the vendored headers/import library, matching
         # the operator targets above.
         set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ext/Python/Include)
+    elseif(APPLE)
+        # Same headers and undefined-symbol linking as the operators above; the
+        # importing interpreter supplies the symbols.
+        set(ANIMATIONCHOP_PYEXT_SUFFIX ".so")
+        set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${ANIMATIONCHOP_MACOS_PYTHON_INCLUDE_DIRS})
     else()
         set(ANIMATIONCHOP_PYEXT_SUFFIX ".so")
-        find_package(Python3 3.11 COMPONENTS Development.Module REQUIRED)
+        find_package(Python3 3.11 EXACT COMPONENTS Development.Module REQUIRED)
         set(ANIMATIONCHOP_PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
         set(ANIMATIONCHOP_PYTHON_LIBRARIES Python3::Module)
     endif()
