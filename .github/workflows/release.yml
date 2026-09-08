@@ -98,7 +98,15 @@ jobs:
     - name: Package
       shell: bash
       run: |
-        version="${GITHUB_REF_NAME:-dev}"
+        # The archive is named after the tag. A workflow_dispatch dry run from
+        # a branch has no tag, and a branch name can contain a slash, which
+        # would turn the stage name into a nested directory the upload glob
+        # never sees -- so those are named after the commit instead.
+        if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          version="${GITHUB_REF_NAME}"
+        else
+          version="dev-${GITHUB_SHA::7}"
+        fi
         stage="AnimationCHOP-${version}-${{ matrix.platform }}"
         mkdir -p "$stage/Plugins" "$stage/modules"
 
